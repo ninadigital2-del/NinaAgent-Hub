@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>คู่มือ — Social Media Content Creator</title>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --bg: #0d0d1a;
+            --card: #161628;
+            --border: rgba(255,255,255,0.07);
+            --purple: #7c6cf0;
+            --pink: #f06292;
+            --teal: #26c6da;
+            --gold: #ffd54f;
+            --text: #eeeef5;
+            --muted: #8888aa;
+            --radius: 14px;
+        }
+        html { scroll-behavior: smooth; }
+        body { font-family: 'Sarabun', sans-serif; background: var(--bg); color: var(--text); line-height: 1.65; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: var(--purple); border-radius: 10px; }
+
+        .wrap { max-width: 900px; margin: 0 auto; padding: 0 20px; }
+
+        /* HEADER */
+        header {
+            text-align: center;
+            padding: 60px 0 32px;
+            border-bottom: 1px solid var(--border);
+        }
+        header .logo {
+            width: 48px; height: 48px;
+            background: linear-gradient(135deg, var(--purple), var(--pink));
+            border-radius: 14px;
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: 22px; color: #fff;
+            box-shadow: 0 4px 20px rgba(124,108,240,0.35);
+            margin-bottom: 14px;
+        }
+        header h1 { font-size: 28px; font-weight: 800; letter-spacing: -0.02em; }
+        header h1 span {
+            background: linear-gradient(90deg, var(--purple), var(--pink));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        header p { color: var(--muted); font-size: 14px; margin-top: 6px; }
+
+        /* SECTION */
+        .sec { padding: 40px 0 24px; }
+        .sec-title {
+            display: flex; align-items: center; gap: 10px;
+            font-size: 18px; font-weight: 800;
+            margin-bottom: 16px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border);
+        }
+        .sec-title .num {
+            width: 30px; height: 30px; border-radius: 8px;
+            background: linear-gradient(135deg, var(--purple), var(--pink));
+            display: flex; align-items: center; justify-content: center;
+            font-size: 14px; font-weight: 800; color: #fff; flex-shrink: 0;
+        }
+
+        /* IMG */
+        .img-wrap {
+            border-radius: var(--radius);
+            overflow: hidden;
+            border: 1px solid var(--border);
+            margin: 12px 0 8px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+        }
+        .img-wrap img { width: 100%; display: block; }
+        .caption {
+            font-size: 12px; color: var(--muted);
+            margin: 4px 0 0;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .caption i { color: var(--gold); font-size: 11px; }
+
+        /* POINT */
+        .point {
+            font-size: 14px;
+            color: var(--muted);
+            margin: 6px 0;
+            padding-left: 18px;
+            position: relative;
+        }
+        .point::before {
+            content: '→';
+            position: absolute; left: 0;
+            color: var(--purple);
+            font-weight: 700;
+        }
+        .point strong { color: var(--text); }
+
+        /* TAGS */
+        .tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+        .tag {
+            padding: 3px 10px; border-radius: 6px;
+            font-size: 11px; font-weight: 700;
+            background: rgba(124,108,240,0.12); color: var(--purple);
+            border: 1px solid rgba(124,108,240,0.18);
+        }
+        .tag.pk { background: rgba(240,98,146,0.12); color: var(--pink); border-color: rgba(240,98,146,0.18); }
+        .tag.tl { background: rgba(38,198,218,0.12); color: var(--teal); border-color: rgba(38,198,218,0.18); }
+        .tag.gd { background: rgba(255,213,79,0.12); color: var(--gold); border-color: rgba(255,213,79,0.18); }
+
+        /* TIP */
+        .tip {
+            background: rgba(124,108,240,0.08);
+            border: 1px solid rgba(124,108,240,0.18);
+            border-radius: 10px;
+            padding: 12px 16px;
+            font-size: 13px;
+            color: var(--muted);
+            margin: 10px 0;
+            display: flex; align-items: flex-start; gap: 10px;
+        }
+        .tip i { color: var(--gold); margin-top: 2px; flex-shrink: 0; }
+        .tip strong { color: var(--text); }
+        .tip.warn { background: rgba(240,98,146,0.08); border-color: rgba(240,98,146,0.18); }
+        .tip.warn i { color: var(--pink); }
+
+        /* FLOW */
+        .flow {
+            display: flex; align-items: center; justify-content: center;
+            gap: 8px; flex-wrap: wrap;
+            margin: 24px 0;
+        }
+        .flow-b {
+            padding: 10px 16px; border-radius: 10px;
+            background: var(--card); border: 1px solid var(--border);
+            font-size: 12px; font-weight: 700; text-align: center;
+        }
+        .flow-b i { display: block; font-size: 18px; margin-bottom: 4px; }
+        .flow-a { color: var(--purple); font-size: 16px; }
+
+        /* DIVIDER */
+        hr { border: none; height: 1px; background: var(--border); margin: 8px 0; }
+
+        /* FOOTER */
+        footer {
+            text-align: center; padding: 32px 0;
+            border-top: 1px solid var(--border);
+            color: var(--muted); font-size: 12px;
+        }
+
+        /* TWO-COL for side-by-side crops */
+        .duo {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+            margin: 12px 0;
+        }
+        @media (max-width: 700px) { .duo { grid-template-columns: 1fr; } }
+
+        kbd {
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 4px; padding: 1px 6px;
+            font-size: 11px; color: var(--purple);
+            font-family: Consolas, monospace;
+        }
+    </style>
+</head>
+<body>
+
+<div class="wrap">
+
+<!-- HEADER -->
+<header>
+    <div class="logo"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+    <h1><span>Social Media Content Creator</span></h1>
+    <p>คู่มือใช้งาน — เอกสารภายใน | Pro Version 2.0 | Gemini 2.5 Flash</p>
+</header>
+
+<!-- FLOW OVERVIEW -->
+<div class="sec">
+    <div class="sec-title"><div class="num">⚡</div> ภาพรวมการทำงาน</div>
+    <div class="flow">
+        <div class="flow-b"><i style="color:var(--purple);">📝</i>กรอกข้อมูล</div>
+        <div class="flow-a">→</div>
+        <div class="flow-b"><i style="color:var(--pink);">⚙️</i>ตั้งค่า</div>
+        <div class="flow-a">→</div>
+        <div class="flow-b"><i style="color:var(--gold);">✨</i>AI สร้าง</div>
+        <div class="flow-a">→</div>
+        <div class="flow-b"><i style="color:var(--teal);">✏️</i>แก้ไข/Refine</div>
+        <div class="flow-a">→</div>
+        <div class="flow-b"><i style="color:var(--pink);">📤</i>Export</div>
+    </div>
+</div>
+
+<!-- STEP 1: NAVBAR -->
+<div class="sec">
+    <div class="sec-title"><div class="num">0</div> แถบเครื่องมือด้านบน</div>
+    <div class="img-wrap"><img src="crops/01_navbar.png" alt="Navbar"></div>
+    <div class="tags">
+        <span class="tag gd">🌓 สลับ Dark/Light</span>
+        <span class="tag pk">🗑️ ล้างข้อมูล</span>
+        <span class="tag">🔄 โหลดเดโม</span>
+        <span class="tag pk">📋 ดึง Graphic Brief</span>
+        <span class="tag">📓 ดึง Notion</span>
+    </div>
+    <div class="point"><strong>โหลดเดโม</strong> — กรอกข้อมูลตัวอย่างให้ทันที ไม่ต้องพิมพ์เอง</div>
+    <div class="point"><strong>ดึง Graphic Brief / Notion</strong> — โหลดข้อมูลลูกค้าจากฐานข้อมูลที่มี</div>
+</div>
+
+<!-- STEP 2: BRAND -->
+<div class="sec">
+    <div class="sec-title"><div class="num">1</div> กรอกข้อมูลแบรนด์</div>
+    <div class="img-wrap"><img src="crops/02_brand.png" alt="Brand Profile"></div>
+    <div class="point"><strong>พิมพ์เอง</strong> หรือกด <strong>"อัพโหลดแบรนด์บุก/รูปภาพ"</strong> → AI สกัดข้อมูลให้</div>
+    <div class="point">รองรับ JPG, PNG, PDF, Word, Text (ไม่เกิน 15 MB)</div>
+    <div class="point">กด <strong>"ประวัติบรีฟ"</strong> เพื่อโหลดบรีฟเก่ากลับมาใช้ได้</div>
+</div>
+
+<!-- STEP 3: SETTINGS -->
+<div class="sec">
+    <div class="sec-title"><div class="num">2</div> ตั้งค่าธุรกิจ / โทนเสียง / เพศ</div>
+    <div class="img-wrap"><img src="crops/03_settings.png" alt="Settings"></div>
+    <div class="point"><strong>ประเภทธุรกิจ</strong> — 10 ตัวเลือก หรือกด "พิมพ์ระบุเอง"</div>
+    <div class="point"><strong>โทนเสียง</strong> — เป็นกันเอง, มืออาชีพ, ตื่นเต้น, หรูหรา ฯลฯ</div>
+    <div class="point"><strong>เพศเสียง</strong> — Neutral, ผู้หญิง (ค่ะ), ผู้ชาย (ครับ), LGBTQ+</div>
+</div>
+
+<!-- STEP 4: PLATFORM + PRODUCT -->
+<div class="sec">
+    <div class="sec-title"><div class="num">3</div> เลือกแพลตฟอร์ม + สินค้า</div>
+    <div class="img-wrap"><img src="crops/04_platform_product.png" alt="Platform & Product"></div>
+    <div class="tags">
+        <span class="tag">👥 Facebook</span>
+        <span class="tag pk">📸 IG</span>
+        <span class="tag tl">🎵 TikTok</span>
+        <span class="tag gd">📺 YouTube</span>
+        <span class="tag">💬 Line</span>
+    </div>
+    <div class="point"><strong>รูปแบบสื่อ:</strong> Single Image / Album-Carousel / Video-Reels</div>
+    <div class="point"><strong>สินค้า:</strong> ใส่ชื่อ สรรพคุณ โปรโมชั่น หรืออัปโหลดไฟล์ (หลายไฟล์ได้)</div>
+</div>
+
+<!-- STEP 5: CONTENT TYPES -->
+<div class="sec">
+    <div class="sec-title"><div class="num">4</div> เลือกประเภทคอนเทนต์</div>
+    <div class="img-wrap"><img src="crops/05_content_types.png" alt="Content Types"></div>
+    <div class="tags">
+        <span class="tag">🎓 Educational</span>
+        <span class="tag pk">🎭 Entertainment</span>
+        <span class="tag gd">✨ Inspirational</span>
+        <span class="tag">💰 Promotional</span>
+        <span class="tag pk">🚨 FOMO</span>
+        <span class="tag tl">💬 Q&A</span>
+        <span class="tag gd">⚡ Real-time</span>
+        <span class="tag">💎 Branding</span>
+    </div>
+</div>
+
+<!-- STEP 6: SUBMIT -->
+<div class="sec">
+    <div class="sec-title"><div class="num">5</div> กำหนดจำนวน + กดสร้าง</div>
+    <div class="img-wrap"><img src="crops/06_submit.png" alt="Submit"></div>
+    <div class="point">เลือกจำนวน <strong>1-20 ไอเดีย</strong> แล้วกด <strong>"เริ่มสร้างสรรค์เนื้อหา"</strong></div>
+    <div class="tip">
+        <i class="fa-solid fa-lightbulb"></i>
+        <span>แนะนำเริ่มจาก 2-5 ไอเดีย ถ้าใส่เยอะอาจ timeout (มี limit 6 นาที)</span>
+    </div>
+</div>
+
+<!-- STEP 7: OUTPUT -->
+<div class="sec">
+    <div class="sec-title"><div class="num">6</div> ดูผลลัพธ์ + แก้ไข</div>
+    <div class="duo">
+        <div>
+            <div class="img-wrap"><img src="crops/07_output_editor.png" alt="Editor View"></div>
+            <div class="caption"><i class="fa-solid fa-pen-to-square"></i> โหมด Editor — บรีฟงานสด</div>
+        </div>
+        <div>
+            <div class="img-wrap"><img src="crops/09_preview.png" alt="Preview View"></div>
+            <div class="caption"><i class="fa-solid fa-eye"></i> โหมด Preview — ตามแพลตฟอร์มจริง</div>
+        </div>
+    </div>
+    <div class="point"><strong>แก้ไขตรง:</strong> คลิกที่หัวข้อ แคปชั่น แฮชแท็ก แก้ได้เลย</div>
+    <div class="point"><strong>AI Refiner:</strong> พิมพ์สั่ง เช่น "ขอฮาๆ สั้นลง" หรือ "เน้น CTA"</div>
+    <div class="point"><strong>แฮชแท็ก:</strong> กด × ลบ / กด + เพิ่มแฮชแท็กใหม่</div>
+    <div class="point"><strong>คัดลอก:</strong> กดปุ่ม "คัดลอกบทโฆษณา" → copy พร้อมวางใน social media</div>
+</div>
+
+<!-- STEP 8: EXPORT -->
+<div class="sec">
+    <div class="sec-title"><div class="num">7</div> ส่งออก (Export)</div>
+    <div class="img-wrap"><img src="crops/08_output_detail.png" alt="Export buttons"></div>
+    <div class="point"><strong>Export Word</strong> — ดาวน์โหลด .doc แชร์ทีม/ส่งลูกค้า</div>
+    <div class="point"><strong>Export Slide Deck</strong> — ไฟล์ HTML สไลด์ เปิดเบราว์เซอร์ใช้ <kbd>←</kbd> <kbd>→</kbd> เลื่อน</div>
+    <div class="point"><strong>Google Sheets</strong> — บันทึกประวัติอัตโนมัติ (แท็บ Brands + ContentHistory)</div>
+</div>
+
+<!-- NOTES -->
+<div class="sec">
+    <div class="sec-title"><div class="num">!</div> หมายเหตุ</div>
+    <div class="tip warn">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <span><strong>Timeout:</strong> GAS ทำงานได้สูงสุด 6 นาที/ครั้ง — ถ้า error ให้ลดจำนวนไอเดีย<br>
+        <strong>ไฟล์:</strong> อัปโหลดไม่เกิน 15 MB/ไฟล์<br>
+        <strong>Quota:</strong> ถ้า Gemini API ไม่ตอบ ให้รอสักครู่แล้วลองใหม่</span>
+    </div>
+</div>
+
+<!-- FOOTER -->
+<footer>
+    © 2026 Social Media Content Creator — เอกสารภายใน | Nina Agent | อัปเดต: มิ.ย. 2026
+</footer>
+
+</div>
+</body>
+</html>

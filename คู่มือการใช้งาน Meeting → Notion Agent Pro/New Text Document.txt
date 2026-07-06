@@ -1,0 +1,328 @@
+// ==========================================
+// ⚙️ ตั้งค่าคงที่ (Hardcoded)
+// ==========================================
+const GEMINI_API_KEY = "AIzaSyDhyQkCooxsW4NRmEn215CrCyoRYmUlboU"; 
+const NOTION_API_KEY = "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"; 
+
+const NOTION_PROJECTS_DB = "2e69dccd181d81fabee1e65a00e86e72";
+const NOTION_TASKS_DB    = "2e69dccd181d81df8919fbacf921c7d5";
+
+function doGet(e) {
+  return HtmlService.createHtmlOutputFromFile('Index')
+    .setTitle('Meeting → Notion Agent Pro (GAS)')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+}
+
+// ==========================================
+// 🤖 ฟังก์ชันเรียก Gemini API
+// ==========================================
+function callGeminiAPI(prompt, systemInstruction) {
+  const model = "gemini-2.5-flash";
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+  
+  const payload = {
+    contents: [{ parts: [{ text: prompt }] }],
+    systemInstruction: { parts: [{ text: systemInstruction }] },
+    generationConfig: { responseMimeType: "application/json" }
+  };
+
+  const options = {
+    method: "post",
+    contentType: "application/json",
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  };
+
+  const response = UrlFetchApp.fetch(url, options);
+  const data = JSON.parse(response.getContentText());
+  
+  if (data.error) throw new Error(data.error.message);
+  if (!data.candidates || data.candidates.length === 0) throw new Error("No response from Gemini");
+  
+  let text = data.candidates[0].content.parts[0].text;
+  return text.replace(new RegExp("```json", "gi"), "").replace(new RegExp("```", "g"), "").trim();
+}
+
+// ==========================================
+// 📂 ฟังก์ชันดึงข้อมูล Notion Projects
+// ==========================================
+function getNotionProjects() {
+  const url = `https://api.notion.com/v1/databases/${NOTION_PROJECTS_DB}/query`;
+  const options = {
+    method: "post",
+    headers: {
+      "Authorization": "Bearer " + NOTION_API_KEY,
+      "Notion-Version": "2022-06-28",
+      "Content-Type": "application/json"
+    },
+    payload: JSON.stringify({}), 
+    muteHttpExceptions: true
+  };
+
+  const response = UrlFetchApp.fetch(url, options);
+  const data = JSON.parse(response.getContentText());
+  
+  if (data.error) throw new Error(data.error.message);
+
+  let projects = [];
+  data.results.forEach(page => {
+    let titleProp = page.properties["Project Name"]; 
+    let name = "Untitled";
+    if (titleProp && titleProp.title && titleProp.title.length > 0) {
+      name = titleProp.title[0].plain_text;
+    }
+    projects.push({ id: page.id, name: name });
+  });
+  return projects;
+}
+function testForward() {
+  Logger.log(typeof forwardToMakeWebhook);
+}
+// ==========================================
+// 🚀 ฟังก์ชันสร้าง/อัปเดต งานใน Notion API
+// ==========================================
+function syncTasksToNotion(projectsData) {
+  // เพิ่มบรรทัดนี้เพื่อเช็คว่าข้อมูลจริงที่ส่งมาคืออะไรกันแน่
+  console.log("📦 ข้อมูลที่รับเข้ามา:", JSON.stringify(projectsData)); 
+
+  if (!projectsData) throw new Error("ไม่พบข้อมูลที่ต้องการส่งเข้า Notion");
+  if (!Array.isArray(projectsData)) projectsData = typeof projectsData === 'string' ? JSON.parse(projectsData) : [];
+
+  const url = "https://api.notion.com/v1/pages";
+  let successCount = 0;
+  let errors = [];
+  let successfulSyncIds = [];
+  let updatedProjects = {};
+  let taskIds = {}; // 🟢 เก็บ Notion Page ID ส่งกลับไปให้หน้าเว็บจำไว้
+
+  const headers = {
+    "Authorization": "Bearer " + NOTION_API_KEY,
+    "Notion-Version": "2022-06-28",
+    "Content-Type": "application/json"
+  };
+
+  projectsData.forEach(proj => {
+    let projPageId = proj.project_id; 
+
+    // 1️⃣ ถ้าไม่มี ID ให้สร้างหน้าโปรเจกต์ใหม่
+    if (!projPageId) {
+      const projPayload = {
+        parent: { database_id: NOTION_PROJECTS_DB },
+        properties: {
+          "Project Name": { title: [{ text: { content: proj.project_name || "Untitled Project" } }] },
+          "Owner": { multi_select: [{ name: proj.owner || "PM - อ้อ" }] } 
+        }
+      };
+      
+      if (proj.deadline) projPayload.properties["Deadline"] = { date: { start: proj.deadline } };
+      if (proj.lead_status && proj.lead_status !== "-") projPayload.properties["Lead Status"] = { status: { name: proj.lead_status } };
+
+      const resProj = UrlFetchApp.fetch(url, { method: "post", headers: headers, payload: JSON.stringify(projPayload), muteHttpExceptions: true });
+      const resProjData = JSON.parse(resProj.getContentText());
+      
+      if (resProjData.object === 'error') {
+        errors.push(`โปรเจกต์ [${proj.project_name}]: ${resProjData.message}`);
+        return; 
+      }
+      
+      projPageId = resProjData.id; 
+      if (proj._projSyncId) updatedProjects[proj._projSyncId] = projPageId; 
+      Utilities.sleep(400);
+    }
+
+    // 2️⃣ วนลูปยิงสร้างหน้างานย่อย หรือ อัปเดตงานย่อย
+    if (proj.sub_tasks && proj.sub_tasks.length > 0) {
+      proj.sub_tasks.forEach(sub => {
+        let finalWorkBy = sub.work_by !== "-" ? sub.work_by : proj.owner;
+        
+        // 🟢 เตรียมโครงสร้าง Properties
+        const properties = {
+          "Name": { title: [{ text: { content: sub.name } }] },
+          "Project": { relation: [{ id: projPageId }] },
+          "Work By": { multi_select: [{ name: finalWorkBy }] }, 
+          "Task Type": { multi_select: [{ name: sub.task_type || "Internal" }] }, 
+          "Work Type": { multi_select: [{ name: sub.work_type || "General" }] } 
+        };
+
+        if (sub.due_date) properties["Due Date"] = { date: { start: sub.due_date } };
+        if (sub.status) properties["Status"] = { status: { name: sub.status } }; 
+
+        let fetchUrl = url;
+        let fetchOptions = {
+          method: "post",
+          headers: headers,
+          muteHttpExceptions: true
+        };
+        let payloadData = {};
+
+        // 🟢 ตรวจสอบว่าเป็นการอัปเดต หรือ สร้างใหม่
+        if (sub.notion_page_id) {
+          // โหมดอัปเดต (PATCH) ไปที่ URL ของหน้านั้นโดยตรง
+          fetchUrl = url + "/" + sub.notion_page_id;
+          fetchOptions.method = "patch";
+          payloadData = { properties: properties }; // การอัปเดตไม่ต้องระบุ parent
+        } else {
+          // โหมดสร้างใหม่ (POST)
+          fetchOptions.method = "post";
+          payloadData = {
+            parent: { database_id: NOTION_TASKS_DB },
+            properties: properties
+          };
+        }
+
+        fetchOptions.payload = JSON.stringify(payloadData);
+        
+        const resTask = UrlFetchApp.fetch(fetchUrl, fetchOptions);
+        const resTaskData = JSON.parse(resTask.getContentText());
+        
+        if (resTaskData.object === 'error') {
+          errors.push(`${sub.name}: ${resTaskData.message}`);
+        } else {
+          successCount++;
+          if (sub._syncId) {
+            successfulSyncIds.push(sub._syncId);
+            taskIds[sub._syncId] = resTaskData.id; // เก็บ Notion Page ID ที่สร้างสำเร็จ
+          }
+        }
+        Utilities.sleep(400);
+      });
+    }
+  });
+
+  return { 
+    success: true, 
+    count: successCount, 
+    errors: errors, 
+    successfulSyncIds: successfulSyncIds,
+    updatedProjects: updatedProjects,
+    taskIds: taskIds // 🟢 ส่ง ID งานกลับไปให้หน้าเว็บ
+  };
+}
+
+// ==========================================
+// 🧪 ฟังก์ชันสำหรับทดสอบ (จำลองข้อมูลส่งเข้า Notion)
+// ==========================================
+function testSync() {
+  // 1. จำลองข้อมูลที่จะได้จาก Gemini / หน้าเว็บ
+  const mockData = [
+    {
+      project_id: "", // ปล่อยว่างเพื่อให้ระบบสร้าง Project ใหม่
+      project_name: "Test Project จาก GAS",
+      owner: "PM - อ้อ",
+      deadline: "2026-05-30",
+      sub_tasks: [
+        {
+          name: "ทดสอบสร้างงานย่อยที่ 1",
+          task_type: "Internal",
+          work_type: "General",
+          work_by: "PM - อ้อ",
+          due_date: "2026-05-28",
+          status: "Not started" // ⚠️ ตัวพิมพ์เล็ก-ใหญ่ ต้องตรงกับสถานะใน Notion
+        }
+      ]
+    }
+  ];
+
+  // 2. เรียกใช้งานฟังก์ชันหลักและส่งข้อมูลจำลองเข้าไป
+  console.log("🚀 กำลังเริ่มทดสอบส่งข้อมูลเข้า Notion...");
+  
+  try {
+    const result = syncTasksToNotion(mockData);
+    console.log("✅ ทดสอบสำเร็จ! ผลลัพธ์:", result);
+  } catch (error) {
+    console.error("❌ ทดสอบล้มเหลว:", error.message);
+  }
+}
+
+function debugProjectProperties() {
+  const dbId = "2e69dccd181d81fabee1e65a00e86e72";
+
+  const res = UrlFetchApp.fetch(
+    `https://api.notion.com/v1/databases/${dbId}`,
+    {
+      headers: {
+        Authorization: `Bearer ${NOTION_API_KEY}`,
+        "Notion-Version": "2022-06-28"
+      }
+    }
+  );
+
+  Logger.log(res.getContentText());
+}
+
+function searchDatabases() {
+  const res = UrlFetchApp.fetch(
+    "https://api.notion.com/v1/search",
+    {
+      method: "post",
+      headers: {
+        Authorization: `Bearer ${NOTION_API_KEY}`,
+        "Notion-Version": "2022-06-28",
+        "Content-Type": "application/json"
+      },
+      payload: JSON.stringify({
+        filter: {
+          property: "object",
+          value: "database"
+        }
+      })
+    }
+  );
+
+  const data = JSON.parse(res.getContentText());
+
+data.results.forEach(db => {
+  Logger.log(
+    db.title?.[0]?.plain_text + " | " + db.id
+  );
+});
+}
+
+function debugProjectsProperties() {
+  const dbId = "2e69dccd181d81fabee1e65a00e86e72";
+
+  const res = UrlFetchApp.fetch(
+    `https://api.notion.com/v1/databases/${dbId}`,
+    {
+      headers: {
+        Authorization: `Bearer ${NOTION_API_KEY}`,
+        "Notion-Version": "2022-06-28"
+      }
+    }
+  );
+
+  const data = JSON.parse(res.getContentText());
+
+  Object.keys(data.properties).forEach(name => {
+    Logger.log(name + " | " + data.properties[name].type);
+  });
+}
+function testProjectDB() {
+  debugDatabase("2e69dccd181d81fabee1e65a00e86e72");
+}
+function debugDatabase(dbId) {
+  const res = UrlFetchApp.fetch(
+    `https://api.notion.com/v1/databases/${dbId}`,
+    {
+      headers: {
+        Authorization: `Bearer ${NOTION_API_KEY}`,
+        "Notion-Version": "2022-06-28"
+      }
+    }
+  );
+
+  const data = JSON.parse(res.getContentText());
+
+  Logger.log("TITLE = " + data.title?.[0]?.plain_text);
+
+  Object.keys(data.properties).forEach(name => {
+    Logger.log(name + " | " + data.properties[name].type);
+  });
+}
+function syncAllToNotion(data) {
+  return syncTasksToNotion(data);
+}
+function analyzeMeeting(notes, systemPrompt) {
+  return callGeminiAPI(notes, systemPrompt);
+}

@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <title>Video to MP3 Converter</title>
+    <style>
+      :root {
+        --primary-color: #4F46E5;
+        --primary-hover: #4338CA;
+        --bg-color: #F3F4F6;
+        --card-bg: #FFFFFF;
+        --text-main: #1F2937;
+        --text-muted: #6B7280;
+        --success-color: #10B981;
+        --border-color: #E5E7EB;
+      }
+      
+      body { 
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+        text-align: center; 
+        padding: 50px 20px; 
+        background-color: var(--bg-color); 
+        color: var(--text-main);
+        margin: 0;
+      }
+      
+      .container { 
+        background: var(--card-bg); 
+        padding: 40px 30px; 
+        border-radius: 16px; 
+        box-shadow: 0 10px 25px rgba(0,0,0,0.05); 
+        max-width: 500px; 
+        margin: 0 auto; 
+        transition: transform 0.3s ease;
+      }
+      
+      .container:hover {
+        transform: translateY(-5px);
+      }
+      
+      h2 {
+        margin-top: 0;
+        font-weight: 700;
+        color: var(--text-main);
+      }
+      
+      p.subtitle {
+        color: var(--text-muted);
+        margin-bottom: 30px;
+      }
+      
+      .file-input-wrapper {
+        position: relative;
+        overflow: hidden;
+        display: inline-block;
+        margin-bottom: 20px;
+        width: 100%;
+      }
+      
+      input[type=file] {
+        font-size: 100px;
+        position: absolute;
+        left: 0;
+        top: 0;
+        opacity: 0;
+        cursor: pointer;
+        height: 100%;
+      }
+      
+      .file-input-btn {
+        border: 2px dashed #CBD5E1;
+        background-color: #F8FAFC;
+        padding: 30px 20px;
+        border-radius: 12px;
+        font-weight: 600;
+        color: var(--text-muted);
+        display: block;
+        transition: all 0.3s ease;
+      }
+      
+      .file-input-wrapper:hover .file-input-btn {
+        border-color: var(--primary-color);
+        color: var(--primary-color);
+        background-color: #EEF2FF;
+      }
+      
+      .quality-selector {
+        margin-bottom: 20px;
+        text-align: left;
+      }
+      
+      .quality-selector label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 8px;
+        font-size: 14px;
+        color: var(--text-main);
+      }
+      
+      select.quality-dropdown {
+        width: 100%;
+        padding: 12px;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        background-color: #F9FAFB;
+        font-family: inherit;
+        font-size: 15px;
+        color: var(--text-main);
+        outline: none;
+        transition: border-color 0.2s;
+      }
+      
+      select.quality-dropdown:focus {
+        border-color: var(--primary-color);
+      }
+      
+      button.convert-btn { 
+        padding: 14px 28px; 
+        font-size: 16px; 
+        font-weight: 600;
+        cursor: pointer; 
+        background: var(--primary-color); 
+        color: white; 
+        border: none; 
+        border-radius: 8px; 
+        width: 100%;
+        transition: background-color 0.3s ease, transform 0.1s ease;
+        box-shadow: 0 4px 6px rgba(79, 70, 229, 0.2);
+      }
+      
+      button.convert-btn:hover:not(:disabled) { 
+        background: var(--primary-hover); 
+      }
+      
+      button.convert-btn:active:not(:disabled) {
+        transform: scale(0.98);
+      }
+      
+      button.convert-btn:disabled { 
+        background: #D1D5DB; 
+        cursor: not-allowed;
+        box-shadow: none;
+      }
+      
+      #status { 
+        margin-top: 25px; 
+        font-size: 15px; 
+        color: var(--text-muted); 
+        min-height: 24px;
+      }
+      
+      #downloadLink {
+        display: none; 
+        margin-top: 25px; 
+        text-decoration: none; 
+        color: white; 
+        font-weight: bold;
+        background-color: var(--success-color);
+        padding: 14px 28px;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(16, 185, 129, 0.2);
+        transition: background-color 0.3s ease;
+      }
+      
+      #downloadLink:hover {
+        background-color: #059669;
+      }
+      
+      .loader {
+        border: 3px solid #f3f3f3;
+        border-radius: 50%;
+        border-top: 3px solid var(--primary-color);
+        width: 20px;
+        height: 20px;
+        animation: spin 1s linear infinite;
+        display: inline-block;
+        vertical-align: middle;
+        margin-right: 10px;
+      }
+
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+    </style>
+    <!-- Use FFmpeg v0.12.10 (Single Threaded Core) -->
+    <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/dist/umd/index.js"></script>
+  </head>
+  <body>
+    <div class="container">
+      <h2>วิดีโอ ➡️ MP3</h2>
+      <p class="subtitle">ประมวลผลบนเครื่องคุณ 100% ปลอดภัย ไม่ต้องอัปโหลด</p>
+      
+      <div class="file-input-wrapper">
+        <div class="file-input-btn" id="file-label">
+          📁 คลิกเพื่อเลือกไฟล์วิดีโอ (หรือลากมาวาง)
+        </div>
+        <input type="file" id="uploader" accept="video/*, audio/*">
+      </div>
+      
+      <div class="quality-selector">
+        <label for="mode">โหมดการแปลง (ความเร็ว):</label>
+        <select id="mode" class="quality-dropdown" style="margin-bottom: 15px;">
+          <option value="copy" selected>⚡ ดึงเสียงต้นฉบับ (ไวที่สุด 1-5 วินาที! นามสกุล M4A)</option>
+          <option value="mp3">🎵 แปลงเป็น MP3 (ช้ากว่า แต่เลือกบีบอัดให้เล็กได้)</option>
+        </select>
+
+        <label for="quality" id="quality-label" style="display: none;">ความคมชัดของเสียง MP3 (ยิ่งน้อย ไฟล์ยิ่งเล็ก):</label>
+        <select id="quality" class="quality-dropdown" style="display: none; margin-bottom: 15px;">
+          <option value="320k">ดีเยี่ยม (320 kbps) - ไฟล์ใหญ่สุด</option>
+          <option value="192k">ดีมาก (192 kbps) - มาตรฐานเพลง</option>
+          <option value="128k" selected>ปานกลาง (128 kbps) - แนะนำสำหรับหนัง/ยูทูป</option>
+          <option value="64k">ต่ำ (64 kbps) - สำหรับเสียงพูด/พอดแคสต์ ไฟล์เล็กมาก</option>
+          <option value="32k">ต่ำมาก (32 kbps) - ประหยัดพื้นที่ขั้นสุด</option>
+        </select>
+        
+        <label for="volume" id="volume-label" style="display: none;">ปรับระดับเสียงดัง-เบา:</label>
+        <select id="volume" class="quality-dropdown" style="display: none;">
+          <option value="1" selected>🔊 ระดับเสียงต้นฉบับ (100%)</option>
+          <option value="1.5">🔊 เพิ่มเสียงดังขึ้น (150%)</option>
+          <option value="2.0">🔊 เพิ่มเสียงดังมาก (200%)</option>
+          <option value="0.5">🔉 ลดเสียงเบาลง (50%)</option>
+        </select>
+      </div>
+      
+      <button id="convertBtn" class="convert-btn" disabled>เริ่มแปลงไฟล์</button>
+      
+      <div id="status">รอเลือกไฟล์...</div>
+      <a id="downloadLink">⬇️ ดาวน์โหลดไฟล์ MP3</a>
+    </div>
+
+    <script>
+      const { FFmpeg } = window.FFmpegWASM;
+      const { fetchFile, toBlobURL } = window.FFmpegUtil;
+      
+      // Initialize FFmpeg
+      const ffmpeg = new FFmpeg();
+      ffmpeg.on('log', ({ message }) => console.log(message));
+      
+      const uploader = document.getElementById('uploader');
+      const convertBtn = document.getElementById('convertBtn');
+      const statusLabel = document.getElementById('status');
+      const downloadLink = document.getElementById('downloadLink');
+      const fileLabel = document.getElementById('file-label');
+      const qualityDropdown = document.getElementById('quality');
+      const qualityLabel = document.getElementById('quality-label');
+      const volumeDropdown = document.getElementById('volume');
+      const volumeLabel = document.getElementById('volume-label');
+      const modeDropdown = document.getElementById('mode');
+
+      modeDropdown.addEventListener('change', () => {
+        if (modeDropdown.value === 'mp3') {
+          qualityDropdown.style.display = 'block';
+          qualityLabel.style.display = 'block';
+          volumeDropdown.style.display = 'block';
+          volumeLabel.style.display = 'block';
+        } else {
+          qualityDropdown.style.display = 'none';
+          qualityLabel.style.display = 'none';
+          volumeDropdown.style.display = 'none';
+          volumeLabel.style.display = 'none';
+        }
+      });
+
+      uploader.addEventListener('change', () => {
+        if (uploader.files.length > 0) {
+          const file = uploader.files[0];
+          fileLabel.innerHTML = '📄 ' + file.name + ' <br><small>(' + (file.size / (1024 * 1024)).toFixed(2) + ' MB)</small>';
+          convertBtn.disabled = false;
+          statusLabel.innerHTML = "ไฟล์พร้อมแล้ว คลิกปุ่ม 'เริ่มแปลงไฟล์'";
+          downloadLink.style.display = "none";
+        }
+      });
+
+      // -------------------------------------------------------------
+      // WORKER MONKEY-PATCH TO BYPASS CROSS-ORIGIN RESTRICTIONS
+      // -------------------------------------------------------------
+      let workerBlobURL = null;
+      const OriginalWorker = window.Worker;
+      window.Worker = function(url, options) {
+        const urlStr = url instanceof URL ? url.href : url.toString();
+        // If FFmpeg tries to load its worker from CDN, we intercept it!
+        if (urlStr.includes('814.ffmpeg.js') && workerBlobURL) {
+          console.log("Intercepted cross-origin worker, using local Blob URL");
+          return new OriginalWorker(workerBlobURL); 
+        }
+        return new OriginalWorker(url, options);
+      };
+      // -------------------------------------------------------------
+
+      convertBtn.addEventListener('click', async () => {
+        const file = uploader.files[0];
+        if (!file) return;
+
+        convertBtn.disabled = true;
+        downloadLink.style.display = "none";
+        statusLabel.innerHTML = '<div class="loader"></div> กำลังเตรียมระบบ (อาจใช้เวลาสักครู่ในครั้งแรก)...';
+        
+        try {
+          if (!ffmpeg.loaded) {
+            const coreBase = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd';
+            const ffmpegBase = 'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/umd';
+            
+            // 1. Pre-fetch worker to avoid cross-origin error
+            if (!workerBlobURL) {
+              const workerResp = await fetch(ffmpegBase + '/814.ffmpeg.js');
+              if (!workerResp.ok) throw new Error('Failed to fetch worker: ' + workerResp.status);
+              const workerBlob = await workerResp.blob();
+              workerBlobURL = URL.createObjectURL(workerBlob);
+            }
+            
+            // 2. Fetch core and wasm as Blobs (bypasses cross-origin for importScripts)
+            const coreURL = await toBlobURL(coreBase + '/ffmpeg-core.js', 'text/javascript');
+            const wasmURL = await toBlobURL(coreBase + '/ffmpeg-core.wasm', 'application/wasm');
+            
+            // 3. Load FFmpeg using strictly single-threaded core
+            // We intentionally do NOT pass classWorkerURL so it falls back to the native Worker() call which we intercepted!
+            await ffmpeg.load({
+              coreURL: coreURL,
+              wasmURL: wasmURL
+            });
+          }
+
+          statusLabel.innerHTML = '<div class="loader"></div> กำลังดึงไฟล์เสียง... โปรดอย่าปิดหน้าต่างนี้';
+          
+          const inputName = 'input_file';
+          await ffmpeg.writeFile(inputName, await fetchFile(file));
+          
+          const mode = modeDropdown.value;
+          const selectedQuality = qualityDropdown.value;
+          const selectedVolume = volumeDropdown.value;
+          let outputExt = 'mp3';
+          let outputMime = 'audio/mp3';
+          
+          if (mode === 'copy') {
+            outputExt = 'm4a';
+            outputMime = 'audio/mp4';
+            await ffmpeg.exec(['-i', inputName, '-vn', '-acodec', 'copy', 'output.' + outputExt]);
+          } else {
+            // mode === 'mp3'
+            let args = ['-i', inputName, '-vn', '-ac', '2', '-b:a', selectedQuality];
+            if (selectedVolume !== '1') {
+              args.push('-af', 'volume=' + selectedVolume);
+            }
+            args.push('output.mp3');
+            await ffmpeg.exec(args);
+          }
+          
+          const data = await ffmpeg.readFile('output.' + outputExt);
+          
+          const blob = new Blob([data.buffer], { type: outputMime });
+          const url = URL.createObjectURL(blob);
+          
+          downloadLink.href = url;
+          const outName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
+          downloadLink.download = outName + '.' + outputExt;
+          
+          downloadLink.style.display = "block";
+          statusLabel.innerHTML = "✅ เสร็จสมบูรณ์แล้ว!";
+          
+          await ffmpeg.deleteFile(inputName);
+          await ffmpeg.deleteFile('output.' + outputExt);
+          
+        } catch (error) {
+          console.error(error);
+          statusLabel.innerHTML = '❌ เกิดข้อผิดพลาด: ' + error.message;
+        } finally {
+          convertBtn.disabled = false;
+        }
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,27 @@
+<script>
+// ============================================
+// Social Media Assistant - Constants & State
+// ============================================
+
+// Gemini API Configuration
+const GEMINI_API_KEY = "AIzaSyDUiXbjyo9a2_TpLUXBpWfwFoHerfXW1HA";
+
+// Google Drive Folder IDs (ใช้โฟลเดอร์เดียวกันกับ graphic_brief_creator)
+const DRIVE_FOLDER_CUSTOMER = "1XA8p7xLPQEr37MvYWVkQCUvv85hk1MBq";
+const DRIVE_FOLDER_BRIEF = "1AyIsGgNcp6uUWDykp4E1YO-g8ge2Nrf5";
+
+// Runtime State
+let currentTheme = "light";
+let currentContentType = "educational";
+let currentQuantity = 2;
+let generatedContents = [];
+let isCustomBusiness = false;
+let isCustomTone = false;
+let isCustomGender = false;
+let currentTab = "editor";
+let currentBrandId = null;
+
+// LocalStorage Keys
+const STORAGE_KEY_CONTENT = 'sma_generatedContent';
+const STORAGE_KEY_THEME = 'sma_theme';
+</script>
