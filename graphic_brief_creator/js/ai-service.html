@@ -1,0 +1,238 @@
+<script>
+// ============================================
+// Graphic Brief System - AI Service (Gemini API)
+// ============================================
+
+// ============================================
+// Graphic Brief System - AI Service (Gemini API)
+// ============================================
+
+function callGeminiAPI(prompt, systemInstruction, filesList) {
+    return new Promise(function(resolve, reject) {
+        if (!GEMINI_API_KEY) {
+            showAlert('Missing API Key', 'กรุณาใส่ Gemini API Key ในไฟล์ constants.html', 'warning');
+            return reject(new Error("API Key is missing"));
+        }
+
+        // 🚀 ดึงแค่ลิงก์ของ Google Drive ส่งไปให้หลังบ้าน
+        const fileUrls = (filesList || []).map(function(f) { return f.driveUrl; }).filter(Boolean);
+
+        const schema = {
+            type: "OBJECT",
+            properties: {
+                background: { type: "STRING" },
+                target: { type: "STRING" },
+                pain: { type: "STRING" },
+                obj: { type: "STRING" },
+                mood: { type: "STRING" },
+                rule: { type: "STRING" },
+                msg: { type: "STRING" },
+                cta: { type: "STRING" },
+                ref: { type: "STRING" }
+            },
+            required: ["background", "target", "pain", "obj", "mood", "rule", "msg", "cta", "ref"]
+        };
+
+        google.script.run
+            .withSuccessHandler(function(res) {
+                if (res.success) resolve(res.data);
+                else reject(new Error(res.error));
+            })
+            .withFailureHandler(function(err) { reject(err); })
+            .callGeminiUniversal(prompt, systemInstruction, fileUrls, schema, GEMINI_API_KEY);
+    });
+}
+
+function callGeminiAPIMultiBrief(prompt, systemInstruction, filesList) {
+    return new Promise(function(resolve, reject) {
+        if (!GEMINI_API_KEY) {
+            showAlert('Missing API Key', 'กรุณาใส่ Gemini API Key ในไฟล์ constants.html', 'warning');
+            return reject(new Error("API Key is missing"));
+        }
+
+        const fileUrls = (filesList || []).map(function(f) { return f.driveUrl; }).filter(Boolean);
+
+        const schema = {
+            type: "OBJECT",
+            properties: {
+                briefs: {
+                    type: "ARRAY",
+                    items: {
+                        type: "OBJECT",
+                        properties: {
+                            projectName: { type: "STRING" },
+                            background: { type: "STRING" },
+                            target: { type: "STRING" },
+                            pain: { type: "STRING" },
+                            obj: { type: "STRING" },
+                            scope: { type: "STRING" },
+                            deliver: { type: "STRING" },
+                            mood: { type: "STRING" },
+                            rule: { type: "STRING" },
+                            msg: { type: "STRING" },
+                            cta: { type: "STRING" },
+                            ref: { type: "STRING" }
+                        },
+                        required: ["projectName", "background", "target", "pain", "obj", "scope", "deliver", "mood", "rule", "msg", "cta", "ref"]
+                    }
+                }
+            },
+            required: ["briefs"]
+        };
+
+        google.script.run
+            .withSuccessHandler(function(res) {
+                if (res.success) resolve(res.data);
+                else reject(new Error(res.error));
+            })
+            .withFailureHandler(function(err) { reject(err); })
+            .callGeminiUniversal(prompt, systemInstruction, fileUrls, schema, GEMINI_API_KEY);
+    });
+}
+async function triggerCustomerAISummarize() {
+    if (!selectedBrandId) {
+        showAlert('ไม่พบแบรนด์ที่เลือก', 'โปรดสร้างหรือเลือกแบรนด์ก่อนสั่งให้ AI ทำงาน', 'warning');
+        return;
+    }
+
+    const brand = clientBrands.find(function(b) { return b.id === selectedBrandId; });
+    if (!brand) return;
+
+    const files = brand.uploadedCustomerFiles || [];
+    if (files.length === 0) {
+        showAlert('ไม่พบไฟล์ที่อัพโหลด', 'โปรดทำการอัพโหลดเอกสาร, รูปภาพ หรือไฟล์เสียงประกอบลงในหน้าจอก่อนเพื่อให้ AI วิเคราะห์สรุป', 'warning');
+        return;
+    }
+
+    const loader = document.getElementById('customer-ai-loader');
+    loader.classList.remove('hidden');
+
+    try {
+        const systemPrompt = 'คุณคือ AI สรุปข้อมูลผู้ช่วยของดีไซเนอร์และแบรนด์ครีเอทีฟ จงสรุปข้อมูลธุรกิจและรายละเอียดให้เป็นสัดส่วนข้อมูลตามโครงสร้างแบรนด์ที่กำหนด และอ่านไฟล์ข้อมูลของจริงที่ส่งมอบเพื่อสกัดพฤติกรรมลูกค้าจริง';
+        const userPrompt = 'แบรนด์ลูกค้าชื่อว่า: "' + brand.name + '"\nมีการอัพโหลดไฟล์ประกอบสำหรับการวิเคราะห์เนื้อหาของจริงทั้งหมด ' + files.length + ' รายการ\nจงวิเคราะห์ความต้องการเชิงลึกและสกัดข้อมูลจากไฟล์ที่แนบเพื่อตอบหัวข้อดังนี้ในรูปแบบภาษาไทยที่สวยงามและก้าวหน้า:\n1. ประวัติความเป็นมาและวิสัยทัศน์ของแบรนด์ (background)\n2. กลุ่มเป้าหมายหลักเชิงลึก (target)\n3. ปัญหาที่แบรนด์หรือลูกค้าต้องการแก้ไข (pain)\n4. วัตถุประสงค์ของธุรกิจและการตลาด (obj)\n5. อารมณ์ โทนสี และสไตล์การนำเสนอผลงานออกแบบ (mood)';
+
+        const aiSummary = await callGeminiAPI(userPrompt, systemPrompt, files);
+
+        document.getElementById('edit-brand-bg').value = aiSummary.background;
+        document.getElementById('edit-brand-target').value = aiSummary.target;
+        document.getElementById('edit-brand-pain').value = aiSummary.pain;
+        document.getElementById('edit-brand-obj').value = aiSummary.obj;
+        document.getElementById('edit-brand-mood').value = aiSummary.mood;
+
+        brand.background = aiSummary.background;
+        brand.target = aiSummary.target;
+        brand.pain = aiSummary.pain;
+        brand.obj = aiSummary.obj;
+        brand.mood = aiSummary.mood;
+
+        saveDataToStorage();
+        showAlert('AI วิเคราะห์ข้อมูลจริงเสร็จสิ้น!', 'ดึงข้อมูลสำเร็จและอ่านจริงจากไฟล์แนบ เข้าสู่ระบบเรียบร้อยแล้ว', 'success');
+    } catch (err) {
+        console.error(err);
+        // แก้ไขบรรทัดนี้
+        showAlert('เกิดข้อผิดพลาดจาก AI (ลูกค้า)', 'สาเหตุ: ' + err.message, 'warning');
+    } finally {
+        loader.classList.add('hidden');
+    }
+}
+
+async function triggerBriefAISummarize() {
+    const currentBrandName = document.getElementById('brief-brand-name').value.trim();
+    const projectName = document.getElementById('brief-project-name').value.trim();
+    const channels = document.getElementById('brief-channels').value.trim();
+
+    const selectorVal = document.getElementById('brief-brand-selector').value;
+    const currentBrand = clientBrands.find(function(b) { return b.id === selectorVal; });
+
+    const files = (currentBrand && currentBrand.uploadedBriefFiles) ? currentBrand.uploadedBriefFiles : [];
+
+    if (files.length === 0) {
+        showAlert('ไม่พบไฟล์แนบ', 'กรุณาลากไฟล์หรืออัปโหลดรูปภาพแนวงาน Reference เพื่อส่งให้ AI ทำการวิเคราะห์แกะหัวข้อ', 'warning');
+        return;
+    }
+
+    const loader = document.getElementById('brief-ai-loader');
+    loader.classList.remove('hidden');
+
+    try {
+        const systemPrompt = 'คุณคือครีเอทีฟไดเรกเตอร์ระดับรางวัลระดับสากล ผู้เชี่ยวชาญการถอดรหัสงานออกแบบและวิเคราะห์รูปภาพตัวอย่าง บรรทัดฐาน แบรนด์และคู่แข่งจริงเพื่อความครบถ้วน';
+        const userPrompt = 'แบรนด์: "' + currentBrandName + '"\nโปรเจกต์ตั้งต้น: "' + projectName + '"\nช่องทางสื่อสาร: "' + channels + '"\nไฟล์แนบความต้องการส่งมอบจริงเพื่อสแกน: ' + files.length + ' รายการ\n\nคำสั่งสำคัญ:\nหากในไฟล์แนบมีการอธิบายหรือระบุถึงงาน Graphic มากกว่า 1 ชิ้นงาน (เช่น แคมเปญนี้มีทั้งโฆษณา Banner, โปสเตอร์, วิดีโอสั้น แยกกัน)\nให้คุณวิเคราะห์และแยกข้อมูลของแต่ละชิ้นงานออกจากกัน แล้วตอบกลับมาในรูปแบบ Array ของ Briefs\nโดยในแต่ละชิ้นงานให้ตั้งชื่อหัวข้อ projectName ใหม่ให้สอดคล้องกับชิ้นงานนั้นๆ (เช่น \'' + projectName + ' - Banner แคมเปญ\', \'' + projectName + ' - ภาพ Cover\')\nแต่ถ้ามีแค่ชิ้นงานเดียว ก็ให้ส่งข้อมูลกลับมาใน Array ที่มีแค่ 1 รายการ\n\nในแต่ละ Brief ให้สังเคราะห์ข้อมูลตอบหัวข้อดังนี้:\n1. ความเป็นมาที่เกี่ยวข้อง (background)\n2. เจาะลึกความต้องการกลุ่มเป้าหมาย (target)\n3. ปัญหาจุดขัดข้องที่อยากแก้ผ่านการโฆษณาครั้งนี้ (pain)\n4. วัตถุประสงค์หลักเชิงภาพลักษณ์หรือเป้าหมาย (obj)\n5. ขอบเขตงานออกแบบที่เสนอแนะว่าควรทำ (scope)\n6. รูปแบบไฟล์และสเปกส่งมอบขั้นสูงสุด (deliver)\n7. โทนสีและสไตล์อารมณ์ศิลปะ (mood)\n8. กฎเหล็กที่ห้ามทำผิดพลาดเด็ดขาดในโปรเจกต์นี้ (rule)\n9. พาดหัวหลัก, รายละเอียด และคำอธิบายภาพชวนคลิก (msg)\n10. ข้อความเร่งเร้ากระตุ้นการตัดสินใจ CTA (cta)\n11. ลิงก์เก็บ Ref และบอร์ดจำลองสากลที่แนะนำ (ref)';
+
+        const designBriefResult = await callGeminiAPIMultiBrief(userPrompt, systemPrompt, files);
+
+        if (designBriefResult && designBriefResult.briefs && designBriefResult.briefs.length > 0) {
+            saveCurrentBriefFields();
+
+            const firstBrief = designBriefResult.briefs[0];
+            const targetBrief = briefsList.find(function(b) { return b.id === selectedBriefId; });
+
+            if (targetBrief) {
+                if (firstBrief.projectName) {
+                    document.getElementById('brief-project-name').value = firstBrief.projectName;
+                    targetBrief.projectName = firstBrief.projectName;
+                }
+
+                targetBrief.background = firstBrief.background;
+                targetBrief.target = firstBrief.target;
+                targetBrief.pain = firstBrief.pain;
+                targetBrief.obj = firstBrief.obj;
+                targetBrief.scope = firstBrief.scope;
+                targetBrief.deliver = firstBrief.deliver;
+                targetBrief.mood = firstBrief.mood;
+                targetBrief.rule = firstBrief.rule;
+                targetBrief.msg = firstBrief.msg;
+                targetBrief.cta = firstBrief.cta;
+                targetBrief.ref = firstBrief.ref;
+
+                loadBriefToCanvas(selectedBriefId);
+            }
+
+            if (designBriefResult.briefs.length > 1) {
+                const currentIndex = briefsList.findIndex(function(b) { return b.id === selectedBriefId; });
+                const originalBrief = briefsList[currentIndex] || {};
+
+                for (let i = 1; i < designBriefResult.briefs.length; i++) {
+                    const extraData = designBriefResult.briefs[i];
+                    const newUniqueId = 'brief-' + Date.now() + '-item-' + i + Math.floor(Math.random() * 1000);
+
+                    const newBrief = {
+                        ...originalBrief,
+                        id: newUniqueId,
+                        projectName: extraData.projectName || (projectName + ' - ชิ้นงานที่ ' + (i+1)),
+                        background: extraData.background,
+                        target: extraData.target,
+                        pain: extraData.pain,
+                        obj: extraData.obj,
+                        scope: extraData.scope,
+                        deliver: extraData.deliver,
+                        mood: extraData.mood,
+                        rule: extraData.rule,
+                        msg: extraData.msg,
+                        cta: extraData.cta,
+                        ref: extraData.ref
+                    };
+
+                    briefsList.splice(currentIndex + i, 0, newBrief);
+                }
+            }
+
+            saveDataToStorage();
+            renderBriefsList();
+
+            if (designBriefResult.briefs.length > 1) {
+                showAlert('วิเคราะห์และแตก Brief สำเร็จ!', 'AI พบข้อมูลว่ามีงานที่ต้องทำทั้งหมด ' + designBriefResult.briefs.length + ' ชิ้นงาน จึงได้สร้างและแยกแผ่น Brief ใหม่ให้อัตโนมัติเรียบร้อยแล้ว ครบถ้วนทุกความต้องการ!', 'success');
+            } else {
+                showAlert('จัดทำ Brief สำเร็จ!', 'AI แกะข้อมูลของจริงกรอกเข้าช่อง Brief ครบถ้วนเรียบร้อยแล้ว', 'success');
+            }
+        } else {
+            showAlert('ไม่พบข้อมูลรูปแบบที่ถูกต้อง', 'AI ประมวลผลเสร็จแล้วแต่ไม่สามารถแกะโครงสร้างตารางได้', 'warning');
+        }
+    } catch (err) {
+        console.error(err);
+        // แก้ไขบรรทัดนี้
+        showAlert('เกิดข้อผิดพลาดจาก AI (Brief)', 'สาเหตุ: ' + err.message, 'warning');
+    } finally {
+        loader.classList.add('hidden');
+    }
+}
+</script>

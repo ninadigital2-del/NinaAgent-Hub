@@ -1,0 +1,155 @@
+{
+    "name": "GEM LINE — Lead Follow-up SLA",
+    "flow": [
+        {
+            "id": 1,
+            "module": "notion:searchObjects1",
+            "version": 1,
+            "parameters": {
+                "__IMTCONN__": 7590277
+            },
+            "mapper": {
+                "limit": "50",
+                "filter": [
+                    [
+                        {
+                            "a": "Lead Status |&*^%$#@| status",
+                            "b": "Lead - Presented",
+                            "o": "text:equals"
+                        },
+                        {
+                            "a": "Deadline |&*^%$#@| date",
+                            "b": "",
+                            "o": "exist"
+                        }
+                    ],
+                    [
+                        {
+                            "a": "Lead Status |&*^%$#@| status",
+                            "b": "Lead - Pending Decision",
+                            "o": "text:equals"
+                        },
+                        {
+                            "a": "Deadline |&*^%$#@| date",
+                            "b": "",
+                            "o": "exist"
+                        }
+                    ]
+                ],
+                "select": "data_source_item",
+                "data_source": "2e69dccd-181d-81d0-83af-000b1fd9260b"
+            },
+            "metadata": {
+                "designer": {
+                    "x": -386,
+                    "y": -77
+                }
+            }
+        },
+        {
+            "id": 10,
+            "module": "util:TextAggregator",
+            "version": 1,
+            "parameters": {
+                "feeder": 1,
+                "rowSeparator": "\n"
+            },
+            "filter": null,
+            "mapper": {
+                "value": "ชื่อ Project : {{1.properties_value.Name[].plain_text}}\nLead Status : {{1.properties_value.`Lead Status`.name}}\nDeadline : {{1.properties_value.Deadline.start}}\nOwner : {{if(1.properties_value.Owner.array; join(map(1.properties_value.Owner.array; \"multi_select[].name\"); \", \"); \"ไม่มีข้อมูล\")}}\nวันนี้ : {{formatDate(now; \"YYYY-MM-DD\")}}\n---"
+            },
+            "metadata": {
+                "designer": {
+                    "x": -77,
+                    "y": -77
+                }
+            }
+        },
+        {
+            "id": 9,
+            "module": "gemini-ai:createACompletionGeminiPro",
+            "version": 1,
+            "parameters": {
+                "__IMTCONN__": 7690352
+            },
+            "mapper": {
+                "model": "gemini-2.5-flash",
+                "contents": [
+                    {
+                        "role": "user",
+                        "parts": [
+                            {
+                                "text": "{{10.text}}",
+                                "type": "text"
+                            }
+                        ]
+                    }
+                ],
+                "generationConfig": {
+                    "imageConfig": {},
+                    "thinkingConfig": {},
+                    "responseMimeType": "application/json"
+                },
+                "system_instruction": {
+                    "parts": [
+                        {
+                            "text": "คุณคือ \"น้องกุ๊กกิ๊ก\" AI ของ GEM Digital Agency\n\n[INPUT]\nได้รับข้อมูล Lead Projects แต่ละอันมี:\n- ชื่อ Project\n- Lead Status\n- Deadline (YYYY-MM-DD) = วันที่ present ลูกค้า\n- Owner\n- วันนี้ (YYYY-MM-DD)\n\n[การคำนวณ]\nคำนวณ days_since_deadline = วันนี้ - Deadline (จำนวนวัน)\n\nจัดกลุ่มตาม milestone ที่ถึงพอดีวันนี้:\n- D1: days_since_deadline = 1 → ส่งสรุป + สไลด์ + timeline ให้ลูกค้า\n- D3: days_since_deadline = 3 → follow รอบ 2\n- D7: days_since_deadline = 7 → follow รอบ 3 (เชิงวางแผน)\n- D14: days_since_deadline = 14 → soft close\n\nถ้า project ไม่ตรง milestone วันนี้เลย → ไม่ต้องแสดง project นั้น\nถ้าไม่มี project ถึง milestone วันนี้เลย → ส่ง JSON card ว่า \"ไม่มี Lead Follow-up วันนี้\"\n\n[กฎการพูดของน้องกุ๊กกิ๊ก]\n- D1: \"ครบ 24 ชม. แล้วนะคะ อย่าลืมส่งสรุป สไลด์ และ timeline ให้ลูกค้าด้วยน้า 📩\"\n- D3: \"ถึงเวลา follow รอบ 2 แล้วค่ะ ลูกค้ายังไม่ตอบใช่ไหม ลองทักถามดูนะคะ 🙏\"\n- D7: \"follow รอบ 3 แล้วนะคะ ลองเชิงวางแผนต่อดูด้วยนะคะ เผื่อลูกค้ายังสนใจอยู่ 💡\"\n- D14: \"14 วันแล้วนะคะ ถึงเวลา soft close แล้ว ลองสรุปกับลูกค้าดูนะคะ 🤝\"\n- พูดต่างกันในแต่ละ milestone ห้ามซ้ำ\n\n[กฎการสร้าง JSON]\n1. ตอบกลับเป็น Raw JSON Object เท่านั้น ไม่มีคำเกริ่นนำ ไม่มี markdown\n2. ห้ามใช้: align ใน box, textColor, opacity, paddingWidth/Height, size ใน separator, คอมเมนต์ //\n3. ใช้ alignItems แทน align ใน box\n\n[โครงสร้าง JSON]\n{\n  \"type\": \"bubble\",\n  \"size\": \"giga\",\n  \"header\": {\n    \"type\": \"box\",\n    \"layout\": \"vertical\",\n    \"backgroundColor\": \"#1a1206\",\n    \"paddingAll\": \"lg\",\n    \"contents\": [\n      {\"type\": \"text\", \"text\": \"GEM — Lead Follow-up SLA\", \"color\": \"#fbbf24\", \"weight\": \"bold\", \"size\": \"md\"},\n      {\"type\": \"text\", \"text\": \"[วันที่จริงในรูปแบบไทย]\", \"color\": \"#92400e\", \"size\": \"xs\", \"margin\": \"xs\"}\n    ]\n  },\n  \"body\": {\n    \"type\": \"box\",\n    \"layout\": \"vertical\",\n    \"paddingAll\": \"md\",\n    \"spacing\": \"md\",\n    \"contents\": [\n      [วนซ้ำแต่ละ milestone ที่ถึงวันนี้]\n    ]\n  },\n  \"footer\": {\n    \"type\": \"box\",\n    \"layout\": \"vertical\",\n    \"backgroundColor\": \"#f5f5f5\",\n    \"paddingAll\": \"sm\",\n    \"contents\": [\n      {\"type\": \"text\", \"text\": \"🐥 น้องกุ๊กกิ๊ก PM Agent\", \"color\": \"#888888\", \"size\": \"xs\", \"align\": \"center\"}\n    ]\n  }\n}\n\n[Section แต่ละ milestone]\n{\"type\": \"box\", \"layout\": \"vertical\", \"backgroundColor\": \"#fffbeb\", \"cornerRadius\": \"md\", \"paddingAll\": \"sm\", \"contents\": [\n  {\"type\": \"text\", \"text\": \"[emoji] [ชื่อ milestone] — [ชื่อ Project]\", \"size\": \"sm\", \"color\": \"#b45309\", \"weight\": \"bold\", \"wrap\": true},\n  {\"type\": \"text\", \"text\": \"[Owner]\", \"size\": \"xs\", \"color\": \"#92400e\", \"margin\": \"xs\"},\n  {\"type\": \"separator\", \"margin\": \"sm\", \"color\": \"#fde68a\"},\n  {\"type\": \"text\", \"text\": \"[คำพูดกุ๊กกิ๊กตาม milestone]\", \"size\": \"xs\", \"color\": \"#d97706\", \"wrap\": true, \"margin\": \"sm\"}\n]}"
+                        }
+                    ]
+                }
+            },
+            "metadata": {
+                "designer": {
+                    "x": 230,
+                    "y": -77
+                }
+            }
+        },
+        {
+            "id": 11,
+            "module": "line:makeApiCall",
+            "version": 1,
+            "parameters": {
+                "__IMTCONN__": 7689770
+            },
+            "mapper": {
+                "url": "/v2/bot/message/push",
+                "body": "{\r\n  \"to\": \"C68b81088ce67e66d4e073ce090b8ef16\",\r\n  \"messages\": [\r\n    {\r\n      \"type\": \"flex\",\r\n      \"altText\": \"🐥 น้องกุ๊กกิ๊ก Lead Follow-up SLA\",\r\n      \"contents\": {{9.result}}\r\n    }\r\n  ]\r\n}",
+                "method": "POST",
+                "headers": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ]
+            },
+            "metadata": {
+                "designer": {
+                    "x": 507,
+                    "y": -77
+                }
+            }
+        }
+    ],
+    "metadata": {
+        "instant": false,
+        "version": 1,
+        "scenario": {
+            "roundtrips": 1,
+            "maxErrors": 3,
+            "autoCommit": true,
+            "autoCommitTriggerLast": true,
+            "sequential": false,
+            "slots": null,
+            "confidential": false,
+            "dataloss": false,
+            "dlq": false,
+            "freshVariables": false
+        },
+        "designer": {
+            "orphans": []
+        },
+        "zone": "eu1.make.com",
+        "notes": []
+    }
+}
