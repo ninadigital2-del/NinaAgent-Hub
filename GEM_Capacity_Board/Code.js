@@ -90,6 +90,12 @@ function doPost(e) {
   if (body.action === 'delete') {
     return jsonResponse(handleDeleteTask(body));
   }
+  if (body.action === 'editNotion') {
+    return jsonResponse(handleEditNotionTask(body));
+  }
+  if (body.action === 'deleteNotion') {
+    return jsonResponse(handleDeleteNotionTask(body));
+  }
   return jsonResponse({ ok: false, error: 'Unknown action' });
 }
 
@@ -451,6 +457,31 @@ function handleDeleteTask(body) {
   }
 }
 
+function handleEditNotionTask(body) {
+  const { pageId, taskName, brand, workType, dueDate } = body;
+  try {
+    updateNotionTaskDetails(pageId, { taskName, dueDate, workType });
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+}
+
+function handleDeleteNotionTask(body) {
+  const { pageId } = body;
+  try {
+    const key = PropertiesService.getScriptProperties().getProperty('NOTION_API_KEY') || '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';
+    const cleanId = pageId.replace(/-/g, '');
+    const res = notionFetch(`pages/${cleanId}`, 'PATCH', { archived: true }, key);
+    if (!res || res.object === 'error') {
+      return { ok: false, error: res?.message || 'Failed to archive Notion page' };
+    }
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+}
+
 function handleRelocate(body) {
   const { fromAssignee, rowIndex, targetAssignee } = body;
   
@@ -764,9 +795,11 @@ header{background:#fff;border-bottom:1px solid #e5e3dd;padding:10px 20px;display
 .modal-btn-save{border-color:#378ADD;background:#EBF4FD;color:#185FA5}
 .modal-btn-save:hover{background:#378ADD;color:#fff}
 .modal-btn-cancel:hover{background:#f5f4f0}
-.task-item{border:1px solid #e5e3dd;border-radius:8px;padding:9px 11px;margin-bottom:7px;cursor:pointer;background:#fff;transition:border-color .15s}
+.task-item{border:1px solid #e5e3dd;border-radius:8px;padding:9px 11px;margin-bottom:7px;cursor:pointer;background:#fff;transition:border-color .15s;display:flex;align-items:center;justify-content:space-between;gap:8px}
 .task-item:hover{border-color:#bbb}
 .task-item.selected{border-color:#378ADD;background:#EBF4FD}
+.task-item-main{flex:1;min-width:0}
+.task-item-actions{display:flex;align-items:center;gap:3px;flex-shrink:0}
 .tn{font-size:12px;font-weight:500;line-height:1.4;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tm{display:flex;flex-wrap:wrap;gap:3px}
 .tag{font-size:10px;padding:1px 6px;border-radius:4px;background:#f5f4f0;border:1px solid #e5e3dd;color:#777}
@@ -1081,12 +1114,24 @@ function renderTasks() {
       const now = new Date();
       const dueD = t.dueDate ? new Date(t.dueDate) : null;
       const dueC = dueD?(dueD<now?'tag-late':(dueD-now<7*864e5?'tag-due':'')):'';
+      const escName = esc(t.name);
+      const escBrand = esc(t.brandCode);
+      const escWorkType = esc(t.workType);
+      const escDate = esc(t.dueDate);
+      const escId = esc(t.id);
+
       item.innerHTML =
-        '<div class="tn" title="'+t.name+'">'+t.name+'</div>'
-        +'<div class="tm">'
-        +(t.workType?'<span class="tag">'+t.workType+'</span>':'')
-        +(due?'<span class="tag '+dueC+'"><i class="ti ti-calendar" style="font-size:10px"></i> '+due+'</span>':'')
-        +'</div>';
+        '<div class="task-item-main">'
+        + '<div class="tn" title="'+escName+'">'+t.name+'</div>'
+        + '<div class="tm">'
+        + (t.workType?'<span class="tag">'+t.workType+'</span>':'')
+        + (due?'<span class="tag '+dueC+'"><i class="ti ti-calendar" style="font-size:10px"></i> '+due+'</span>':'')
+        + '</div>'
+        + '</div>'
+        + '<div class="task-item-actions" onclick="event.stopPropagation()">'
+        + '<button class="btn-edit" onclick="openUnassignedEditModal(&quot;'+escId+'&quot;, &quot;'+escName+'&quot;, &quot;'+escBrand+'&quot;, &quot;'+escWorkType+'&quot;, &quot;'+escDate+'&quot;)" title="แก้ไข">✎</button>'
+        + '<button class="btn-delete" onclick="deleteUnassignedTask(&quot;'+escId+'&quot;, &quot;'+escName+'&quot;, this)" title="ลบงาน">🗑</button>'
+        + '</div>';
       item.onclick = function() {
         state.selectedTask = state.selectedTask===t.id?null:t.id;
         renderTasks();
@@ -1295,6 +1340,44 @@ function saveEditTask() {
   btn.disabled = true;
   btn.textContent = 'กำลังบันทึก...';
   
+  if (!assignee) {
+    google.script.run
+      .withSuccessHandler(function(res) {
+        btn.disabled = false;
+        btn.textContent = 'บันทึก';
+        if (res.ok) {
+          showToast('แก้ไขข้อมูลงานใน Notion สำเร็จ!');
+          closeEditModal();
+          google.script.run
+            .withSuccessHandler(function(allData) {
+              if (allData.ok) {
+                state.people = allData.capacity.people;
+                state.tasks = allData.tasks.tasks;
+                renderPeople();
+                renderTasks();
+              }
+            })
+            .getAllData();
+        } else {
+          showToast('Error: ' + res.error);
+        }
+      })
+      .withFailureHandler(function(err) {
+        btn.disabled = false;
+        btn.textContent = 'บันทึก';
+        showToast('Error: ' + err.message);
+      })
+      .handleEditNotionTask({
+        action: 'editNotion',
+        pageId: oldTaskName,
+        taskName: taskName,
+        brand: brand,
+        workType: workType,
+        dueDate: dueDate
+      });
+    return;
+  }
+  
   google.script.run
     .withSuccessHandler(function(res) {
       btn.disabled = false;
@@ -1368,6 +1451,54 @@ function deleteTask(assignee, rowIndex, taskName, jobNumber, btn) {
       rowIndex: rowIndex,
       taskName: taskName,
       jobNumber: jobNumber
+    });
+}
+
+function openUnassignedEditModal(taskId, name, brand, workType, rawDate) {
+  document.getElementById('edit-assignee').value = '';
+  document.getElementById('edit-row-index').value = '';
+  document.getElementById('edit-old-task-name').value = taskId;
+  document.getElementById('edit-old-job-number').value = '';
+  
+  document.getElementById('edit-task-name').value = name;
+  document.getElementById('edit-brand').value = brand || '';
+  document.getElementById('edit-work-type').value = workType || '';
+  document.getElementById('edit-due-date').value = rawDate || '';
+  
+  document.getElementById('edit-modal').classList.add('show');
+}
+
+function deleteUnassignedTask(taskId, taskName, btn) {
+  if (!confirm('ต้องการลบงาน "' + taskName + '" ใน Notion ใช่หรือไม่?\\n(งานชิ้นนี้จะถูกส่งไปที่ถังขยะและลบถาวรใน Notion)')) {
+    return;
+  }
+  btn.disabled = true;
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res.ok) {
+        showToast('ลบงานใน Notion เรียบร้อย!');
+        google.script.run
+          .withSuccessHandler(function(allData) {
+            if (allData.ok) {
+              state.people = allData.capacity.people;
+              state.tasks = allData.tasks.tasks;
+              renderPeople();
+              renderTasks();
+            }
+          })
+          .getAllData();
+      } else {
+        showToast('Error: ' + res.error);
+        btn.disabled = false;
+      }
+    })
+    .withFailureHandler(function(err) {
+      showToast('Error: ' + err.message);
+      btn.disabled = false;
+    })
+    .handleDeleteNotionTask({
+      action: 'deleteNotion',
+      pageId: taskId
     });
 }
 
