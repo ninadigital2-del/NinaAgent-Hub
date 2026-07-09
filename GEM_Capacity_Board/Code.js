@@ -1335,7 +1335,7 @@ function saveEditTask() {
 }
 
 function deleteTask(assignee, rowIndex, taskName, jobNumber, btn) {
-  if (!confirm('ต้องการลบงาน "' + taskName + '" ใช่หรือไม่?\n(งานจะหายไปจากตารางดีไซเนอร์ และกลับไปอยู่ที่งานรอ Assign ใน Notion)')) {
+  if (!confirm('ต้องการลบงาน "' + taskName + '" ใช่หรือไม่?\\n(งานจะหายไปจากตารางดีไซเนอร์ และกลับไปอยู่ที่งานรอ Assign ใน Notion)')) {
     return;
   }
   btn.disabled = true;
