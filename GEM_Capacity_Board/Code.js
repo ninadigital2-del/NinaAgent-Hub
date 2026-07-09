@@ -84,6 +84,12 @@ function doPost(e) {
   if (body.action === 'relocate') {
     return jsonResponse(handleRelocate(body));
   }
+  if (body.action === 'edit') {
+    return jsonResponse(handleEditTask(body));
+  }
+  if (body.action === 'delete') {
+    return jsonResponse(handleDeleteTask(body));
+  }
   return jsonResponse({ ok: false, error: 'Unknown action' });
 }
 
@@ -336,6 +342,109 @@ function handleMarkDone(body) {
     const ss = SpreadsheetApp.openById(sheetId);
     const sheet = ss.getSheets()[0];
     sheet.getRange(rowIndex, 1).setValue('Done');
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+}
+
+function handleEditTask(body) {
+  const { assignee, rowIndex, oldTaskName, oldJobNumber, taskName, brand, workType, dueDate } = body;
+  const sheetId = SHEET_IDS[assignee];
+  if (!sheetId) return { ok: false, error: 'ไม่พบ Sheet ของ ' + assignee };
+  
+  try {
+    const ss = SpreadsheetApp.openById(sheetId);
+    const sheet = ss.getSheets()[0];
+    
+    // 1. อัปเดตใน Google Sheet
+    let dueFormatted = '';
+    if (dueDate) {
+      dueFormatted = Utilities.formatDate(new Date(dueDate), 'Asia/Bangkok', 'dMMMyy');
+    }
+    
+    const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    const dayStr = dueDate ? dayNames[new Date(dueDate).getDay()] : '';
+    
+    sheet.getRange(rowIndex, 4).setValue(dayStr);
+    sheet.getRange(rowIndex, 5).setValue(dueFormatted);
+    sheet.getRange(rowIndex, 8).setValue(workType || '');
+    sheet.getRange(rowIndex, 11).setValue(brand || '');
+    sheet.getRange(rowIndex, 12).setValue(taskName || '');
+    
+    // 2. ค้นหาและอัปเดตใน Notion
+    const pageId = findNotionPageId(oldTaskName, oldJobNumber);
+    if (pageId) {
+      updateNotionTaskDetails(pageId, { taskName, dueDate, workType });
+    }
+    
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+}
+
+function updateNotionTaskDetails(pageId, details) {
+  const key = PropertiesService.getScriptProperties().getProperty('NOTION_API_KEY') || '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';
+  const cleanId = pageId.replace(/-/g, '');
+  
+  const workTypes = String(details.workType || '').split(',').map(s => s.trim()).filter(Boolean);
+  const multiSelect = workTypes.map(name => ({ name }));
+  
+  const properties = {
+    'Name': {
+      title: [{ text: { content: details.taskName } }]
+    },
+    'Work Type': {
+      multi_select: multiSelect
+    }
+  };
+  
+  if (details.dueDate) {
+    properties['Due Date'] = {
+      date: { start: details.dueDate }
+    };
+  } else {
+    properties['Due Date'] = {
+      date: null
+    };
+  }
+  
+  const res = notionFetch(`pages/${cleanId}`, 'PATCH', { properties }, key);
+  if (!res || res.object === 'error') {
+    console.error('Failed to update Notion task details: ' + (res?.message || 'Unknown error'));
+  }
+}
+
+function handleDeleteTask(body) {
+  const { assignee, rowIndex, taskName, jobNumber } = body;
+  const sheetId = SHEET_IDS[assignee];
+  if (!sheetId) return { ok: false, error: 'ไม่พบ Sheet ของ ' + assignee };
+  
+  try {
+    const ss = SpreadsheetApp.openById(sheetId);
+    const sheet = ss.getSheets()[0];
+    
+    // 1. ลบแถวใน Google Sheet
+    sheet.deleteRow(rowIndex);
+    
+    // 2. ค้นหาใน Notion และลบ Assignee
+    const pageId = findNotionPageId(taskName, jobNumber);
+    if (pageId) {
+      const key = PropertiesService.getScriptProperties().getProperty('NOTION_API_KEY') || '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';
+      const cleanId = pageId.replace(/-/g, '');
+      const res = notionFetch(`pages/${cleanId}`, 'PATCH', {
+        properties: {
+          'Graphic Assignee': {
+            select: null
+          }
+        }
+      }, key);
+      if (!res || res.object === 'error') {
+        console.error('Failed to clear Notion assignee: ' + (res?.message || 'Unknown error'));
+      }
+    }
+    
     return { ok: true };
   } catch (err) {
     return { ok: false, error: err.message };
@@ -636,9 +745,25 @@ header{background:#fff;border-bottom:1px solid #e5e3dd;padding:10px 20px;display
 .task-name-text{flex:1;color:#555;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .today-item.is-today .task-name-text{color:#D83B01;font-weight:600;}
 .task-date{font-size:9px;color:#999;display:inline-block;width:35px;flex-shrink:0;}
-.btn-done{background:transparent;border:1px solid #ddd;color:#888;border-radius:4px;padding:1px 6px;font-size:9px;cursor:pointer;flex-shrink:0;transition:all .15s;}
-.btn-done:hover{background:#EAF3DE;border-color:#639922;color:#3B6D11;}
-.btn-done:disabled{opacity:0.5;cursor:default;}
+.today-item-actions{display:flex;align-items:center;gap:3px;margin-left:auto;flex-shrink:0}
+.btn-done,.btn-edit,.btn-delete{background:transparent;border:1px solid #ddd;color:#888;border-radius:4px;padding:2px 5px;font-size:9px;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center}
+.btn-done:hover{background:#EAF3DE;border-color:#639922;color:#3B6D11}
+.btn-edit:hover{background:#EBF4FD;border-color:#378ADD;color:#185FA5}
+.btn-delete:hover{background:#FCEBEB;border-color:#E24B4A;color:#A32D2D}
+.btn-done:disabled,.btn-edit:disabled,.btn-delete:disabled{opacity:0.5;cursor:default}
+.modal-backdrop{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;z-index:1000;opacity:0;pointer-events:none;transition:opacity .2s}
+.modal-backdrop.show{opacity:1;pointer-events:auto}
+.modal-box{background:#fff;border-radius:12px;border:1px solid #e5e3dd;width:90%;max-width:360px;padding:16px;box-shadow:0 8px 30px rgba(0,0,0,0.12);transform:scale(0.95);transition:transform .2s}
+.modal-backdrop.show .modal-box{transform:scale(1)}
+.modal-title{font-size:13px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.modal-form-group{margin-bottom:10px}
+.modal-form-group label{display:block;font-size:10px;color:#888;margin-bottom:3px;text-transform:uppercase;font-weight:500}
+.modal-form-group input{width:100%;padding:6px 9px;border:1px solid #ddd;border-radius:6px;font-size:12px;background:#fff;color:#1a1a18}
+.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
+.modal-btn{padding:6px 12px;font-size:11px;font-weight:500;border:1px solid #ddd;border-radius:6px;background:#fff;color:#555;cursor:pointer}
+.modal-btn-save{border-color:#378ADD;background:#EBF4FD;color:#185FA5}
+.modal-btn-save:hover{background:#378ADD;color:#fff}
+.modal-btn-cancel:hover{background:#f5f4f0}
 .task-item{border:1px solid #e5e3dd;border-radius:8px;padding:9px 11px;margin-bottom:7px;cursor:pointer;background:#fff;transition:border-color .15s}
 .task-item:hover{border-color:#bbb}
 .task-item.selected{border-color:#378ADD;background:#EBF4FD}
@@ -701,6 +826,41 @@ header{background:#fff;border-bottom:1px solid #e5e3dd;padding:10px 20px;display
 </div>
 <div class="toast" id="toast"></div>
 
+<!-- Edit Modal -->
+<div class="modal-backdrop" id="edit-modal">
+  <div class="modal-box">
+    <div class="modal-title">
+      <i class="ti ti-edit" style="color:#378ADD"></i> แก้ไขข้อมูลงาน
+    </div>
+    <input type="hidden" id="edit-assignee">
+    <input type="hidden" id="edit-row-index">
+    <input type="hidden" id="edit-old-task-name">
+    <input type="hidden" id="edit-old-job-number">
+    
+    <div class="modal-form-group">
+      <label for="edit-task-name">ชื่อชิ้นงาน</label>
+      <input type="text" id="edit-task-name">
+    </div>
+    <div class="modal-form-group">
+      <label for="edit-brand">แบรนด์</label>
+      <input type="text" id="edit-brand">
+    </div>
+    <div class="modal-form-group">
+      <label for="edit-work-type">ประเภทงาน</label>
+      <input type="text" id="edit-work-type">
+    </div>
+    <div class="modal-form-group">
+      <label for="edit-due-date">วันที่ส่งงาน (เช่น 9Jul26 หรือ yyyy-MM-dd)</label>
+      <input type="text" id="edit-due-date">
+    </div>
+    
+    <div class="modal-actions">
+      <button class="modal-btn modal-btn-cancel" onclick="closeEditModal()">ยกเลิก</button>
+      <button class="modal-btn modal-btn-save" id="btn-save-edit" onclick="saveEditTask()">บันทึก</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const COLORS = {
   'จ๊ะเอ๋':{bg:'#E6F1FB',fg:'#185FA5'},
@@ -712,6 +872,13 @@ const COLORS = {
   'โอม':  {bg:'#FBEAF0',fg:'#72243E'},
 };
 let state = {people:[], tasks:[], selectedTask:null};
+
+function esc(str) {
+  return String(str || '')
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, '\\\'')
+    .replace(/"/g, '&quot;');
+}
 
 function init() {
   google.script.run
@@ -763,16 +930,34 @@ function renderPeople() {
     
     if (allTasksCount > 0) {
       let tItems = (p.todayTasks || []).map(function(t){
+        const escName = esc(t.name);
+        const escBrand = esc(t.brand);
+        const escWorkType = esc(t.workType);
+        const escDate = esc(t.rawDate);
+        const escJob = esc(t.jobNumber);
         return '<div class="today-item is-today" draggable="true" ondragstart="handleAssignedDragStart(event, &quot;'+p.name+'&quot;, '+t.rowIndex+')">'
              + '<span class="task-date">วันนี้</span>'
-             + '<span class="task-name-text">\u00b7 '+t.name+'</span>'
-             + '<button class="btn-done" onclick="markTaskDone(&quot;'+p.name+'&quot;, '+t.rowIndex+', this, event)">✔ Done</button></div>';
+             + '<span class="task-name-text" title="'+escName+'">\u00b7 '+t.name+'</span>'
+             + '<div class="today-item-actions" onclick="event.stopPropagation()">'
+             + '<button class="btn-done" onclick="markTaskDone(&quot;'+p.name+'&quot;, '+t.rowIndex+', this, event)" title="ทำเสร็จแล้ว">✔</button>'
+             + '<button class="btn-edit" onclick="openEditModal(&quot;'+p.name+'&quot;, '+t.rowIndex+', &quot;'+escName+'&quot;, &quot;'+escBrand+'&quot;, &quot;'+escWorkType+'&quot;, &quot;'+escDate+'&quot;, &quot;'+escJob+'&quot;)" title="แก้ไข">✎</button>'
+             + '<button class="btn-delete" onclick="deleteTask(&quot;'+p.name+'&quot;, '+t.rowIndex+', &quot;'+escName+'&quot;, &quot;'+escJob+'&quot;, this)" title="ลบงาน">🗑</button>'
+             + '</div></div>';
       }).join('');
       let pItems = (p.periodTasks || []).map(function(t){
+        const escName = esc(t.name);
+        const escBrand = esc(t.brand);
+        const escWorkType = esc(t.workType);
+        const escDate = esc(t.rawDate);
+        const escJob = esc(t.jobNumber);
         return '<div class="today-item" draggable="true" ondragstart="handleAssignedDragStart(event, &quot;'+p.name+'&quot;, '+t.rowIndex+')">'
              + '<span class="task-date">'+t.dateStr+'</span>'
-             + '<span class="task-name-text">\u00b7 '+t.name+'</span>'
-             + '<button class="btn-done" onclick="markTaskDone(&quot;'+p.name+'&quot;, '+t.rowIndex+', this, event)">✔ Done</button></div>';
+             + '<span class="task-name-text" title="'+escName+'">\u00b7 '+t.name+'</span>'
+             + '<div class="today-item-actions" onclick="event.stopPropagation()">'
+             + '<button class="btn-done" onclick="markTaskDone(&quot;'+p.name+'&quot;, '+t.rowIndex+', this, event)" title="ทำเสร็จแล้ว">✔</button>'
+             + '<button class="btn-edit" onclick="openEditModal(&quot;'+p.name+'&quot;, '+t.rowIndex+', &quot;'+escName+'&quot;, &quot;'+escBrand+'&quot;, &quot;'+escWorkType+'&quot;, &quot;'+escDate+'&quot;, &quot;'+escJob+'&quot;)" title="แก้ไข">✎</button>'
+             + '<button class="btn-delete" onclick="deleteTask(&quot;'+p.name+'&quot;, '+t.rowIndex+', &quot;'+escName+'&quot;, &quot;'+escJob+'&quot;, this)" title="ลบงาน">🗑</button>'
+             + '</div></div>';
       }).join('');
       
       todayHtml = '<div class="today-box">'
@@ -1069,6 +1254,120 @@ function relocateTaskViaDrag(fromAssignee, rowIndex, targetAssignee) {
       fromAssignee: fromAssignee,
       rowIndex: rowIndex,
       targetAssignee: targetAssignee
+    });
+}
+
+function openEditModal(assignee, rowIndex, name, brand, workType, rawDate, jobNumber) {
+  document.getElementById('edit-assignee').value = assignee;
+  document.getElementById('edit-row-index').value = rowIndex;
+  document.getElementById('edit-old-task-name').value = name;
+  document.getElementById('edit-old-job-number').value = jobNumber || '';
+  
+  document.getElementById('edit-task-name').value = name;
+  document.getElementById('edit-brand').value = brand || '';
+  document.getElementById('edit-work-type').value = workType || '';
+  document.getElementById('edit-due-date').value = rawDate || '';
+  
+  document.getElementById('edit-modal').classList.add('show');
+}
+
+function closeEditModal() {
+  document.getElementById('edit-modal').classList.remove('show');
+}
+
+function saveEditTask() {
+  const assignee = document.getElementById('edit-assignee').value;
+  const rowIndex = parseInt(document.getElementById('edit-row-index').value, 10);
+  const oldTaskName = document.getElementById('edit-old-task-name').value;
+  const oldJobNumber = document.getElementById('edit-old-job-number').value;
+  
+  const taskName = document.getElementById('edit-task-name').value;
+  const brand = document.getElementById('edit-brand').value;
+  const workType = document.getElementById('edit-work-type').value;
+  const dueDate = document.getElementById('edit-due-date').value;
+  
+  if (!taskName) {
+    showToast('กรุณากรอกชื่อชิ้นงาน');
+    return;
+  }
+  
+  const btn = document.getElementById('btn-save-edit');
+  btn.disabled = true;
+  btn.textContent = 'กำลังบันทึก...';
+  
+  google.script.run
+    .withSuccessHandler(function(res) {
+      btn.disabled = false;
+      btn.textContent = 'บันทึก';
+      if (res.ok) {
+        showToast('แก้ไขข้อมูลงานสำเร็จ!');
+        closeEditModal();
+        google.script.run
+          .withSuccessHandler(function(allData) {
+            if (allData.ok) {
+              state.people = allData.capacity.people;
+              state.tasks = allData.tasks.tasks;
+              renderPeople();
+              renderTasks();
+            }
+          })
+          .getAllData();
+      } else {
+        showToast('Error: ' + res.error);
+      }
+    })
+    .withFailureHandler(function(err) {
+      btn.disabled = false;
+      btn.textContent = 'บันทึก';
+      showToast('Error: ' + err.message);
+    })
+    .handleEditTask({
+      action: 'edit',
+      assignee: assignee,
+      rowIndex: rowIndex,
+      oldTaskName: oldTaskName,
+      oldJobNumber: oldJobNumber,
+      taskName: taskName,
+      brand: brand,
+      workType: workType,
+      dueDate: dueDate
+    });
+}
+
+function deleteTask(assignee, rowIndex, taskName, jobNumber, btn) {
+  if (!confirm('ต้องการลบงาน "' + taskName + '" ใช่หรือไม่?\n(งานจะหายไปจากตารางดีไซเนอร์ และกลับไปอยู่ที่งานรอ Assign ใน Notion)')) {
+    return;
+  }
+  btn.disabled = true;
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res.ok) {
+        showToast('ลบงานเรียบร้อย!');
+        google.script.run
+          .withSuccessHandler(function(allData) {
+            if (allData.ok) {
+              state.people = allData.capacity.people;
+              state.tasks = allData.tasks.tasks;
+              renderPeople();
+              renderTasks();
+            }
+          })
+          .getAllData();
+      } else {
+        showToast('Error: ' + res.error);
+        btn.disabled = false;
+      }
+    })
+    .withFailureHandler(function(err) {
+      showToast('Error: ' + err.message);
+      btn.disabled = false;
+    })
+    .handleDeleteTask({
+      action: 'delete',
+      assignee: assignee,
+      rowIndex: rowIndex,
+      taskName: taskName,
+      jobNumber: jobNumber
     });
 }
 
