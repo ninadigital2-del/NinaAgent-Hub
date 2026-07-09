@@ -968,13 +968,13 @@ function renderPeople() {
         const escWorkType = esc(t.workType);
         const escDate = esc(t.rawDate);
         const escJob = esc(t.jobNumber);
-        return '<div class="today-item is-today" draggable="true" ondragstart="handleAssignedDragStart(event, &quot;'+p.name+'&quot;, '+t.rowIndex+')">'
+        return '<div class="today-item is-today" draggable="true" ondragstart="handleAssignedDragStart(event, \''+p.name+'\', '+t.rowIndex+')">'
              + '<span class="task-date">วันนี้</span>'
              + '<span class="task-name-text" title="'+escName+'">\u00b7 '+t.name+'</span>'
              + '<div class="today-item-actions" onclick="event.stopPropagation()">'
-             + '<button class="btn-done" onclick="markTaskDone(&quot;'+p.name+'&quot;, '+t.rowIndex+', this, event)" title="ทำเสร็จแล้ว">✔</button>'
-             + '<button class="btn-edit" onclick="openEditModal(&quot;'+p.name+'&quot;, '+t.rowIndex+', &quot;'+escName+'&quot;, &quot;'+escBrand+'&quot;, &quot;'+escWorkType+'&quot;, &quot;'+escDate+'&quot;, &quot;'+escJob+'&quot;)" title="แก้ไข">✎</button>'
-             + '<button class="btn-delete" onclick="deleteTask(&quot;'+p.name+'&quot;, '+t.rowIndex+', &quot;'+escName+'&quot;, &quot;'+escJob+'&quot;, this)" title="ลบงาน">🗑</button>'
+             + '<button class="btn-done" onclick="markTaskDone(\''+p.name+'\', '+t.rowIndex+', this, event)" title="ทำเสร็จแล้ว">✔</button>'
+             + '<button class="btn-edit" onclick="openEditModal(\''+p.name+'\', '+t.rowIndex+', \''+escName+'\', \''+escBrand+'\', \''+escWorkType+'\', \''+escDate+'\', \''+escJob+'\')" title="แก้ไข">✎</button>'
+             + '<button class="btn-delete" onclick="deleteTask(\''+p.name+'\', '+t.rowIndex+', \''+escName+'\', \''+escJob+'\', this)" title="ลบงาน">🗑</button>'
              + '</div></div>';
       }).join('');
       let pItems = (p.periodTasks || []).map(function(t){
@@ -983,13 +983,13 @@ function renderPeople() {
         const escWorkType = esc(t.workType);
         const escDate = esc(t.rawDate);
         const escJob = esc(t.jobNumber);
-        return '<div class="today-item" draggable="true" ondragstart="handleAssignedDragStart(event, &quot;'+p.name+'&quot;, '+t.rowIndex+')">'
+        return '<div class="today-item" draggable="true" ondragstart="handleAssignedDragStart(event, \''+p.name+'\', '+t.rowIndex+')">'
              + '<span class="task-date">'+t.dateStr+'</span>'
              + '<span class="task-name-text" title="'+escName+'">\u00b7 '+t.name+'</span>'
              + '<div class="today-item-actions" onclick="event.stopPropagation()">'
-             + '<button class="btn-done" onclick="markTaskDone(&quot;'+p.name+'&quot;, '+t.rowIndex+', this, event)" title="ทำเสร็จแล้ว">✔</button>'
-             + '<button class="btn-edit" onclick="openEditModal(&quot;'+p.name+'&quot;, '+t.rowIndex+', &quot;'+escName+'&quot;, &quot;'+escBrand+'&quot;, &quot;'+escWorkType+'&quot;, &quot;'+escDate+'&quot;, &quot;'+escJob+'&quot;)" title="แก้ไข">✎</button>'
-             + '<button class="btn-delete" onclick="deleteTask(&quot;'+p.name+'&quot;, '+t.rowIndex+', &quot;'+escName+'&quot;, &quot;'+escJob+'&quot;, this)" title="ลบงาน">🗑</button>'
+             + '<button class="btn-done" onclick="markTaskDone(\''+p.name+'\', '+t.rowIndex+', this, event)" title="ทำเสร็จแล้ว">✔</button>'
+             + '<button class="btn-edit" onclick="openEditModal(\''+p.name+'\', '+t.rowIndex+', \''+escName+'\', \''+escBrand+'\', \''+escWorkType+'\', \''+escDate+'\', \''+escJob+'\')" title="แก้ไข">✎</button>'
+             + '<button class="btn-delete" onclick="deleteTask(\''+p.name+'\', '+t.rowIndex+', \''+escName+'\', \''+escJob+'\', this)" title="ลบงาน">🗑</button>'
              + '</div></div>';
       }).join('');
       
@@ -1129,8 +1129,8 @@ function renderTasks() {
         + '</div>'
         + '</div>'
         + '<div class="task-item-actions" onclick="event.stopPropagation()">'
-        + '<button class="btn-edit" onclick="openUnassignedEditModal(&quot;'+escId+'&quot;, &quot;'+escName+'&quot;, &quot;'+escBrand+'&quot;, &quot;'+escWorkType+'&quot;, &quot;'+escDate+'&quot;)" title="แก้ไข">✎</button>'
-        + '<button class="btn-delete" onclick="deleteUnassignedTask(&quot;'+escId+'&quot;, &quot;'+escName+'&quot;, this)" title="ลบงาน">🗑</button>'
+        + '<button class="btn-edit" onclick="openUnassignedEditModal(\''+escId+'\', \''+escName+'\', \''+escBrand+'\', \''+escWorkType+'\', \''+escDate+'\')" title="แก้ไข">✎</button>'
+        + '<button class="btn-delete" onclick="deleteUnassignedTask(\''+escId+'\', \''+escName+'\', this)" title="ลบงาน">🗑</button>'
         + '</div>';
       item.onclick = function() {
         state.selectedTask = state.selectedTask===t.id?null:t.id;
