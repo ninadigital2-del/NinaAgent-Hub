@@ -875,8 +875,8 @@ let state = {people:[], tasks:[], selectedTask:null};
 
 function esc(str) {
   return String(str || '')
-    .replace(/\\/g, '\\\\')
-    .replace(/'/g, '\\\'')
+    .replace(/\\\\/g, '\\\\\\\\')
+    .replace(/'/g, '\\\\\\\'')
     .replace(/"/g, '&quot;');
 }
 
