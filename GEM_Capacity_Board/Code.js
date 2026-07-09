@@ -87,8 +87,11 @@ function doPost(e) {
   if (body.action === 'edit') {
     return jsonResponse(handleEditTask(body));
   }
-  if (body.action === 'delete') {
-    return jsonResponse(handleDeleteTask(body));
+  if (body.action === 'unassign') {
+    return jsonResponse(handleUnassignTask(body));
+  }
+  if (body.action === 'deletePermanent') {
+    return jsonResponse(handleDeleteTaskPermanently(body));
   }
   if (body.action === 'editNotion') {
     return jsonResponse(handleEditNotionTask(body));
@@ -422,7 +425,7 @@ function updateNotionTaskDetails(pageId, details) {
   }
 }
 
-function handleDeleteTask(body) {
+function handleUnassignTask(body) {
   const { assignee, rowIndex, taskName, jobNumber } = body;
   const sheetId = SHEET_IDS[assignee];
   if (!sheetId) return { ok: false, error: 'ไม่พบ Sheet ของ ' + assignee };
@@ -434,7 +437,7 @@ function handleDeleteTask(body) {
     // 1. ลบแถวใน Google Sheet
     sheet.deleteRow(rowIndex);
     
-    // 2. ค้นหาใน Notion และลบ Assignee
+    // 2. ค้นหาใน Notion และลบ Assignee (ตีกลับเข้าระบบ)
     const pageId = findNotionPageId(taskName, jobNumber);
     if (pageId) {
       const key = PropertiesService.getScriptProperties().getProperty('NOTION_API_KEY') || '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';
@@ -448,6 +451,35 @@ function handleDeleteTask(body) {
       }, key);
       if (!res || res.object === 'error') {
         console.error('Failed to clear Notion assignee: ' + (res?.message || 'Unknown error'));
+      }
+    }
+    
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+}
+
+function handleDeleteTaskPermanently(body) {
+  const { assignee, rowIndex, taskName, jobNumber } = body;
+  const sheetId = SHEET_IDS[assignee];
+  if (!sheetId) return { ok: false, error: 'ไม่พบ Sheet ของ ' + assignee };
+  
+  try {
+    const ss = SpreadsheetApp.openById(sheetId);
+    const sheet = ss.getSheets()[0];
+    
+    // 1. ลบแถวใน Google Sheet
+    sheet.deleteRow(rowIndex);
+    
+    // 2. ค้นหาใน Notion และ Archive (ลบถาวร)
+    const pageId = findNotionPageId(taskName, jobNumber);
+    if (pageId) {
+      const key = PropertiesService.getScriptProperties().getProperty('NOTION_API_KEY') || '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';
+      const cleanId = pageId.replace(/-/g, '');
+      const res = notionFetch(`pages/${cleanId}`, 'PATCH', { archived: true }, key);
+      if (!res || res.object === 'error') {
+        console.error('Failed to archive Notion page: ' + (res?.message || 'Unknown error'));
       }
     }
     
@@ -777,11 +809,12 @@ header{background:#fff;border-bottom:1px solid #e5e3dd;padding:10px 20px;display
 .today-item.is-today .task-name-text{color:#D83B01;font-weight:600;}
 .task-date{font-size:9px;color:#999;display:inline-block;width:35px;flex-shrink:0;}
 .today-item-actions{display:flex;align-items:center;gap:3px;margin-left:auto;flex-shrink:0}
-.btn-done,.btn-edit,.btn-delete{background:transparent;border:1px solid #ddd;color:#888;border-radius:4px;padding:2px 5px;font-size:9px;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center}
+.btn-done,.btn-edit,.btn-return,.btn-delete{background:transparent;border:1px solid #ddd;color:#888;border-radius:4px;padding:2px 5px;font-size:9px;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center}
 .btn-done:hover{background:#EAF3DE;border-color:#639922;color:#3B6D11}
 .btn-edit:hover{background:#EBF4FD;border-color:#378ADD;color:#185FA5}
+.btn-return:hover{background:#FFF9E6;border-color:#EF9F27;color:#854F0B}
 .btn-delete:hover{background:#FCEBEB;border-color:#E24B4A;color:#A32D2D}
-.btn-done:disabled,.btn-edit:disabled,.btn-delete:disabled{opacity:0.5;cursor:default}
+.btn-done:disabled,.btn-edit:disabled,.btn-return:disabled,.btn-delete:disabled{opacity:0.5;cursor:default}
 .modal-backdrop{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;z-index:1000;opacity:0;pointer-events:none;transition:opacity .2s}
 .modal-backdrop.show{opacity:1;pointer-events:auto}
 .modal-box{background:#fff;border-radius:12px;border:1px solid #e5e3dd;width:90%;max-width:360px;padding:16px;box-shadow:0 8px 30px rgba(0,0,0,0.12);transform:scale(0.95);transition:transform .2s}
@@ -974,7 +1007,8 @@ function renderPeople() {
              + '<div class="today-item-actions" onclick="event.stopPropagation()">'
              + '<button class="btn-done" onclick="markTaskDone(\''+p.name+'\', '+t.rowIndex+', this, event)" title="ทำเสร็จแล้ว">✔</button>'
              + '<button class="btn-edit" onclick="openEditModal(\''+p.name+'\', '+t.rowIndex+', \''+escName+'\', \''+escBrand+'\', \''+escWorkType+'\', \''+escDate+'\', \''+escJob+'\')" title="แก้ไข">✎</button>'
-             + '<button class="btn-delete" onclick="deleteTask(\''+p.name+'\', '+t.rowIndex+', \''+escName+'\', \''+escJob+'\', this)" title="ลบงาน">🗑</button>'
+             + '<button class="btn-return" onclick="returnTaskToPool(\''+p.name+'\', '+t.rowIndex+', \''+escName+'\', \''+escJob+'\', this)" title="ตีกลับเข้าระบบ (Unassign)">↩</button>'
+             + '<button class="btn-delete" onclick="deleteTaskPermanently(\''+p.name+'\', '+t.rowIndex+', \''+escName+'\', \''+escJob+'\', this)" title="ลบงานทิ้งถาวร">🗑</button>'
              + '</div></div>';
       }).join('');
       let pItems = (p.periodTasks || []).map(function(t){
@@ -989,7 +1023,8 @@ function renderPeople() {
              + '<div class="today-item-actions" onclick="event.stopPropagation()">'
              + '<button class="btn-done" onclick="markTaskDone(\''+p.name+'\', '+t.rowIndex+', this, event)" title="ทำเสร็จแล้ว">✔</button>'
              + '<button class="btn-edit" onclick="openEditModal(\''+p.name+'\', '+t.rowIndex+', \''+escName+'\', \''+escBrand+'\', \''+escWorkType+'\', \''+escDate+'\', \''+escJob+'\')" title="แก้ไข">✎</button>'
-             + '<button class="btn-delete" onclick="deleteTask(\''+p.name+'\', '+t.rowIndex+', \''+escName+'\', \''+escJob+'\', this)" title="ลบงาน">🗑</button>'
+             + '<button class="btn-return" onclick="returnTaskToPool(\''+p.name+'\', '+t.rowIndex+', \''+escName+'\', \''+escJob+'\', this)" title="ตีกลับเข้าระบบ (Unassign)">↩</button>'
+             + '<button class="btn-delete" onclick="deleteTaskPermanently(\''+p.name+'\', '+t.rowIndex+', \''+escName+'\', \''+escJob+'\', this)" title="ลบงานทิ้งถาวร">🗑</button>'
              + '</div></div>';
       }).join('');
       
@@ -1417,15 +1452,15 @@ function saveEditTask() {
     });
 }
 
-function deleteTask(assignee, rowIndex, taskName, jobNumber, btn) {
-  if (!confirm('ต้องการลบงาน "' + taskName + '" ใช่หรือไม่?\\n(งานจะหายไปจากตารางดีไซเนอร์ และกลับไปอยู่ที่งานรอ Assign ใน Notion)')) {
+function returnTaskToPool(assignee, rowIndex, taskName, jobNumber, btn) {
+  if (!confirm('ต้องการตีงาน "' + taskName + '" กลับเข้าระบบใช่หรือไม่?\\n(งานจะถูกลบออกจากตารางดีไซเนอร์ และกลับไปอยู่ที่งานรอ Assign ใน Notion)')) {
     return;
   }
   btn.disabled = true;
   google.script.run
     .withSuccessHandler(function(res) {
       if (res.ok) {
-        showToast('ลบงานเรียบร้อย!');
+        showToast('ตีงานกลับเข้าระบบเรียบร้อย!');
         google.script.run
           .withSuccessHandler(function(allData) {
             if (allData.ok) {
@@ -1445,8 +1480,45 @@ function deleteTask(assignee, rowIndex, taskName, jobNumber, btn) {
       showToast('Error: ' + err.message);
       btn.disabled = false;
     })
-    .handleDeleteTask({
-      action: 'delete',
+    .handleUnassignTask({
+      action: 'unassign',
+      assignee: assignee,
+      rowIndex: rowIndex,
+      taskName: taskName,
+      jobNumber: jobNumber
+    });
+}
+
+function deleteTaskPermanently(assignee, rowIndex, taskName, jobNumber, btn) {
+  if (!confirm('ต้องการลบงาน "' + taskName + '" ทิ้งถาวรใช่หรือไม่?\\n(งานจะถูกลบออกจากตารางดีไซเนอร์ และถูกส่งไปถังขยะใน Notion ด้วย)')) {
+    return;
+  }
+  btn.disabled = true;
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res.ok) {
+        showToast('ลบงานถาวรเรียบร้อย!');
+        google.script.run
+          .withSuccessHandler(function(allData) {
+            if (allData.ok) {
+              state.people = allData.capacity.people;
+              state.tasks = allData.tasks.tasks;
+              renderPeople();
+              renderTasks();
+            }
+          })
+          .getAllData();
+      } else {
+        showToast('Error: ' + res.error);
+        btn.disabled = false;
+      }
+    })
+    .withFailureHandler(function(err) {
+      showToast('Error: ' + err.message);
+      btn.disabled = false;
+    })
+    .handleDeleteTaskPermanently({
+      action: 'deletePermanent',
       assignee: assignee,
       rowIndex: rowIndex,
       taskName: taskName,
