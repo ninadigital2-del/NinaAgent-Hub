@@ -820,12 +820,10 @@ function writeToPersonSheet(assignee, task) {
       ? dayNames[new Date(task.dueDate).getDay()]
       : '';
 
-    // เตรียมข้อมูลใหม่ โดยหลีกเลี่ยง setValues ทะลุคอลัมน์เพื่อป้องกัน Data Validation ของ PM เตะออก
-    // ดึงแค่ค่าปัจจุบันของ Check และ Time เพื่อเอามาเซ็ต Default ถ้ามันว่าง
-    const existingCheck = sheet.getRange(targetRow, 1).getValue();
+    // ดึงแค่ค่าปัจจุบันของ Time เพื่อเอามาเซ็ต Default ถ้ามันว่าง
     const existingTime = sheet.getRange(targetRow, 7).getValue();
 
-    sheet.getRange(targetRow, 1).setValue(existingCheck || 'Not Start'); // Check (A)
+    sheet.getRange(targetRow, 1).setValue('Not Start'); // Check (A) ต้องเริ่มใหม่เสมอ
     sheet.getRange(targetRow, 4).setValue(dayStr);                       // Day (D)
     sheet.getRange(targetRow, 5).setValue(dueFormatted);                 // วันที่ส่งงาน (E)
     sheet.getRange(targetRow, 6).setValue(task.jobNumber || '');         // No (F)
