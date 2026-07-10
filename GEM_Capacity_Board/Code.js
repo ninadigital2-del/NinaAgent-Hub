@@ -711,6 +711,8 @@ function writeToPersonSheet(assignee, task) {
       const nameValues = sheet.getRange(5, 12, lastRow - 4, 1).getValues();
       
       let foundExactDate = false;
+      let targetRow = -1;
+      let lastMatchRow = -1;
       let firstEmptyRowWithNoDate = -1;
 
       for (let i = 0; i < nameValues.length; i++) {
@@ -720,22 +722,24 @@ function writeToPersonSheet(assignee, task) {
         const rawDate = dateValues[i][0];
         const isDateEmpty = !rawDate || String(rawDate).trim() === '' || String(rawDate).trim() === '-';
         
-        if (isNameEmpty) {
-          if (isDateEmpty && firstEmptyRowWithNoDate === -1) {
-            firstEmptyRowWithNoDate = i + 5; // แถวที่ว่างทั้งชื่อและวันที่ (ท้ายตาราง Template)
-          }
-          
-          let rowDateStr = '';
-          if (rawDate instanceof Date) {
-            rowDateStr = Utilities.formatDate(rawDate, 'Asia/Bangkok', 'dMMMyy');
-          } else {
-            rowDateStr = String(rawDate).trim();
-          }
+        let rowDateStr = '';
+        if (rawDate instanceof Date) {
+          rowDateStr = Utilities.formatDate(rawDate, 'Asia/Bangkok', 'dMMMyy');
+        } else {
+          rowDateStr = String(rawDate).trim();
+        }
 
-          if (dueFormatted && rowDateStr === dueFormatted) {
-            targetRow = i + 5;
-            foundExactDate = true;
+        if (isNameEmpty && isDateEmpty && firstEmptyRowWithNoDate === -1) {
+          firstEmptyRowWithNoDate = i + 5; // แถวที่ว่างทั้งชื่อและวันที่ (ท้ายตาราง Template)
+        }
+
+        if (dueFormatted && rowDateStr === dueFormatted) {
+          foundExactDate = true;
+          if (isNameEmpty) {
+            targetRow = i + 5; // เจอช่องว่างของวันนี้พอดี
             break;
+          } else {
+            lastMatchRow = i + 5; // ไม่ว่าง เก็บเลขบรรทัดสุดท้ายของวันนี้ไว้เผื่อต้องแทรกบรรทัด
           }
         }
       }
@@ -745,6 +749,24 @@ function writeToPersonSheet(assignee, task) {
           targetRow = firstEmptyRowWithNoDate; // วิ่งไปต่อท้ายตาราง (จุดที่ไม่มี Date pre-fill)
         } else {
           targetRow = lastRow + 1;
+        }
+      } else {
+        if (targetRow === -1) {
+          // วันนี้มีในตาราง แต่เต็มหมดแล้ว! -> แทรกบรรทัดใหม่ต่อจากบรรทัดสุดท้ายของวันนี้เลย
+          sheet.insertRowAfter(lastMatchRow);
+          targetRow = lastMatchRow + 1;
+          
+          // โคลนบรรทัดบนลงมา (เพื่อเอา Format, Dropdown, สูตร)
+          sheet.getRange(lastMatchRow, 1, 1, 14).copyTo(sheet.getRange(targetRow, 1, 1, 14), SpreadsheetApp.CopyPasteType.PASTE_NORMAL, false);
+          
+          // เคลียร์ข้อมูลเก่าทิ้ง เพื่อให้พร้อมรับข้อมูลใหม่ (เคลียร์เฉพาะช่องพิมพ์ เพื่อรักษาสูตรถ้ามี)
+          sheet.getRange(targetRow, 6).clearContent(); // No (F)
+          sheet.getRange(targetRow, 8).clearContent(); // ประเภทงาน (H)
+          sheet.getRange(targetRow, 9).clearContent(); // จำนวน (I)
+          sheet.getRange(targetRow, 10).clearContent(); // Job No. (J)
+          sheet.getRange(targetRow, 11).clearContent(); // แบรนด์ (K)
+          sheet.getRange(targetRow, 12).clearContent(); // ชื่อชิ้นงาน (L)
+          sheet.getRange(targetRow, 13).clearContent(); // เจ้าของงาน (M)
         }
       }
     }
