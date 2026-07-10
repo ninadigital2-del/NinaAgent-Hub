@@ -368,6 +368,18 @@ function handleEditTask(body) {
     const ss = SpreadsheetApp.openById(sheetId);
     const sheet = ss.getSheets()[0];
     
+    // ป้องกันกรณีโดน Sort ใน Sheet: เช็คว่าชื่อตรงไหม ถ้าไม่ตรงให้หาใหม่
+    let actualRow = rowIndex;
+    if (oldTaskName && String(sheet.getRange(actualRow, 12).getValue()).trim() !== String(oldTaskName).trim()) {
+      const allNames = sheet.getRange(5, 12, sheet.getLastRow() - 4, 1).getValues();
+      for (let i = 0; i < allNames.length; i++) {
+        if (String(allNames[i][0]).trim() === String(oldTaskName).trim()) {
+          actualRow = i + 5;
+          break;
+        }
+      }
+    }
+
     // 1. อัปเดตใน Google Sheet
     let dueFormatted = '';
     if (dueDate) {
@@ -377,11 +389,11 @@ function handleEditTask(body) {
     const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
     const dayStr = dueDate ? dayNames[new Date(dueDate).getDay()] : '';
     
-    sheet.getRange(rowIndex, 4).setValue(dayStr);
-    sheet.getRange(rowIndex, 5).setValue(dueFormatted);
-    sheet.getRange(rowIndex, 8).setValue(workType || '');
-    sheet.getRange(rowIndex, 11).setValue(brand || '');
-    sheet.getRange(rowIndex, 12).setValue(taskName || '');
+    sheet.getRange(actualRow, 4).setValue(dayStr);
+    sheet.getRange(actualRow, 5).setValue(dueFormatted);
+    sheet.getRange(actualRow, 8).setValue(workType || '');
+    sheet.getRange(actualRow, 11).setValue(brand || '');
+    sheet.getRange(actualRow, 12).setValue(taskName || '');
     
     // 2. ค้นหาและอัปเดตใน Notion
     const pageId = findNotionPageId(oldTaskName, oldJobNumber);
@@ -1027,15 +1039,33 @@ header{background:#fff;border-bottom:1px solid #e5e3dd;padding:10px 20px;display
     </div>
     <div class="modal-form-group">
       <label for="edit-brand">แบรนด์</label>
-      <input type="text" id="edit-brand">
+      <select id="edit-brand">
+        <option value="">-- ไม่ระบุ --</option>
+        <option value="Nina">Nina</option>
+        <option value="STD">STD</option>
+        <option value="NINA AI">NINA AI</option>
+        <option value="VIVA">VIVA</option>
+        <option value="KOKUYO">KOKUYO</option>
+        <option value="Elephant">Elephant</option>
+        <option value="Quantum">Quantum</option>
+      </select>
     </div>
     <div class="modal-form-group">
       <label for="edit-work-type">ประเภทงาน</label>
-      <input type="text" id="edit-work-type">
+      <select id="edit-work-type">
+        <option value="">-- ไม่ระบุ --</option>
+        <option value="New AW">New AW</option>
+        <option value="New VDO">New VDO</option>
+        <option value="Project">Project</option>
+        <option value="Resize">Resize</option>
+        <option value="Adapt">Adapt</option>
+        <option value="Revise">Revise</option>
+        <option value="Content">Content</option>
+      </select>
     </div>
     <div class="modal-form-group">
-      <label for="edit-due-date">วันที่ส่งงาน (เช่น 9Jul26 หรือ yyyy-MM-dd)</label>
-      <input type="text" id="edit-due-date">
+      <label for="edit-due-date">วันที่ส่งงาน</label>
+      <input type="date" id="edit-due-date">
     </div>
     
     <div class="modal-actions">
@@ -1455,6 +1485,47 @@ function relocateTaskViaDrag(fromAssignee, rowIndex, targetAssignee) {
     });
 }
 
+function setSelectValue(id, val) {
+  const sel = document.getElementById(id);
+  const safeVal = val || '';
+  let found = false;
+  for (let i = 0; i < sel.options.length; i++) {
+    if (sel.options[i].value === safeVal) {
+      found = true;
+      break;
+    }
+  }
+  if (!found && safeVal) {
+    const opt = document.createElement('option');
+    opt.value = safeVal;
+    opt.text = safeVal;
+    sel.appendChild(opt);
+  }
+  sel.value = safeVal;
+}
+
+function parseToIsoDate(dStr) {
+  if (!dStr) return '';
+  dStr = String(dStr).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dStr)) return dStr;
+  const match = dStr.match(/^(\d{1,2})([A-Za-z]{3})(\d{2})$/);
+  if (match) {
+    const day = match[1].padStart(2, '0');
+    const mNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const mIdx = mNames.findIndex(m => m.toLowerCase() === match[2].toLowerCase());
+    if (mIdx >= 0) {
+      const month = String(mIdx + 1).padStart(2, '0');
+      const year = '20' + match[3];
+      return year + '-' + month + '-' + day;
+    }
+  }
+  const d = new Date(dStr);
+  if (!isNaN(d.getTime())) {
+    return d.toISOString().split('T')[0];
+  }
+  return '';
+}
+
 function openEditModal(assignee, rowIndex, name, brand, workType, rawDate, jobNumber) {
   document.getElementById('edit-assignee').value = assignee;
   document.getElementById('edit-row-index').value = rowIndex;
@@ -1462,9 +1533,10 @@ function openEditModal(assignee, rowIndex, name, brand, workType, rawDate, jobNu
   document.getElementById('edit-old-job-number').value = jobNumber || '';
   
   document.getElementById('edit-task-name').value = name;
-  document.getElementById('edit-brand').value = brand || '';
-  document.getElementById('edit-work-type').value = workType || '';
-  document.getElementById('edit-due-date').value = rawDate || '';
+  
+  setSelectValue('edit-brand', brand);
+  setSelectValue('edit-work-type', workType);
+  document.getElementById('edit-due-date').value = parseToIsoDate(rawDate);
   
   document.getElementById('edit-modal').classList.add('show');
 }
