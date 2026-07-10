@@ -702,29 +702,54 @@ function writeToPersonSheet(assignee, task) {
     const ss = SpreadsheetApp.openById(sheetId);
     const sheet = ss.getSheets()[0]; // Sheet แรก (Sheet1)
 
+    // แปลงวันที่ของชิ้นงานเพื่อเอาไปเทียบ
+    const dueFormatted = task.dueDate
+      ? Utilities.formatDate(new Date(task.dueDate), 'Asia/Bangkok', 'dMMMyy')
+      : '';
+
     // หาแถวที่ว่างจริงๆ โดยดูจากคอลัมน์ L (ชื่อชิ้นงาน)
+    // และพยายามหาบรรทัดที่ "วันที่ส่งงาน" (คอลัมน์ E) ตรงกับ dueFormatted ก่อน
     const lastRow = sheet.getLastRow();
     let targetRow = 5;
     
     if (lastRow >= 5) {
-      const names = sheet.getRange(5, 12, lastRow - 4, 1).getValues();
-      let foundEmpty = false;
-      for (let i = 0; i < names.length; i++) {
-        if (!String(names[i][0]).trim()) {
-          targetRow = i + 5;
-          foundEmpty = true;
-          break;
+      // ดึงคอลัมน์ E (Date) และ L (TaskName)
+      const dateValues = sheet.getRange(5, 5, lastRow - 4, 1).getValues();
+      const nameValues = sheet.getRange(5, 12, lastRow - 4, 1).getValues();
+      
+      let foundExactDate = false;
+      let firstEmptyRow = -1;
+
+      for (let i = 0; i < nameValues.length; i++) {
+        const isNameEmpty = !String(nameValues[i][0]).trim();
+        if (isNameEmpty) {
+          if (firstEmptyRow === -1) firstEmptyRow = i + 5; // เก็บแถวว่างแรกสุดเผื่อไว้
+          
+          // ตรวจสอบวันที่ในคอลัมน์ E ว่าตรงไหม
+          let rowDateStr = '';
+          const rawDate = dateValues[i][0];
+          if (rawDate instanceof Date) {
+            rowDateStr = Utilities.formatDate(rawDate, 'Asia/Bangkok', 'dMMMyy');
+          } else {
+            rowDateStr = String(rawDate).trim();
+          }
+
+          if (dueFormatted && rowDateStr === dueFormatted) {
+            targetRow = i + 5;
+            foundExactDate = true;
+            break;
+          }
         }
       }
-      if (!foundEmpty) {
-        targetRow = lastRow + 1;
+      
+      if (!foundExactDate) {
+        if (firstEmptyRow !== -1) {
+          targetRow = firstEmptyRow; // ถ้าหาวันที่ตรงไม่เจอ ให้ใช้แถวว่างแถวแรก
+        } else {
+          targetRow = lastRow + 1;   // ถ้าไม่มีแถวว่างเลย ให้ต่อท้ายสุด
+        }
       }
     }
-
-    // แปลงวันที่
-    const dueFormatted = task.dueDate
-      ? Utilities.formatDate(new Date(task.dueDate), 'Asia/Bangkok', 'dMMMyy')
-      : '';
 
     // Day of week
     const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -737,8 +762,8 @@ function writeToPersonSheet(assignee, task) {
     
     existingData[0] = existingData[0] || 'Not Start'; // Check (A)
     // Hr (B), Hidden (C) ปล่อยไว้ตามเดิม
-    if (dayStr) existingData[3] = dayStr;             // Day (D)
-    if (dueFormatted) existingData[4] = dueFormatted; // วันที่ส่งงาน (E)
+    existingData[3] = dayStr;                         // Day (D)
+    existingData[4] = dueFormatted;                   // วันที่ส่งงาน (E)
     existingData[5] = task.jobNumber || '';           // No (F)
     existingData[6] = existingData[6] || '09.00 - 18.00'; // ช่วงเวลา (G)
     existingData[7] = task.workType || '';            // ประเภทงาน (H)
