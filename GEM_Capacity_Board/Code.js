@@ -900,7 +900,11 @@ header{background:#fff;border-bottom:1px solid #e5e3dd;padding:10px 20px;display
 .logo{font-size:13px;font-weight:500;color:#1a1a18}
 .logo span{color:#aaa}
 .sync{font-size:12px;color:#aaa}
-.board{display:grid;grid-template-columns:1fr 1.4fr;gap:12px;padding:12px;flex:1;min-height:0}
+.board{display:grid;grid-template-columns:1.6fr 1fr;gap:12px;padding:12px;flex:1;min-height:0}
+#people-panel{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;align-content:start}
+@media(max-width:900px){
+  #people-panel{grid-template-columns:1fr}
+}
 @media(max-width:700px){
   body{height:auto;overflow:auto}
   .board{grid-template-columns:1fr;grid-template-rows:auto auto;flex:none;height:auto;padding:8px;gap:8px}
@@ -915,7 +919,7 @@ header{background:#fff;border-bottom:1px solid #e5e3dd;padding:10px 20px;display
 .pc{font-size:11px;color:#aaa}
 .cond{font-size:10px;color:#bbb;margin-top:4px}
 .pb{overflow-y:auto;flex:1;padding:10px}
-.person-card{border:1px solid #e5e3dd;border-radius:12px;padding:0;margin-bottom:10px;cursor:pointer;background:#fff;transition:border-color .15s,box-shadow .15s;overflow:hidden}
+.person-card{border:1px solid #e5e3dd;border-radius:12px;padding:0;margin:0;cursor:pointer;background:#fff;transition:border-color .15s,box-shadow .15s;overflow:hidden}
 .person-card:hover{border-color:#bbb;box-shadow:0 2px 8px rgba(0,0,0,0.06)}
 .person-card.selected{border-color:#378ADD;background:#EBF4FD}
 .person-card.drag-over{border-color:#378ADD;border-style:dashed;background:#EBF4FD}
