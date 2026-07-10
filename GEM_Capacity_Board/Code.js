@@ -785,25 +785,25 @@ header{background:#fff;border-bottom:1px solid #e5e3dd;padding:10px 20px;display
 .pc{font-size:11px;color:#aaa}
 .cond{font-size:10px;color:#bbb;margin-top:4px}
 .pb{overflow-y:auto;flex:1;padding:10px}
-.person-card{border:1px solid #e5e3dd;border-radius:8px;padding:9px 11px;margin-bottom:7px;cursor:pointer;background:#fff;transition:border-color .15s}
-.person-card:hover{border-color:#bbb}
+.person-card{border:1px solid #e5e3dd;border-radius:12px;padding:0;margin-bottom:10px;cursor:pointer;background:#fff;transition:border-color .15s,box-shadow .15s;overflow:hidden}
+.person-card:hover{border-color:#bbb;box-shadow:0 2px 8px rgba(0,0,0,0.06)}
 .person-card.selected{border-color:#378ADD;background:#EBF4FD}
 .person-card.drag-over{border-color:#378ADD;border-style:dashed;background:#EBF4FD}
-.pr{display:flex;align-items:center;gap:9px}
-.av{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;flex-shrink:0}
-.pi{flex:1;min-width:0}
-.pn{font-size:13px;font-weight:500}
-.ps{font-size:11px;color:#aaa;margin-top:1px}
-.badge{font-size:10px;font-weight:500;padding:2px 7px;border-radius:20px;flex-shrink:0}
+.pc-header{display:flex;align-items:center;gap:10px;padding:10px 14px;background:linear-gradient(135deg,#faf9f7 0%,#f5f4f0 100%);border-bottom:1px solid #ece9e3}
+.av{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;flex-shrink:0;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.1)}
+.pc-info{flex:1;min-width:0}
+.pn{font-size:13px;font-weight:600;color:#1a1a18}
+.ps{font-size:10px;color:#999;margin-top:1px}
+.badge{font-size:9px;font-weight:600;padding:2px 8px;border-radius:20px;flex-shrink:0;letter-spacing:.02em;text-transform:uppercase}
 .g{background:#EAF3DE;color:#3B6D11}
 .a{background:#FAEEDA;color:#854F0B}
 .r{background:#FCEBEB;color:#A32D2D}
-.bw{display:flex;align-items:center;gap:7px;margin-top:5px}
-.bb{flex:1;height:3px;background:#eee;border-radius:2px;overflow:hidden}
-.bf{height:100%;border-radius:2px}
-.bl{font-size:10px;color:#bbb;min-width:20px;text-align:right}
-.today-box{margin-top:5px;padding:5px 8px;background:#f9f8f5;border-radius:6px;border:1px solid #ece9e3;font-size:11px;max-height:160px;overflow-y:auto;}
-.today-lbl{color:#aaa;margin-bottom:2px;font-size:10px;text-transform:uppercase;letter-spacing:.04em;position:sticky;top:0;background:#f9f8f5;padding-bottom:2px;z-index:1;}
+.pc-stats{display:flex;align-items:center;gap:8px;padding:6px 14px;background:#fff}
+.bb{flex:1;height:4px;background:#eee;border-radius:3px;overflow:hidden}
+.bf{height:100%;border-radius:3px;transition:width .3s ease}
+.bl{font-size:10px;color:#999;min-width:24px;text-align:right;font-weight:500}
+.today-box{padding:6px 10px;background:#fff;font-size:11px;max-height:180px;overflow-y:auto;border-top:1px solid #f0efea;}
+.today-lbl{color:#aaa;margin-bottom:3px;font-size:9px;text-transform:uppercase;letter-spacing:.06em;font-weight:600;position:sticky;top:0;background:#fff;padding-bottom:2px;z-index:1;}
 .today-item{display:flex;align-items:center;padding:2px 0;gap:4px;}
 .task-name-text{flex:1;color:#555;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .today-item.is-today .task-name-text{color:#D83B01;font-weight:600;}
@@ -1033,17 +1033,17 @@ function renderPeople() {
                 + tItems + pItems
                 + '</div>';
     } else {
-      todayHtml = '<div class="today-box" style="background:#EAF3DE;border-color:#C0DD97"><div style="color:#3B6D11;font-size:10px">ไม่มีงานในช่วงนี้</div></div>';
+      todayHtml = '<div class="today-box" style="border-top:1px solid #C0DD97;background:#f5faf0"><div style="color:#3B6D11;font-size:10px;padding:4px 0">✓ ไม่มีงานในช่วงนี้</div></div>';
     }
     const card = document.createElement('div');
     card.className = 'person-card';
     card.innerHTML =
-      '<div class="pr">'
+      '<div class="pc-header">'
       +'<div class="av" style="background:'+c.bg+';color:'+c.fg+'">'+p.name.substring(0,2)+'</div>'
-      +'<div class="pi"><div class="pn">'+p.name+'</div><div class="ps">งานค้าง '+p.open+' งาน</div></div>'
+      +'<div class="pc-info"><div class="pn">'+p.name+'</div><div class="ps">งานค้าง '+p.open+' งาน</div></div>'
       +'<span class="badge '+bc+'">'+bl+'</span>'
       +'</div>'
-      +'<div class="bw"><div class="bb"><div class="bf" style="width:'+pct+'%;background:'+barC+'"></div></div>'
+      +'<div class="pc-stats"><div class="bb"><div class="bf" style="width:'+pct+'%;background:'+barC+'"></div></div>'
       +'<span class="bl">'+p.open+'</span></div>'
       +todayHtml;
     
