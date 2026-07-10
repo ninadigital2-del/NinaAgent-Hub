@@ -1001,14 +1001,14 @@ function renderPeople() {
         const escWorkType = esc(t.workType);
         const escDate = esc(t.rawDate);
         const escJob = esc(t.jobNumber);
-        return '<div class="today-item is-today" draggable="true" ondragstart="handleAssignedDragStart(event, \''+p.name+'\', '+t.rowIndex+')">'
+        return '<div class="today-item is-today" draggable="true" ondragstart="handleAssignedDragStart(event, &#39;'+p.name+'&#39;, '+t.rowIndex+')">'
              + '<span class="task-date">วันนี้</span>'
              + '<span class="task-name-text" title="'+escName+'">\u00b7 '+t.name+'</span>'
              + '<div class="today-item-actions" onclick="event.stopPropagation()">'
-             + '<button class="btn-done" onclick="markTaskDone(\''+p.name+'\', '+t.rowIndex+', this, event)" title="ทำเสร็จแล้ว">✔</button>'
-             + '<button class="btn-edit" onclick="openEditModal(\''+p.name+'\', '+t.rowIndex+', \''+escName+'\', \''+escBrand+'\', \''+escWorkType+'\', \''+escDate+'\', \''+escJob+'\')" title="แก้ไข">✎</button>'
-             + '<button class="btn-return" onclick="returnTaskToPool(\''+p.name+'\', '+t.rowIndex+', \''+escName+'\', \''+escJob+'\', this)" title="ตีกลับเข้าระบบ (Unassign)">↩</button>'
-             + '<button class="btn-delete" onclick="deleteTaskPermanently(\''+p.name+'\', '+t.rowIndex+', \''+escName+'\', \''+escJob+'\', this)" title="ลบงานทิ้งถาวร">🗑</button>'
+             + '<button class="btn-done" onclick="markTaskDone(&#39;'+p.name+'&#39;, '+t.rowIndex+', this, event)" title="ทำเสร็จแล้ว">✔</button>'
+             + '<button class="btn-edit" onclick="openEditModal(&#39;'+p.name+'&#39;, '+t.rowIndex+', &#39;'+escName+'&#39;, &#39;'+escBrand+'&#39;, &#39;'+escWorkType+'&#39;, &#39;'+escDate+'&#39;, &#39;'+escJob+'&#39;)" title="แก้ไข">✎</button>'
+             + '<button class="btn-return" onclick="returnTaskToPool(&#39;'+p.name+'&#39;, '+t.rowIndex+', &#39;'+escName+'&#39;, &#39;'+escJob+'&#39;, this)" title="ตีกลับเข้าระบบ (Unassign)">↩</button>'
+             + '<button class="btn-delete" onclick="deleteTaskPermanently(&#39;'+p.name+'&#39;, '+t.rowIndex+', &#39;'+escName+'&#39;, &#39;'+escJob+'&#39;, this)" title="ลบงานทิ้งถาวร">🗑</button>'
              + '</div></div>';
       }).join('');
       let pItems = (p.periodTasks || []).map(function(t){
@@ -1017,14 +1017,14 @@ function renderPeople() {
         const escWorkType = esc(t.workType);
         const escDate = esc(t.rawDate);
         const escJob = esc(t.jobNumber);
-        return '<div class="today-item" draggable="true" ondragstart="handleAssignedDragStart(event, \''+p.name+'\', '+t.rowIndex+')">'
+        return '<div class="today-item" draggable="true" ondragstart="handleAssignedDragStart(event, &#39;'+p.name+'&#39;, '+t.rowIndex+')">'
              + '<span class="task-date">'+t.dateStr+'</span>'
              + '<span class="task-name-text" title="'+escName+'">\u00b7 '+t.name+'</span>'
              + '<div class="today-item-actions" onclick="event.stopPropagation()">'
-             + '<button class="btn-done" onclick="markTaskDone(\''+p.name+'\', '+t.rowIndex+', this, event)" title="ทำเสร็จแล้ว">✔</button>'
-             + '<button class="btn-edit" onclick="openEditModal(\''+p.name+'\', '+t.rowIndex+', \''+escName+'\', \''+escBrand+'\', \''+escWorkType+'\', \''+escDate+'\', \''+escJob+'\')" title="แก้ไข">✎</button>'
-             + '<button class="btn-return" onclick="returnTaskToPool(\''+p.name+'\', '+t.rowIndex+', \''+escName+'\', \''+escJob+'\', this)" title="ตีกลับเข้าระบบ (Unassign)">↩</button>'
-             + '<button class="btn-delete" onclick="deleteTaskPermanently(\''+p.name+'\', '+t.rowIndex+', \''+escName+'\', \''+escJob+'\', this)" title="ลบงานทิ้งถาวร">🗑</button>'
+             + '<button class="btn-done" onclick="markTaskDone(&#39;'+p.name+'&#39;, '+t.rowIndex+', this, event)" title="ทำเสร็จแล้ว">✔</button>'
+             + '<button class="btn-edit" onclick="openEditModal(&#39;'+p.name+'&#39;, '+t.rowIndex+', &#39;'+escName+'&#39;, &#39;'+escBrand+'&#39;, &#39;'+escWorkType+'&#39;, &#39;'+escDate+'&#39;, &#39;'+escJob+'&#39;)" title="แก้ไข">✎</button>'
+             + '<button class="btn-return" onclick="returnTaskToPool(&#39;'+p.name+'&#39;, '+t.rowIndex+', &#39;'+escName+'&#39;, &#39;'+escJob+'&#39;, this)" title="ตีกลับเข้าระบบ (Unassign)">↩</button>'
+             + '<button class="btn-delete" onclick="deleteTaskPermanently(&#39;'+p.name+'&#39;, '+t.rowIndex+', &#39;'+escName+'&#39;, &#39;'+escJob+'&#39;, this)" title="ลบงานทิ้งถาวร">🗑</button>'
              + '</div></div>';
       }).join('');
       
@@ -1164,8 +1164,8 @@ function renderTasks() {
         + '</div>'
         + '</div>'
         + '<div class="task-item-actions" onclick="event.stopPropagation()">'
-        + '<button class="btn-edit" onclick="openUnassignedEditModal(\''+escId+'\', \''+escName+'\', \''+escBrand+'\', \''+escWorkType+'\', \''+escDate+'\')" title="แก้ไข">✎</button>'
-        + '<button class="btn-delete" onclick="deleteUnassignedTask(\''+escId+'\', \''+escName+'\', this)" title="ลบงาน">🗑</button>'
+        + '<button class="btn-edit" onclick="openUnassignedEditModal(&#39;'+escId+'&#39;, &#39;'+escName+'&#39;, &#39;'+escBrand+'&#39;, &#39;'+escWorkType+'&#39;, &#39;'+escDate+'&#39;)" title="แก้ไข">✎</button>'
+        + '<button class="btn-delete" onclick="deleteUnassignedTask(&#39;'+escId+'&#39;, &#39;'+escName+'&#39;, this)" title="ลบงาน">🗑</button>'
         + '</div>';
       item.onclick = function() {
         state.selectedTask = state.selectedTask===t.id?null:t.id;
