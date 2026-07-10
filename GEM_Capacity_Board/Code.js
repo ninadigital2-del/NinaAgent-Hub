@@ -436,18 +436,15 @@ function handleUnassignTask(body) {
     const ss = SpreadsheetApp.openById(sheetId);
     const sheet = ss.getSheets()[0];
     
-    // 1. เคลียร์เฉพาะข้อมูลงานใน Google Sheet แทนการลบทิ้งทั้งแถว เพื่อรักษา Template และวันที่ของ PM
-    // คอลัมน์ที่ต้องลบ: F(6), H(8), I(9), J(10), K(11), L(12), M(13)
-    const existingData = sheet.getRange(rowIndex, 1, 1, 14).getValues()[0];
-    existingData[0] = 'Not Start'; // รีเซ็ตสถานะเป็น Not Start
-    existingData[5] = ''; // No
-    existingData[7] = ''; // ประเภทงาน
-    existingData[8] = ''; // จำนวน
-    existingData[9] = ''; // Job No.
-    existingData[10] = ''; // แบรนด์
-    existingData[11] = ''; // ชื่อชิ้นงาน
-    existingData[12] = ''; // เจ้าของงาน
-    sheet.getRange(rowIndex, 1, 1, 14).setValues([existingData]);
+    // 1. เคลียร์เฉพาะข้อมูลงานใน Google Sheet แทนการลบทิ้งทั้งแถว
+    sheet.getRange(rowIndex, 1).setValue('Not Start'); // Check (A)
+    sheet.getRange(rowIndex, 6).clearContent(); // No (F)
+    sheet.getRange(rowIndex, 8).clearContent(); // ประเภทงาน (H)
+    sheet.getRange(rowIndex, 9).clearContent(); // จำนวน (I)
+    sheet.getRange(rowIndex, 10).clearContent(); // Job No. (J)
+    sheet.getRange(rowIndex, 11).clearContent(); // แบรนด์ (K)
+    sheet.getRange(rowIndex, 12).clearContent(); // ชื่อชิ้นงาน (L)
+    sheet.getRange(rowIndex, 13).clearContent(); // เจ้าของงาน (M)
     
     // 2. ค้นหาใน Notion และลบ Assignee (ตีกลับเข้าระบบ)
     const pageId = findNotionPageId(taskName, jobNumber);
@@ -480,16 +477,14 @@ function handleDeleteTaskPermanently(body) {
     const sheet = ss.getSheets()[0];
     
     // 1. เคลียร์เฉพาะข้อมูลงานใน Google Sheet แทนการลบทิ้งทั้งแถว
-    const existingData = sheet.getRange(rowIndex, 1, 1, 14).getValues()[0];
-    existingData[0] = 'Not Start'; // รีเซ็ตสถานะเป็น Not Start
-    existingData[5] = ''; // No
-    existingData[7] = ''; // ประเภทงาน
-    existingData[8] = ''; // จำนวน
-    existingData[9] = ''; // Job No.
-    existingData[10] = ''; // แบรนด์
-    existingData[11] = ''; // ชื่อชิ้นงาน
-    existingData[12] = ''; // เจ้าของงาน
-    sheet.getRange(rowIndex, 1, 1, 14).setValues([existingData]);
+    sheet.getRange(rowIndex, 1).setValue('Not Start'); // Check (A)
+    sheet.getRange(rowIndex, 6).clearContent(); // No (F)
+    sheet.getRange(rowIndex, 8).clearContent(); // ประเภทงาน (H)
+    sheet.getRange(rowIndex, 9).clearContent(); // จำนวน (I)
+    sheet.getRange(rowIndex, 10).clearContent(); // Job No. (J)
+    sheet.getRange(rowIndex, 11).clearContent(); // แบรนด์ (K)
+    sheet.getRange(rowIndex, 12).clearContent(); // ชื่อชิ้นงาน (L)
+    sheet.getRange(rowIndex, 13).clearContent(); // เจ้าของงาน (M)
     
     // 2. ค้นหาใน Notion และ Archive (ลบถาวร)
     const pageId = findNotionPageId(taskName, jobNumber);
@@ -755,24 +750,21 @@ function writeToPersonSheet(assignee, task) {
       ? dayNames[new Date(task.dueDate).getDay()]
       : '';
 
-    // เตรียมข้อมูลใหม่ โดยดึงของเดิมมาก่อนเพื่อไม่ให้ทับสูตรหรือค่า Default (เช่น Not Start)
-    const existingData = sheet.getRange(targetRow, 1, 1, 14).getValues()[0];
-    
-    existingData[0] = existingData[0] || 'Not Start'; // Check (A)
-    // Hr (B), Hidden (C) ปล่อยไว้ตามเดิม
-    existingData[3] = dayStr;                         // Day (D)
-    existingData[4] = dueFormatted;                   // วันที่ส่งงาน (E)
-    existingData[5] = task.jobNumber || '';           // No (F)
-    existingData[6] = existingData[6] || '09.00 - 18.00'; // ช่วงเวลา (G)
-    existingData[7] = task.workType || '';            // ประเภทงาน (H)
-    // จำนวน (I) ปล่อยไว้
-    existingData[9] = task.jobNumber || '';           // Job No. (J)
-    existingData[10] = task.brand || '';              // แบรนด์ (K)
-    existingData[11] = task.taskName || '';           // ชื่อชิ้นงาน (L)
-    existingData[12] = task.owner || '';              // เจ้าของงาน (M)
-    // Actual (N) ปล่อยไว้
+    // เตรียมข้อมูลใหม่ โดยหลีกเลี่ยง setValues ทะลุคอลัมน์เพื่อป้องกัน Data Validation ของ PM เตะออก
+    // ดึงแค่ค่าปัจจุบันของ Check และ Time เพื่อเอามาเซ็ต Default ถ้ามันว่าง
+    const existingCheck = sheet.getRange(targetRow, 1).getValue();
+    const existingTime = sheet.getRange(targetRow, 7).getValue();
 
-    sheet.getRange(targetRow, 1, 1, 14).setValues([existingData]);
+    sheet.getRange(targetRow, 1).setValue(existingCheck || 'Not Start'); // Check (A)
+    sheet.getRange(targetRow, 4).setValue(dayStr);                       // Day (D)
+    sheet.getRange(targetRow, 5).setValue(dueFormatted);                 // วันที่ส่งงาน (E)
+    sheet.getRange(targetRow, 6).setValue(task.jobNumber || '');         // No (F)
+    sheet.getRange(targetRow, 7).setValue(existingTime || '09.00 - 18.00'); // ช่วงเวลา (G)
+    sheet.getRange(targetRow, 8).setValue(task.workType || '');          // ประเภทงาน (H)
+    sheet.getRange(targetRow, 10).setValue(task.jobNumber || '');        // Job No. (J)
+    sheet.getRange(targetRow, 11).setValue(task.brand || '');            // แบรนด์ (K)
+    sheet.getRange(targetRow, 12).setValue(task.taskName || '');         // ชื่อชิ้นงาน (L)
+    sheet.getRange(targetRow, 13).setValue(task.owner || '');            // เจ้าของงาน (M)
 
     return { ok: true, row: targetRow };
   } catch (err) {
@@ -1350,7 +1342,7 @@ function assignTaskViaDrag(taskId, targetAssignee) {
         renderTasks();
         updateBtn();
       } else {
-        showToast('Error: ' + (res.errors || []).join(', '));
+        showToast('Error: ' + (res.error || (res.errors && res.errors.join(', ')) || 'Unknown error'));
       }
     })
     .withFailureHandler(function(err) {
