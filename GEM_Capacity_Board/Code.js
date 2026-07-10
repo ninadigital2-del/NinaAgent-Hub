@@ -232,6 +232,7 @@ function getCapacityData() {
         const workType = String(row[7] || '');    // ประเภทงาน (H)
         const brand = String(row[10] || '');      // แบรนด์ (K)
         const taskName = String(row[11] || '');   // ชื่อชิ้นงาน (L)
+        const jobNumber = String(row[9] || row[5] || ''); // Job No (J หรือ F)
 
         if (debugLogs[personName].sampleRows.length < 5) {
           debugLogs[personName].sampleRows.push({
@@ -240,7 +241,8 @@ function getCapacityData() {
             rawDateType: typeof rawDate,
             rawDateStr: String(rawDate),
             taskName,
-            brand
+            brand,
+            jobNumber
           });
         }
 
@@ -291,7 +293,7 @@ function getCapacityData() {
         if (taskDate >= windowStart && taskDate <= windowEnd) {
           debugLogs[personName].okCount++;
           const shortDate = Utilities.formatDate(taskDate, 'Asia/Bangkok', 'd MMM');
-          const taskObj = { rowIndex: index + 5, name: taskName, brand, workType, dateStr: shortDate, rawDate: taskDateStr, status: checkStatus };
+          const taskObj = { rowIndex: index + 5, name: taskName, brand, workType, dateStr: shortDate, rawDate: taskDateStr, status: checkStatus, jobNumber: jobNumber };
           
           if (taskDateStr === todayStr) {
             summary[personName].todayTasks.push(taskObj);
@@ -434,8 +436,8 @@ function handleUnassignTask(body) {
     const ss = SpreadsheetApp.openById(sheetId);
     const sheet = ss.getSheets()[0];
     
-    // 1. ลบแถวใน Google Sheet
-    sheet.deleteRow(rowIndex);
+    // 1. เคลียร์ข้อมูลแถวใน Google Sheet แทนการลบแถว (เพื่อไม่ให้ rowIndex ของงานอื่นเลื่อน และอิงตาม L=ว่าง)
+    sheet.getRange(rowIndex, 1, 1, 14).clearContent();
     
     // 2. ค้นหาใน Notion และลบ Assignee (ตีกลับเข้าระบบ)
     const pageId = findNotionPageId(taskName, jobNumber);
@@ -469,8 +471,8 @@ function handleDeleteTaskPermanently(body) {
     const ss = SpreadsheetApp.openById(sheetId);
     const sheet = ss.getSheets()[0];
     
-    // 1. ลบแถวใน Google Sheet
-    sheet.deleteRow(rowIndex);
+    // 1. เคลียร์ข้อมูลแถวใน Google Sheet แทนการลบแถว (เพื่อไม่ให้ rowIndex เลื่อน)
+    sheet.getRange(rowIndex, 1, 1, 14).clearContent();
     
     // 2. ค้นหาใน Notion และ Archive (ลบถาวร)
     const pageId = findNotionPageId(taskName, jobNumber);
@@ -681,8 +683,24 @@ function writeToPersonSheet(assignee, task) {
     const ss = SpreadsheetApp.openById(sheetId);
     const sheet = ss.getSheets()[0]; // Sheet แรก (Sheet1)
 
-    // หาแถวสุดท้ายที่มีข้อมูล
-    const lastRow = Math.max(sheet.getLastRow(), 4);
+    // หาแถวที่ว่างจริงๆ โดยดูจากคอลัมน์ L (ชื่อชิ้นงาน)
+    const lastRow = sheet.getLastRow();
+    let targetRow = 5;
+    
+    if (lastRow >= 5) {
+      const names = sheet.getRange(5, 12, lastRow - 4, 1).getValues();
+      let foundEmpty = false;
+      for (let i = 0; i < names.length; i++) {
+        if (!String(names[i][0]).trim()) {
+          targetRow = i + 5;
+          foundEmpty = true;
+          break;
+        }
+      }
+      if (!foundEmpty) {
+        targetRow = lastRow + 1;
+      }
+    }
 
     // แปลงวันที่
     const dueFormatted = task.dueDate
@@ -714,9 +732,9 @@ function writeToPersonSheet(assignee, task) {
       '',                    // กำหนดลงโพสต์จริง (13) -> N
     ];
 
-    sheet.getRange(lastRow + 1, 1, 1, newRow.length).setValues([newRow]);
+    sheet.getRange(targetRow, 1, 1, newRow.length).setValues([newRow]);
 
-    return { ok: true, row: lastRow + 1 };
+    return { ok: true, row: targetRow };
   } catch (err) {
     return { ok: false, error: err.message };
   }
