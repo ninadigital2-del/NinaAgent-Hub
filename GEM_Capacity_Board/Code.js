@@ -436,8 +436,18 @@ function handleUnassignTask(body) {
     const ss = SpreadsheetApp.openById(sheetId);
     const sheet = ss.getSheets()[0];
     
-    // 1. เคลียร์ข้อมูลแถวใน Google Sheet แทนการลบแถว (เพื่อไม่ให้ rowIndex ของงานอื่นเลื่อน และอิงตาม L=ว่าง)
-    sheet.getRange(rowIndex, 1, 1, 14).clearContent();
+    // 1. เคลียร์เฉพาะข้อมูลงานใน Google Sheet แทนการลบทิ้งทั้งแถว เพื่อรักษา Template และวันที่ของ PM
+    // คอลัมน์ที่ต้องลบ: F(6), H(8), I(9), J(10), K(11), L(12), M(13)
+    const existingData = sheet.getRange(rowIndex, 1, 1, 14).getValues()[0];
+    existingData[0] = 'Not Start'; // รีเซ็ตสถานะเป็น Not Start
+    existingData[5] = ''; // No
+    existingData[7] = ''; // ประเภทงาน
+    existingData[8] = ''; // จำนวน
+    existingData[9] = ''; // Job No.
+    existingData[10] = ''; // แบรนด์
+    existingData[11] = ''; // ชื่อชิ้นงาน
+    existingData[12] = ''; // เจ้าของงาน
+    sheet.getRange(rowIndex, 1, 1, 14).setValues([existingData]);
     
     // 2. ค้นหาใน Notion และลบ Assignee (ตีกลับเข้าระบบ)
     const pageId = findNotionPageId(taskName, jobNumber);
@@ -471,8 +481,17 @@ function handleDeleteTaskPermanently(body) {
     const ss = SpreadsheetApp.openById(sheetId);
     const sheet = ss.getSheets()[0];
     
-    // 1. เคลียร์ข้อมูลแถวใน Google Sheet แทนการลบแถว (เพื่อไม่ให้ rowIndex เลื่อน)
-    sheet.getRange(rowIndex, 1, 1, 14).clearContent();
+    // 1. เคลียร์เฉพาะข้อมูลงานใน Google Sheet แทนการลบทิ้งทั้งแถว
+    const existingData = sheet.getRange(rowIndex, 1, 1, 14).getValues()[0];
+    existingData[0] = 'Not Start'; // รีเซ็ตสถานะเป็น Not Start
+    existingData[5] = ''; // No
+    existingData[7] = ''; // ประเภทงาน
+    existingData[8] = ''; // จำนวน
+    existingData[9] = ''; // Job No.
+    existingData[10] = ''; // แบรนด์
+    existingData[11] = ''; // ชื่อชิ้นงาน
+    existingData[12] = ''; // เจ้าของงาน
+    sheet.getRange(rowIndex, 1, 1, 14).setValues([existingData]);
     
     // 2. ค้นหาใน Notion และ Archive (ลบถาวร)
     const pageId = findNotionPageId(taskName, jobNumber);
@@ -713,26 +732,24 @@ function writeToPersonSheet(assignee, task) {
       ? dayNames[new Date(task.dueDate).getDay()]
       : '';
 
-    // วาง row ใหม่ตาม column structure ของ Sheet:
-    // Check | Hr | (Hidden) | Day | วันที่ส่งงาน | No | ช่วงเวลา | ประเภทงาน | จำนวน | Job No. | แบรนด์ | ชื่อชิ้นงาน | เจ้าของงาน | กำหนดโพสต์ | Actual
-    const newRow = [
-      '',                    // Check — PM กรอกเอง (0) -> A
-      '',                    // Hr (1) -> B
-      '',                    // (Hidden/dropdown) (2) -> C
-      dayStr,                // Day (3) -> D
-      dueFormatted,          // วันที่ส่งงาน (4) -> E
-      task.jobNumber || '',  // No / Job Number (5) -> F
-      '09.00 - 18.00',       // ช่วงเวลา (default) (6) -> G
-      task.workType || '',   // ประเภทงาน (7) -> H
-      '',                    // จำนวนรูป/VDO (8) -> I
-      task.jobNumber || '',  // Job No. (9) -> J
-      task.brand || '',      // แบรนด์ (10) -> K
-      task.taskName || '',   // ชื่อชิ้นงาน (11) -> L
-      task.owner || '',      // เจ้าของงาน (12) -> M
-      '',                    // กำหนดลงโพสต์จริง (13) -> N
-    ];
+    // เตรียมข้อมูลใหม่ โดยดึงของเดิมมาก่อนเพื่อไม่ให้ทับสูตรหรือค่า Default (เช่น Not Start)
+    const existingData = sheet.getRange(targetRow, 1, 1, 14).getValues()[0];
+    
+    existingData[0] = existingData[0] || 'Not Start'; // Check (A)
+    // Hr (B), Hidden (C) ปล่อยไว้ตามเดิม
+    if (dayStr) existingData[3] = dayStr;             // Day (D)
+    if (dueFormatted) existingData[4] = dueFormatted; // วันที่ส่งงาน (E)
+    existingData[5] = task.jobNumber || '';           // No (F)
+    existingData[6] = existingData[6] || '09.00 - 18.00'; // ช่วงเวลา (G)
+    existingData[7] = task.workType || '';            // ประเภทงาน (H)
+    // จำนวน (I) ปล่อยไว้
+    existingData[9] = task.jobNumber || '';           // Job No. (J)
+    existingData[10] = task.brand || '';              // แบรนด์ (K)
+    existingData[11] = task.taskName || '';           // ชื่อชิ้นงาน (L)
+    existingData[12] = task.owner || '';              // เจ้าของงาน (M)
+    // Actual (N) ปล่อยไว้
 
-    sheet.getRange(targetRow, 1, 1, newRow.length).setValues([newRow]);
+    sheet.getRange(targetRow, 1, 1, 14).setValues([existingData]);
 
     return { ok: true, row: targetRow };
   } catch (err) {
