@@ -436,15 +436,27 @@ function handleUnassignTask(body) {
     const ss = SpreadsheetApp.openById(sheetId);
     const sheet = ss.getSheets()[0];
     
+    // ป้องกันกรณีโดน Sort ใน Sheet: เช็คว่าชื่อตรงไหม ถ้าไม่ตรงให้หาใหม่
+    let actualRow = rowIndex;
+    if (String(sheet.getRange(actualRow, 12).getValue()).trim() !== String(taskName).trim()) {
+      const allNames = sheet.getRange(5, 12, sheet.getLastRow() - 4, 1).getValues();
+      for (let i = 0; i < allNames.length; i++) {
+        if (String(allNames[i][0]).trim() === String(taskName).trim()) {
+          actualRow = i + 5;
+          break;
+        }
+      }
+    }
+    
     // 1. เคลียร์เฉพาะข้อมูลงานใน Google Sheet แทนการลบทิ้งทั้งแถว
-    sheet.getRange(rowIndex, 1).setValue('Not Start'); // Check (A)
-    sheet.getRange(rowIndex, 6).clearContent(); // No (F)
-    sheet.getRange(rowIndex, 8).clearContent(); // ประเภทงาน (H)
-    sheet.getRange(rowIndex, 9).clearContent(); // จำนวน (I)
-    sheet.getRange(rowIndex, 10).clearContent(); // Job No. (J)
-    sheet.getRange(rowIndex, 11).clearContent(); // แบรนด์ (K)
-    sheet.getRange(rowIndex, 12).clearContent(); // ชื่อชิ้นงาน (L)
-    sheet.getRange(rowIndex, 13).clearContent(); // เจ้าของงาน (M)
+    sheet.getRange(actualRow, 1).setValue('Not Start'); // Check (A)
+    sheet.getRange(actualRow, 6).clearContent(); // No (F)
+    sheet.getRange(actualRow, 8).clearContent(); // ประเภทงาน (H)
+    sheet.getRange(actualRow, 9).clearContent(); // จำนวน (I)
+    sheet.getRange(actualRow, 10).clearContent(); // Job No. (J)
+    sheet.getRange(actualRow, 11).clearContent(); // แบรนด์ (K)
+    sheet.getRange(actualRow, 12).clearContent(); // ชื่อชิ้นงาน (L)
+    sheet.getRange(actualRow, 13).clearContent(); // เจ้าของงาน (M)
     
     // 2. ค้นหาใน Notion และลบ Assignee (ตีกลับเข้าระบบ)
     const pageId = findNotionPageId(taskName, jobNumber);
@@ -476,15 +488,27 @@ function handleDeleteTaskPermanently(body) {
     const ss = SpreadsheetApp.openById(sheetId);
     const sheet = ss.getSheets()[0];
     
+    // ป้องกันกรณีโดน Sort ใน Sheet: เช็คว่าชื่อตรงไหม ถ้าไม่ตรงให้หาใหม่
+    let actualRow = rowIndex;
+    if (String(sheet.getRange(actualRow, 12).getValue()).trim() !== String(taskName).trim()) {
+      const allNames = sheet.getRange(5, 12, sheet.getLastRow() - 4, 1).getValues();
+      for (let i = 0; i < allNames.length; i++) {
+        if (String(allNames[i][0]).trim() === String(taskName).trim()) {
+          actualRow = i + 5;
+          break;
+        }
+      }
+    }
+    
     // 1. เคลียร์เฉพาะข้อมูลงานใน Google Sheet แทนการลบทิ้งทั้งแถว
-    sheet.getRange(rowIndex, 1).setValue('Not Start'); // Check (A)
-    sheet.getRange(rowIndex, 6).clearContent(); // No (F)
-    sheet.getRange(rowIndex, 8).clearContent(); // ประเภทงาน (H)
-    sheet.getRange(rowIndex, 9).clearContent(); // จำนวน (I)
-    sheet.getRange(rowIndex, 10).clearContent(); // Job No. (J)
-    sheet.getRange(rowIndex, 11).clearContent(); // แบรนด์ (K)
-    sheet.getRange(rowIndex, 12).clearContent(); // ชื่อชิ้นงาน (L)
-    sheet.getRange(rowIndex, 13).clearContent(); // เจ้าของงาน (M)
+    sheet.getRange(actualRow, 1).setValue('Not Start'); // Check (A)
+    sheet.getRange(actualRow, 6).clearContent(); // No (F)
+    sheet.getRange(actualRow, 8).clearContent(); // ประเภทงาน (H)
+    sheet.getRange(actualRow, 9).clearContent(); // จำนวน (I)
+    sheet.getRange(actualRow, 10).clearContent(); // Job No. (J)
+    sheet.getRange(actualRow, 11).clearContent(); // แบรนด์ (K)
+    sheet.getRange(actualRow, 12).clearContent(); // ชื่อชิ้นงาน (L)
+    sheet.getRange(actualRow, 13).clearContent(); // เจ้าของงาน (M)
     
     // 2. ค้นหาใน Notion และ Archive (ลบถาวร)
     const pageId = findNotionPageId(taskName, jobNumber);
@@ -529,7 +553,7 @@ function handleDeleteNotionTask(body) {
 }
 
 function handleRelocate(body) {
-  const { fromAssignee, rowIndex, targetAssignee } = body;
+  const { fromAssignee, rowIndex, targetAssignee, taskName: explicitTaskName } = body;
   
   const fromSheetId = SHEET_IDS[fromAssignee];
   const targetSheetId = SHEET_IDS[targetAssignee];
@@ -542,8 +566,20 @@ function handleRelocate(body) {
     const fromSheet = fromSs.getSheets()[0];
     const lastCol = fromSheet.getLastColumn();
     
+    // ป้องกันกรณีโดน Sort ใน Sheet: เช็คว่าชื่อตรงไหม ถ้าไม่ตรงให้หาใหม่
+    let actualRow = rowIndex;
+    if (explicitTaskName && String(fromSheet.getRange(actualRow, 12).getValue()).trim() !== String(explicitTaskName).trim()) {
+      const allNames = fromSheet.getRange(5, 12, fromSheet.getLastRow() - 4, 1).getValues();
+      for (let i = 0; i < allNames.length; i++) {
+        if (String(allNames[i][0]).trim() === String(explicitTaskName).trim()) {
+          actualRow = i + 5;
+          break;
+        }
+      }
+    }
+    
     // 1. อ่านข้อมูลแถวเดิมของคนเก่า
-    const rowValues = fromSheet.getRange(rowIndex, 1, 1, lastCol).getValues()[0];
+    const rowValues = fromSheet.getRange(actualRow, 1, 1, lastCol).getValues()[0];
     
     // 0: Check, 1: Hr, 2: (Hidden), 3: Day, 4: วันที่ส่งงาน, 5: No, 6: ช่วงเวลา, 7: ประเภทงาน, 8: จำนวน, 9: Job No., 10: แบรนด์, 11: ชื่อชิ้นงาน, 12: เจ้าของงาน, 13: กำหนดลงโพสต์จริง
     const rawDateVal = rowValues[4];
@@ -588,13 +624,20 @@ function handleRelocate(body) {
       owner,
       jobNumber
     });
+
     if (!writeResult.ok) {
       return { ok: false, error: 'ไม่สามารถเขียนลง Sheet คนใหม่ได้: ' + writeResult.error };
     }
 
-    // 3. จัดการแถวเก่าใน Sheet ของคนเก่า (Option 1: เปลี่ยนเป็น Cancelled)
-    fromSheet.getRange(rowIndex, 1).setValue('Cancelled');
-
+    // 3. จัดการแถวเก่าใน Sheet ของคนเก่า (เคลียร์เนื้อหาแบบเดียวกับ Unassign เพื่อป้องกันการทำลายสูตร หรือขยับบรรทัด)
+    fromSheet.getRange(actualRow, 1).setValue('Not Start'); // Check (A)
+    fromSheet.getRange(actualRow, 6).clearContent(); // No (F)
+    fromSheet.getRange(actualRow, 8).clearContent(); // ประเภทงาน (H)
+    fromSheet.getRange(actualRow, 9).clearContent(); // จำนวน (I)
+    fromSheet.getRange(actualRow, 10).clearContent(); // Job No. (J)
+    fromSheet.getRange(actualRow, 11).clearContent(); // แบรนด์ (K)
+    fromSheet.getRange(actualRow, 12).clearContent(); // ชื่อชิ้นงาน (L)
+    fromSheet.getRange(actualRow, 13).clearContent(); // เจ้าของงาน (M)
     // 4. อัปเดต Notion
     const pageId = findNotionPageId(taskName, jobNumber);
     if (pageId) {
