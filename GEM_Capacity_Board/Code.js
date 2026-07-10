@@ -456,9 +456,7 @@ function handleUnassignTask(body) {
       const cleanId = pageId.replace(/-/g, '');
       const res = notionFetch(`pages/${cleanId}`, 'PATCH', {
         properties: {
-          'Graphic Assignee': {
-            select: null
-          }
+          'Graphic Assignee': null
         }
       }, key);
       if (!res || res.object === 'error') {
