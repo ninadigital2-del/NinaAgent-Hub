@@ -711,7 +711,7 @@ function writeToPersonSheet(assignee, task) {
       const nameValues = sheet.getRange(5, 12, lastRow - 4, 1).getValues();
       
       let foundExactDate = false;
-      let targetRow = -1;
+      targetRow = -1; // ใช้ตัวแปร targetRow ด้านนอก ไม่สร้างใหม่
       let lastMatchRow = -1;
       let firstEmptyRowWithNoDate = -1;
 
