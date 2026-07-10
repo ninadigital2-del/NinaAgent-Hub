@@ -711,16 +711,21 @@ function writeToPersonSheet(assignee, task) {
       const nameValues = sheet.getRange(5, 12, lastRow - 4, 1).getValues();
       
       let foundExactDate = false;
-      let firstEmptyRow = -1;
+      let firstEmptyRowWithNoDate = -1;
 
       for (let i = 0; i < nameValues.length; i++) {
         const isNameEmpty = !String(nameValues[i][0]).trim();
+        
+        // เช็คว่าช่องวันที่ว่างไหม (เพื่อหาจุดสิ้นสุดของ Template)
+        const rawDate = dateValues[i][0];
+        const isDateEmpty = !rawDate || String(rawDate).trim() === '' || String(rawDate).trim() === '-';
+        
         if (isNameEmpty) {
-          if (firstEmptyRow === -1) firstEmptyRow = i + 5; // เก็บแถวว่างแรกสุดเผื่อไว้
+          if (isDateEmpty && firstEmptyRowWithNoDate === -1) {
+            firstEmptyRowWithNoDate = i + 5; // แถวที่ว่างทั้งชื่อและวันที่ (ท้ายตาราง Template)
+          }
           
-          // ตรวจสอบวันที่ในคอลัมน์ E ว่าตรงไหม
           let rowDateStr = '';
-          const rawDate = dateValues[i][0];
           if (rawDate instanceof Date) {
             rowDateStr = Utilities.formatDate(rawDate, 'Asia/Bangkok', 'dMMMyy');
           } else {
@@ -736,10 +741,10 @@ function writeToPersonSheet(assignee, task) {
       }
       
       if (!foundExactDate) {
-        if (firstEmptyRow !== -1) {
-          targetRow = firstEmptyRow; // ถ้าหาวันที่ตรงไม่เจอ ให้ใช้แถวว่างแถวแรก
+        if (firstEmptyRowWithNoDate !== -1) {
+          targetRow = firstEmptyRowWithNoDate; // วิ่งไปต่อท้ายตาราง (จุดที่ไม่มี Date pre-fill)
         } else {
-          targetRow = lastRow + 1;   // ถ้าไม่มีแถวว่างเลย ให้ต่อท้ายสุด
+          targetRow = lastRow + 1;
         }
       }
     }
