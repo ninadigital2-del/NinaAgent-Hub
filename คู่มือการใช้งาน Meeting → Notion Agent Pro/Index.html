@@ -639,7 +639,7 @@ ${notionProjectsCtx}
 - หากระบุเวลา ให้คำนวณจากวันประชุมปัจจุบันเสมอ วันประชุมนี้คือ: ${thaiDateStr} (${formattedToday})
 - owner (PM Owner หรือเจ้าของโปรเจกต์หลัก): ต้องระบุเป็นรายชื่อ PM จริงที่มีในระบบคนใดคนหนึ่งเท่านั้น (เลือกจากรายชื่อนี้: ${state.owners.join(', ')}) ห้ามใส่เครื่องหมาย "-" หรือ "Unassigned" หรือ "PM - อ้อ หรือ PM - ยู้" เด็ดขาด! แม้ในบันทึกประชุมจะไม่ระบุชื่อ PM ให้เดาจากบริบทหรือสุ่มมอบหมายให้ PM คนใดคนหนึ่งในรายชื่อด้านบนนี้ทันทีเพื่อเป็นเจ้าของโปรเจกต์
 - tags: ประเภทของงาน คั่นด้วยเครื่องหมายคอมม่า (comma) เสมอ เช่น "Content, Graphic"
-- priority: High / Medium / Low
+- status (สถานะงานปัจจุบันของโปรเจกต์และงานย่อย ให้ประเมินจากความคืบหน้าในที่ประชุม): "Not started" / "In progress" / "Done"
 - lead_status (สำคัญมาก เลือกเฉพาะที่มีจริงในระบบ Notion): "Lead - Initial Brief" / "Lead - Planning" / "Lead - Awaiting Presentaion" / "Lead - Presented" / "Lead - Pending Decision" / "Won" / "Lost" / "-"
 
 กติกาสำคัญสำหรับงานย่อย (sub_tasks):
@@ -664,7 +664,6 @@ ${notionProjectsCtx}
       "tags": "Graphic, Event",
       "start_date": "${formattedToday}",
       "deadline": "YYYY-MM-DD",
-      "priority": "Medium",
       "status": "Not started",
       "lead_status": "Lead - Initial Brief",
       "notes": "บันทึกสรุปเพิ่มเติมที่สำคัญ",
@@ -674,7 +673,7 @@ ${notionProjectsCtx}
           "work_type": "ประเภทงาน",
           "work_by": "-",
           "task_type": "Internal",
-          "priority": "Medium",
+          "status": "Not started",
           "due_date": "YYYY-MM-DD"
         }
       ]
@@ -874,7 +873,6 @@ function addNewProject() {
     notes: "เพิ่มสรุปรายละเอียดโปรเจกต์ตรงนี้",
     start_date: today,
     deadline: today,
-    priority: "Medium",
     status: "Not started",
     lead_status: "Lead - Initial Brief", 
     sub_tasks: []
@@ -896,7 +894,7 @@ function addNewSubtask(projIdx) {
       work_type: "General",
       task_type: "Internal",
       due_date: today,
-      priority: "Medium",
+      status: "Not started",
       checked: true,
       editing: false
     });
@@ -1096,7 +1094,6 @@ async function executeSync() {
                     work_by: (sub.work_by && sub.work_by !== '-') ? sub.work_by : pOwner,
                     work_type: mappedWorkType,
                     task_type: sub.task_type || 'Internal',
-                    priority: sub.priority || 'Medium',
                     due_date: sub.due_date || '',
                     status: sub.status || 'Not started'
                 });
