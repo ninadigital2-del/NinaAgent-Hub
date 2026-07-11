@@ -41,6 +41,7 @@ function doGet(e) {
   if (action === 'getTasks')    return jsonResponse(getNotionTasks());
   if (action === 'getCapacity') return jsonResponse(getCapacityData());
   if (action === 'getBrands')   return jsonResponse(getNotionBrands());
+  if (action === 'manual')      return HtmlService.createHtmlOutputFromFile('manual').setTitle('คู่มือการใช้งาน GEM Graphic Capacity Board').setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 
   return HtmlService.createHtmlOutput(getHtml())
     .setTitle('GEM Graphic Capacity Board')
@@ -65,12 +66,50 @@ function getAllData() {
     ok: capacity.ok && tasks.ok,
     capacity,
     tasks,
+    settings: getDropdownSettings(),
     timings: {
       capacity: t1-t0,
       tasks: t2-t1,
       total: t2-t0,
     }
   };
+}
+
+function getDropdownSettings() {
+  const props = PropertiesService.getScriptProperties();
+  let brandsStr = props.getProperty('GEM_BRANDS');
+  let workTypesStr = props.getProperty('GEM_WORK_TYPES');
+  
+  let brands = [];
+  let workTypes = [];
+  
+  try {
+    if (brandsStr) brands = JSON.parse(brandsStr);
+    if (workTypesStr) workTypes = JSON.parse(workTypesStr);
+  } catch(e) {}
+
+  if (!brands || brands.length === 0) {
+    brands = ["Nina", "STD", "NINA AI", "VIVA", "KOKUYO", "Elephant", "Quantum"];
+    props.setProperty('GEM_BRANDS', JSON.stringify(brands));
+  }
+  if (!workTypes || workTypes.length === 0) {
+    workTypes = ["New AW", "New VDO", "Project", "Resize", "Adapt", "Revise", "Content"];
+    props.setProperty('GEM_WORK_TYPES', JSON.stringify(workTypes));
+  }
+  
+  return { brands: brands, workTypes: workTypes };
+}
+
+function addDropdownSetting(type, newValue) {
+  const props = PropertiesService.getScriptProperties();
+  const key = type === 'brand' ? 'GEM_BRANDS' : 'GEM_WORK_TYPES';
+  let list = JSON.parse(props.getProperty(key) || '[]');
+  if (newValue && newValue.trim() && !list.includes(newValue.trim())) {
+    list.push(newValue.trim());
+    list.sort();
+    props.setProperty(key, JSON.stringify(list));
+  }
+  return { ok: true, list: list };
 }
 
 function doPost(e) {
@@ -98,6 +137,9 @@ function doPost(e) {
   }
   if (body.action === 'deleteNotion') {
     return jsonResponse(handleDeleteNotionTask(body));
+  }
+  if (body.action === 'addSetting') {
+    return jsonResponse(addDropdownSetting(body.type, body.newValue));
   }
   return jsonResponse({ ok: false, error: 'Unknown action' });
 }
@@ -897,53 +939,49 @@ function getHtml() {
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'IBM Plex Sans Thai',sans-serif;background:#f5f4f0;color:#1a1a18;height:100vh;display:flex;flex-direction:column;overflow:hidden}
 header{background:#fff;border-bottom:1px solid #e5e3dd;padding:10px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
-.logo{font-size:13px;font-weight:500;color:#1a1a18}
+.logo{font-size:15px;font-weight:500;color:#1a1a18}
 .logo span{color:#aaa}
-.sync{font-size:12px;color:#aaa}
+.sync{font-size:14px;color:#aaa}
 .board{display:grid;grid-template-columns:1.6fr 1fr;gap:12px;padding:12px;flex:1;min-height:0}
-#people-panel{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;align-content:start}
-@media(max-width:900px){
-  #people-panel{grid-template-columns:1fr}
-}
 @media(max-width:700px){
   body{height:auto;overflow:auto}
   .board{grid-template-columns:1fr;grid-template-rows:auto auto;flex:none;height:auto;padding:8px;gap:8px}
   .panel{min-height:320px;max-height:70vh}
   header{padding:8px 14px}
-  .logo{font-size:12px}
+  .logo{font-size:14px}
 }
-.panel{background:#fff;border:1px solid #e5e3dd;border-radius:12px;display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.panel{background:#fff;border:1px solid #e5e3dd;border-radius:12px;display:flex;flex-direction:column;min-height:0;min-width:0;overflow:hidden}
 .ph{padding:10px 14px;border-bottom:1px solid #e5e3dd;flex-shrink:0}
 .ph-row{display:flex;align-items:center;justify-content:space-between}
-.pt{font-size:11px;font-weight:500;color:#888;text-transform:uppercase;letter-spacing:.05em}
-.pc{font-size:11px;color:#aaa}
-.cond{font-size:10px;color:#bbb;margin-top:4px}
+.pt{font-size:13px;font-weight:500;color:#888;text-transform:uppercase;letter-spacing:.05em}
+.pc{font-size:13px;color:#aaa}
+.cond{font-size:12px;color:#bbb;margin-top:4px}
 .pb{overflow-y:auto;flex:1;padding:10px}
 .person-card{border:1px solid #e5e3dd;border-radius:12px;padding:0;margin:0;cursor:pointer;background:#fff;transition:border-color .15s,box-shadow .15s;overflow:hidden}
 .person-card:hover{border-color:#bbb;box-shadow:0 2px 8px rgba(0,0,0,0.06)}
 .person-card.selected{border-color:#378ADD;background:#EBF4FD}
 .person-card.drag-over{border-color:#378ADD;border-style:dashed;background:#EBF4FD}
 .pc-header{display:flex;align-items:center;gap:10px;padding:10px 14px;background:linear-gradient(135deg,#faf9f7 0%,#f5f4f0 100%);border-bottom:1px solid #ece9e3}
-.av{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;flex-shrink:0;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.1)}
+.av{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;flex-shrink:0;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.1)}
 .pc-info{flex:1;min-width:0}
-.pn{font-size:13px;font-weight:600;color:#1a1a18}
-.ps{font-size:10px;color:#999;margin-top:1px}
-.badge{font-size:9px;font-weight:600;padding:2px 8px;border-radius:20px;flex-shrink:0;letter-spacing:.02em;text-transform:uppercase}
+.pn{font-size:15px;font-weight:600;color:#1a1a18}
+.ps{font-size:12px;color:#999;margin-top:1px}
+.badge{font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px;flex-shrink:0;letter-spacing:.02em;text-transform:uppercase}
 .g{background:#EAF3DE;color:#3B6D11}
 .a{background:#FAEEDA;color:#854F0B}
 .r{background:#FCEBEB;color:#A32D2D}
-.pc-stats{display:flex;align-items:center;gap:8px;padding:6px 14px;background:#fff}
-.bb{flex:1;height:4px;background:#eee;border-radius:3px;overflow:hidden}
+.pc-stats{display:flex;align-items:center;gap:8px;padding:8px 14px;background:#fff}
+.bb{flex:1;height:5px;background:#eee;border-radius:3px;overflow:hidden}
 .bf{height:100%;border-radius:3px;transition:width .3s ease}
-.bl{font-size:10px;color:#999;min-width:24px;text-align:right;font-weight:500}
-.today-box{padding:6px 10px;background:#fff;font-size:11px;max-height:180px;overflow-y:auto;border-top:1px solid #f0efea;}
-.today-lbl{color:#aaa;margin-bottom:3px;font-size:9px;text-transform:uppercase;letter-spacing:.06em;font-weight:600;position:sticky;top:0;background:#fff;padding-bottom:2px;z-index:1;}
-.today-item{display:flex;align-items:center;padding:2px 0;gap:4px;}
+.bl{font-size:12px;color:#999;min-width:24px;text-align:right;font-weight:500}
+.today-box{padding:8px 12px;background:#fff;font-size:13px;max-height:180px;overflow-y:auto;border-top:1px solid #f0efea;}
+.today-lbl{color:#aaa;margin-bottom:4px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:600;position:sticky;top:0;background:#fff;padding-bottom:2px;z-index:1;}
+.today-item{display:flex;align-items:center;padding:4px 0;gap:6px;}
 .task-name-text{flex:1;color:#555;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .today-item.is-today .task-name-text{color:#D83B01;font-weight:600;}
-.task-date{font-size:9px;color:#999;display:inline-block;width:35px;flex-shrink:0;}
-.today-item-actions{display:flex;align-items:center;gap:3px;margin-left:auto;flex-shrink:0}
-.btn-done,.btn-edit,.btn-return,.btn-delete{background:transparent;border:1px solid #ddd;color:#888;border-radius:4px;padding:2px 5px;font-size:9px;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center}
+.task-date{font-size:11px;color:#999;display:inline-block;width:40px;flex-shrink:0;}
+.today-item-actions{display:flex;align-items:center;gap:4px;margin-left:auto;flex-shrink:0}
+.btn-done,.btn-edit,.btn-return,.btn-delete{background:transparent;border:1px solid #ddd;color:#888;border-radius:6px;padding:4px 8px;font-size:11px;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center}
 .btn-done:hover{background:#EAF3DE;border-color:#639922;color:#3B6D11}
 .btn-edit:hover{background:#EBF4FD;border-color:#378ADD;color:#185FA5}
 .btn-return:hover{background:#FFF9E6;border-color:#EF9F27;color:#854F0B}
@@ -951,44 +989,50 @@ header{background:#fff;border-bottom:1px solid #e5e3dd;padding:10px 20px;display
 .btn-done:disabled,.btn-edit:disabled,.btn-return:disabled,.btn-delete:disabled{opacity:0.5;cursor:default}
 .modal-backdrop{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;z-index:1000;opacity:0;pointer-events:none;transition:opacity .2s}
 .modal-backdrop.show{opacity:1;pointer-events:auto}
-.modal-box{background:#fff;border-radius:12px;border:1px solid #e5e3dd;width:90%;max-width:360px;padding:16px;box-shadow:0 8px 30px rgba(0,0,0,0.12);transform:scale(0.95);transition:transform .2s}
+.modal-box{background:#fff;border-radius:12px;border:1px solid #e5e3dd;width:95%;max-width:560px;padding:24px;box-shadow:0 8px 30px rgba(0,0,0,0.12);transform:scale(0.95);transition:transform .2s}
 .modal-backdrop.show .modal-box{transform:scale(1)}
-.modal-title{font-size:13px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:6px}
-.modal-form-group{margin-bottom:10px}
-.modal-form-group label{display:block;font-size:10px;color:#888;margin-bottom:3px;text-transform:uppercase;font-weight:500}
-.modal-form-group input{width:100%;padding:6px 9px;border:1px solid #ddd;border-radius:6px;font-size:12px;background:#fff;color:#1a1a18}
-.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
-.modal-btn{padding:6px 12px;font-size:11px;font-weight:500;border:1px solid #ddd;border-radius:6px;background:#fff;color:#555;cursor:pointer}
+.chip-group{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.chip{background:#f0efea;border:1px solid #e5e3dd;border-radius:20px;padding:6px 14px;font-size:13px;color:#555;cursor:pointer;transition:all 0.2s;user-select:none;font-weight:500;}
+.chip:hover{background:#e5e3dd;}
+.chip.selected{background:#eef2ff;border-color:#6366f1;color:#4f46e5;font-weight:600;box-shadow:0 2px 6px rgba(99,102,241,0.15);}
+.chip-add{background:transparent;border:1px dashed #bbb;color:#6366f1;}
+.chip-add:hover{background:#f8fafc;border-color:#6366f1;}
+.modal-title{font-size:15px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:6px}
+.modal-form-group{margin-bottom:12px}
+.modal-form-group label{display:block;font-size:12px;color:#888;margin-bottom:4px;text-transform:uppercase;font-weight:500}
+.modal-form-group input{width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:6px;font-size:14px;background:#fff;color:#1a1a18}
+.modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:16px}
+.modal-btn{padding:8px 16px;font-size:13px;font-weight:500;border:1px solid #ddd;border-radius:6px;background:#fff;color:#555;cursor:pointer}
 .modal-btn-save{border-color:#378ADD;background:#EBF4FD;color:#185FA5}
 .modal-btn-save:hover{background:#378ADD;color:#fff}
 .modal-btn-cancel:hover{background:#f5f4f0}
-.task-item{border:1px solid #e5e3dd;border-radius:8px;padding:9px 11px;margin-bottom:7px;cursor:pointer;background:#fff;transition:border-color .15s;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.task-item{border:1px solid #e5e3dd;border-radius:8px;padding:12px 14px;margin-bottom:10px;cursor:pointer;background:#fff;transition:border-color .15s;display:flex;align-items:center;justify-content:space-between;gap:10px}
 .task-item:hover{border-color:#bbb}
 .task-item.selected{border-color:#378ADD;background:#EBF4FD}
 .task-item-main{flex:1;min-width:0}
-.task-item-actions{display:flex;align-items:center;gap:3px;flex-shrink:0}
-.tn{font-size:12px;font-weight:500;line-height:1.4;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.tm{display:flex;flex-wrap:wrap;gap:3px}
-.tag{font-size:10px;padding:1px 6px;border-radius:4px;background:#f5f4f0;border:1px solid #e5e3dd;color:#777}
+.task-item-actions{display:flex;align-items:center;gap:4px;flex-shrink:0}
+.tn{font-size:14px;font-weight:500;line-height:1.4;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tm{display:flex;flex-wrap:wrap;gap:4px}
+.tag{font-size:12px;padding:2px 8px;border-radius:4px;background:#f5f4f0;border:1px solid #e5e3dd;color:#777}
 .tag-due{color:#854F0B}
 .tag-late{color:#A32D2D}
-.abar{padding:10px 14px;border-top:1px solid #e5e3dd;background:#fafaf8;display:flex;gap:8px;align-items:center;flex-shrink:0}
-.abar select{flex:1;font-size:12px;padding:6px 9px;border:1px solid #ddd;border-radius:7px;background:#fff;color:#1a1a18}
-.abtn{padding:6px 16px;font-size:12px;font-weight:500;border:1px solid #378ADD;border-radius:7px;background:#EBF4FD;color:#185FA5;cursor:pointer;white-space:nowrap}
+.abar{padding:12px 16px;border-top:1px solid #e5e3dd;background:#fafaf8;display:flex;gap:10px;align-items:center;flex-shrink:0}
+.abar select{flex:1;font-size:14px;padding:8px 12px;border:1px solid #ddd;border-radius:7px;background:#fff;color:#1a1a18}
+.abtn{padding:8px 18px;font-size:14px;font-weight:500;border:1px solid #378ADD;border-radius:7px;background:#EBF4FD;color:#185FA5;cursor:pointer;white-space:nowrap}
 .abtn:not(:disabled):hover{background:#378ADD;color:#fff}
 .abtn:disabled{opacity:.4;cursor:default}
 @media(max-width:700px){
-  .abar{padding:8px 10px;position:sticky;bottom:0}
-  .abar select{font-size:14px;padding:8px 10px}
-  .abtn{padding:8px 18px;font-size:14px}
-  .ph{padding:8px 12px}
-  .pb{padding:8px}
-  .person-card,.task-item{padding:8px 10px;margin-bottom:6px}
-  .pn,.tn{font-size:14px}
-  .ps,.tm{font-size:12px}
-  .badge{font-size:11px;padding:3px 8px}
+  .abar{padding:10px 12px;position:sticky;bottom:0}
+  .abar select{font-size:16px;padding:10px 12px}
+  .abtn{padding:10px 20px;font-size:16px}
+  .ph{padding:10px 14px}
+  .pb{padding:10px}
+  .person-card,.task-item{padding:10px 12px;margin-bottom:8px}
+  .pn,.tn{font-size:16px}
+  .ps,.tm{font-size:14px}
+  .badge{font-size:12px;padding:4px 10px}
 }
-.empty{text-align:center;padding:36px 0;color:#bbb;font-size:12px}
+.empty{text-align:center;padding:40px 0;color:#bbb;font-size:14px}
 .toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#1a1a18;color:#fff;padding:8px 16px;border-radius:8px;font-size:12px;opacity:0;transition:opacity .25s;pointer-events:none;z-index:999;white-space:nowrap}
 .toast.show{opacity:1}
 </style>
@@ -1042,30 +1086,14 @@ header{background:#fff;border-bottom:1px solid #e5e3dd;padding:10px 20px;display
       <input type="text" id="edit-task-name">
     </div>
     <div class="modal-form-group">
-      <label for="edit-brand">แบรนด์</label>
-      <select id="edit-brand">
-        <option value="">-- ไม่ระบุ --</option>
-        <option value="Nina">Nina</option>
-        <option value="STD">STD</option>
-        <option value="NINA AI">NINA AI</option>
-        <option value="VIVA">VIVA</option>
-        <option value="KOKUYO">KOKUYO</option>
-        <option value="Elephant">Elephant</option>
-        <option value="Quantum">Quantum</option>
-      </select>
+      <label>แบรนด์</label>
+      <input type="hidden" id="edit-brand">
+      <div id="chip-brand-container" class="chip-group"></div>
     </div>
     <div class="modal-form-group">
-      <label for="edit-work-type">ประเภทงาน</label>
-      <select id="edit-work-type">
-        <option value="">-- ไม่ระบุ --</option>
-        <option value="New AW">New AW</option>
-        <option value="New VDO">New VDO</option>
-        <option value="Project">Project</option>
-        <option value="Resize">Resize</option>
-        <option value="Adapt">Adapt</option>
-        <option value="Revise">Revise</option>
-        <option value="Content">Content</option>
-      </select>
+      <label>ประเภทงาน</label>
+      <input type="hidden" id="edit-work-type">
+      <div id="chip-work-type-container" class="chip-group"></div>
     </div>
     <div class="modal-form-group">
       <label for="edit-due-date">วันที่ส่งงาน</label>
@@ -1098,6 +1126,83 @@ function esc(str) {
     .replace(/"/g, '&quot;');
 }
 
+function selectChip(el, inputId) {
+  const input = document.getElementById(inputId);
+  if(input) input.value = el.getAttribute('data-val');
+  
+  const container = el.parentElement;
+  const chips = container.querySelectorAll('.chip:not(.chip-add)');
+  chips.forEach(function(c) { c.classList.remove('selected'); });
+  el.classList.add('selected');
+}
+
+function syncChipsState(inputId, containerId) {
+  const input = document.getElementById(inputId);
+  const container = document.getElementById(containerId);
+  if(!input || !container) return;
+  const val = input.value;
+  const chips = container.querySelectorAll('.chip:not(.chip-add)');
+  chips.forEach(function(c) {
+    if(c.getAttribute('data-val') === val) {
+      c.classList.add('selected');
+    } else {
+      c.classList.remove('selected');
+    }
+  });
+}
+
+function renderDropdownSettings() {
+  if (!state.settings) return;
+  
+  function renderChips(containerId, inputId, list, type) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    container.innerHTML = '';
+    
+    let html = '<div class="chip" data-val="" onclick="selectChip(this, \\''+inputId+'\\')">-- ไม่ระบุ --</div>';
+    list.forEach(function(item) {
+      html += '<div class="chip" data-val="'+esc(item)+'" onclick="selectChip(this, \\''+inputId+'\\')">'+esc(item)+'</div>';
+    });
+    html += '<div class="chip chip-add" onclick="handleAddNewChip(\\''+type+'\\')">➕ เพิ่มรายการใหม่...</div>';
+    
+    container.innerHTML = html;
+    syncChipsState(inputId, containerId);
+  }
+  
+  renderChips('chip-brand-container', 'edit-brand', state.settings.brands, 'brand');
+  renderChips('chip-work-type-container', 'edit-work-type', state.settings.workTypes, 'workType');
+}
+
+function handleAddNewChip(type) {
+  const label = type === 'brand' ? 'ชื่อแบรนด์ใหม่' : 'ชื่อประเภทงานใหม่';
+  const newVal = prompt('ระบุ' + label + ' :');
+  if (!newVal || !newVal.trim()) return;
+  
+  showToast('กำลังเพิ่ม ' + newVal + '...');
+  
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res.ok) {
+        if (type === 'brand') {
+          state.settings.brands = res.list;
+          document.getElementById('edit-brand').value = newVal.trim();
+        }
+        if (type === 'workType') {
+          state.settings.workTypes = res.list;
+          document.getElementById('edit-work-type').value = newVal.trim();
+        }
+        renderDropdownSettings();
+        showToast('เพิ่มรายการเรียบร้อยแล้ว');
+      } else {
+        showToast('เกิดข้อผิดพลาดในการเพิ่มรายการ');
+      }
+    })
+    .withFailureHandler(function(err) {
+      showToast('Error: ' + err.message);
+    })
+    .addSetting({ action: 'addSetting', type: type, newValue: newVal });
+}
+
 function init() {
   google.script.run
     .withSuccessHandler(function(res) {
@@ -1114,6 +1219,10 @@ function init() {
         state.tasks = tasks.tasks || [];
       } else {
         document.getElementById('sync-info').textContent = 'โหลด tasks ไม่สำเร็จ';
+      }
+      if (res.settings) {
+        state.settings = res.settings;
+        renderDropdownSettings();
       }
       const sel = document.getElementById('sel-assignee');
       state.people.slice().sort(function(a,b){return a.open-b.open;}).forEach(function(p) {
@@ -1538,8 +1647,11 @@ function openEditModal(assignee, rowIndex, name, brand, workType, rawDate, jobNu
   
   document.getElementById('edit-task-name').value = name;
   
-  setSelectValue('edit-brand', brand);
-  setSelectValue('edit-work-type', workType);
+  document.getElementById('edit-brand').value = brand || '';
+  syncChipsState('edit-brand', 'chip-brand-container');
+  
+  document.getElementById('edit-work-type').value = workType || '';
+  syncChipsState('edit-work-type', 'chip-work-type-container');
   document.getElementById('edit-due-date').value = parseToIsoDate(rawDate);
   
   document.getElementById('edit-modal').classList.add('show');
