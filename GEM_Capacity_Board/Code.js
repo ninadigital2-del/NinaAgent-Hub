@@ -153,8 +153,12 @@ function getNotionTasks() {
 
   const payload = {
     filter: {
-      property: 'Status',
-      status: { equals: 'Not started' }
+      and: [
+        {
+          property: 'Status',
+          status: { does_not_equal: 'Done' }
+        }
+      ]
     },
     sorts: [{ property: 'Due Date', direction: 'ascending' }],
     page_size: 100
@@ -1503,17 +1507,21 @@ function renderTasks() {
       const escDate = esc(t.dueDate);
       const escId = esc(t.id);
 
+      const escStatus = esc(t.status || 'Not started');
+      const stMeta = getStatusMeta(t.status, t.dueDate);
+
       item.innerHTML =
         '<div class="task-item-main">'
-        + '<div class="tn" title="'+escName+'">'+t.name+'</div>'
+        + '<div class="tn ' + stMeta.textClass + '" title="'+escName+'">'
+        + '<span class="status-tag ' + stMeta.tagClass + '">' + esc(stMeta.text) + '</span>' + t.name + '</div>'
         + '<div class="tm">'
         + (t.workType?'<span class="tag">'+t.workType+'</span>':'')
         + (due?'<span class="tag '+dueC+'"><i class="ti ti-calendar" style="font-size:10px"></i> '+due+'</span>':'')
         + '</div>'
         + '</div>'
         + '<div class="task-item-actions" onclick="event.stopPropagation()">'
-        + '<button class="btn-edit" onclick="openUnassignedEditModal(&#39;'+escId+'&#39;, &#39;'+escName+'&#39;, &#39;'+escBrand+'&#39;, &#39;'+escWorkType+'&#39;, &#39;'+escDate+'&#39;)" title="แก้ไข">✎</button>'
-        + '<button class="btn-delete" onclick="deleteUnassignedTask(&#39;'+escId+'&#39;, &#39;'+escName+'&#39;, this)" title="ลบงาน">🗑</button>'
+        + '<button class="btn-edit" onclick="openUnassignedEditModal(\\''+escId+'\\', \\''+escName+'\\', \\''+escBrand+'\\', \\''+escWorkType+'\\', \\''+escDate+'\\', \\''+escStatus+'\\')" title="แก้ไข">✎</button>'
+        + '<button class="btn-delete" onclick="deleteUnassignedTask(\\''+escId+'\\', \\''+escName+'\\', this)" title="ลบงาน">🗑</button>'
         + '</div>';
       item.onclick = function() {
         state.selectedTask = state.selectedTask===t.id?null:t.id;
@@ -1904,7 +1912,7 @@ function deleteTaskPermanently(assignee, rowIndex, taskName, jobNumber, btn) {
     });
 }
 
-function openUnassignedEditModal(taskId, name, brand, workType, rawDate) {
+function openUnassignedEditModal(taskId, name, brand, workType, rawDate, status) {
   document.getElementById('edit-assignee').value = '';
   document.getElementById('edit-row-index').value = '';
   document.getElementById('edit-old-task-name').value = taskId;
@@ -1912,8 +1920,15 @@ function openUnassignedEditModal(taskId, name, brand, workType, rawDate) {
   
   document.getElementById('edit-task-name').value = name;
   document.getElementById('edit-brand').value = brand || '';
+  syncChipsState('edit-brand', 'chip-brand-container');
+  
   document.getElementById('edit-work-type').value = workType || '';
-  document.getElementById('edit-due-date').value = rawDate || '';
+  syncChipsState('edit-work-type', 'chip-work-type-container');
+  
+  document.getElementById('edit-status').value = status || 'Not started';
+  syncChipsState('edit-status', 'chip-status-container');
+  
+  document.getElementById('edit-due-date').value = parseToIsoDate(rawDate);
   
   document.getElementById('edit-modal').classList.add('show');
 }
