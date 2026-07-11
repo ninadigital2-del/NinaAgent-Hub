@@ -388,13 +388,21 @@ function getCapacityData() {
 // ---------- ACTION: MARK DONE ----------
 
 function handleMarkDone(body) {
-  const { assignee, rowIndex } = body;
+  const { assignee, rowIndex, taskName, jobNumber } = body;
   const sheetId = SHEET_IDS[assignee];
   if (!sheetId) return { ok: false, error: 'ไม่พบ Sheet ของ ' + assignee };
   try {
     const ss = SpreadsheetApp.openById(sheetId);
     const sheet = ss.getSheets()[0];
     sheet.getRange(rowIndex, 1).setValue('Done');
+    
+    if (taskName) {
+      const pageId = findNotionPageId(taskName, jobNumber);
+      if (pageId) {
+        updateNotionTaskDetails(pageId, { status: 'Done' });
+      }
+    }
+    
     return { ok: true };
   } catch (err) {
     return { ok: false, error: err.message };
@@ -431,6 +439,12 @@ function handleEditTask(body) {
     const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
     const dayStr = dueDate ? dayNames[new Date(dueDate).getDay()] : '';
     
+    if (body.status) {
+      let sheetStatus = body.status;
+      if (body.status === 'Not started') sheetStatus = 'Not Start';
+      sheet.getRange(actualRow, 1).setValue(sheetStatus);
+    }
+    
     sheet.getRange(actualRow, 4).setValue(dayStr);
     sheet.getRange(actualRow, 5).setValue(dueFormatted);
     sheet.getRange(actualRow, 8).setValue(workType || '');
@@ -440,7 +454,7 @@ function handleEditTask(body) {
     // 2. ค้นหาและอัปเดตใน Notion
     const pageId = findNotionPageId(oldTaskName, oldJobNumber);
     if (pageId) {
-      updateNotionTaskDetails(pageId, { taskName, dueDate, workType });
+      updateNotionTaskDetails(pageId, { taskName, dueDate, workType, status: body.status });
     }
     
     return { ok: true };
@@ -469,9 +483,15 @@ function updateNotionTaskDetails(pageId, details) {
     properties['Due Date'] = {
       date: { start: details.dueDate }
     };
-  } else {
+  } else if (details.dueDate !== undefined) {
     properties['Due Date'] = {
       date: null
+    };
+  }
+  
+  if (details.status) {
+    properties['Status'] = {
+      status: { name: details.status }
     };
   }
   
@@ -582,9 +602,9 @@ function handleDeleteTaskPermanently(body) {
 }
 
 function handleEditNotionTask(body) {
-  const { pageId, taskName, brand, workType, dueDate } = body;
+  const { pageId, taskName, brand, workType, dueDate, status } = body;
   try {
-    updateNotionTaskDetails(pageId, { taskName, dueDate, workType });
+    updateNotionTaskDetails(pageId, { taskName, dueDate, workType, status });
     return { ok: true };
   } catch (err) {
     return { ok: false, error: err.message };
@@ -1096,6 +1116,11 @@ header{background:#fff;border-bottom:1px solid #e5e3dd;padding:10px 20px;display
       <div id="chip-work-type-container" class="chip-group"></div>
     </div>
     <div class="modal-form-group">
+      <label>สถานะงาน (Status)</label>
+      <input type="hidden" id="edit-status">
+      <div id="chip-status-container" class="chip-group"></div>
+    </div>
+    <div class="modal-form-group">
       <label for="edit-due-date">วันที่ส่งงาน</label>
       <input type="date" id="edit-due-date">
     </div>
@@ -1171,6 +1196,18 @@ function renderDropdownSettings() {
   
   renderChips('chip-brand-container', 'edit-brand', state.settings.brands, 'brand');
   renderChips('chip-work-type-container', 'edit-work-type', state.settings.workTypes, 'workType');
+  
+  const statusContainer = document.getElementById('chip-status-container');
+  if (statusContainer) {
+    statusContainer.innerHTML = '';
+    const statusList = ['Not started', 'In progress', 'Done'];
+    let html = '';
+    statusList.forEach(function(item) {
+      html += '<div class="chip" data-val="'+esc(item)+'" onclick="selectChip(this, \\'edit-status\\')">'+esc(item)+'</div>';
+    });
+    statusContainer.innerHTML = html;
+    syncChipsState('edit-status', 'chip-status-container');
+  }
 }
 
 function handleAddNewChip(type) {
@@ -1262,12 +1299,13 @@ function renderPeople() {
         const escWorkType = esc(t.workType);
         const escDate = esc(t.rawDate);
         const escJob = esc(t.jobNumber);
+        const escStatus = esc(t.status || '');
         return '<div class="today-item is-today" draggable="true" ondragstart="handleAssignedDragStart(event, &#39;'+p.name+'&#39;, '+t.rowIndex+')">'
              + '<span class="task-date">วันนี้</span>'
              + '<span class="task-name-text" title="'+escName+'">\u00b7 '+t.name+'</span>'
              + '<div class="today-item-actions" onclick="event.stopPropagation()">'
-             + '<button class="btn-done" onclick="markTaskDone(&#39;'+p.name+'&#39;, '+t.rowIndex+', this, event)" title="ทำเสร็จแล้ว">✔</button>'
-             + '<button class="btn-edit" onclick="openEditModal(&#39;'+p.name+'&#39;, '+t.rowIndex+', &#39;'+escName+'&#39;, &#39;'+escBrand+'&#39;, &#39;'+escWorkType+'&#39;, &#39;'+escDate+'&#39;, &#39;'+escJob+'&#39;)" title="แก้ไข">✎</button>'
+             + '<button class="btn-done" onclick="markTaskDone(&#39;'+p.name+'&#39;, '+t.rowIndex+', &#39;'+escName+'&#39;, &#39;'+escJob+'&#39;, this, event)" title="ทำเสร็จแล้ว">✔</button>'
+             + '<button class="btn-edit" onclick="openEditModal(&#39;'+p.name+'&#39;, '+t.rowIndex+', &#39;'+escName+'&#39;, &#39;'+escBrand+'&#39;, &#39;'+escWorkType+'&#39;, &#39;'+escDate+'&#39;, &#39;'+escJob+'&#39;, &#39;'+escStatus+'&#39;)" title="แก้ไข">✎</button>'
              + '<button class="btn-return" onclick="returnTaskToPool(&#39;'+p.name+'&#39;, '+t.rowIndex+', &#39;'+escName+'&#39;, &#39;'+escJob+'&#39;, this)" title="ตีกลับเข้าระบบ (Unassign)">↩</button>'
              + '<button class="btn-delete" onclick="deleteTaskPermanently(&#39;'+p.name+'&#39;, '+t.rowIndex+', &#39;'+escName+'&#39;, &#39;'+escJob+'&#39;, this)" title="ลบงานทิ้งถาวร">🗑</button>'
              + '</div></div>';
@@ -1278,12 +1316,13 @@ function renderPeople() {
         const escWorkType = esc(t.workType);
         const escDate = esc(t.rawDate);
         const escJob = esc(t.jobNumber);
+        const escStatus = esc(t.status || '');
         return '<div class="today-item" draggable="true" ondragstart="handleAssignedDragStart(event, &#39;'+p.name+'&#39;, '+t.rowIndex+')">'
              + '<span class="task-date">'+t.dateStr+'</span>'
              + '<span class="task-name-text" title="'+escName+'">\u00b7 '+t.name+'</span>'
              + '<div class="today-item-actions" onclick="event.stopPropagation()">'
-             + '<button class="btn-done" onclick="markTaskDone(&#39;'+p.name+'&#39;, '+t.rowIndex+', this, event)" title="ทำเสร็จแล้ว">✔</button>'
-             + '<button class="btn-edit" onclick="openEditModal(&#39;'+p.name+'&#39;, '+t.rowIndex+', &#39;'+escName+'&#39;, &#39;'+escBrand+'&#39;, &#39;'+escWorkType+'&#39;, &#39;'+escDate+'&#39;, &#39;'+escJob+'&#39;)" title="แก้ไข">✎</button>'
+             + '<button class="btn-done" onclick="markTaskDone(&#39;'+p.name+'&#39;, '+t.rowIndex+', &#39;'+escName+'&#39;, &#39;'+escJob+'&#39;, this, event)" title="ทำเสร็จแล้ว">✔</button>'
+             + '<button class="btn-edit" onclick="openEditModal(&#39;'+p.name+'&#39;, '+t.rowIndex+', &#39;'+escName+'&#39;, &#39;'+escBrand+'&#39;, &#39;'+escWorkType+'&#39;, &#39;'+escDate+'&#39;, &#39;'+escJob+'&#39;, &#39;'+escStatus+'&#39;)" title="แก้ไข">✎</button>'
              + '<button class="btn-return" onclick="returnTaskToPool(&#39;'+p.name+'&#39;, '+t.rowIndex+', &#39;'+escName+'&#39;, &#39;'+escJob+'&#39;, this)" title="ตีกลับเข้าระบบ (Unassign)">↩</button>'
              + '<button class="btn-delete" onclick="deleteTaskPermanently(&#39;'+p.name+'&#39;, '+t.rowIndex+', &#39;'+escName+'&#39;, &#39;'+escJob+'&#39;, this)" title="ลบงานทิ้งถาวร">🗑</button>'
              + '</div></div>';
@@ -1488,37 +1527,36 @@ function showToast(msg) {
   setTimeout(function(){t.classList.remove('show');}, 3000);
 }
 
-function markTaskDone(assignee, rowIndex, btn, e) {
-  e.stopPropagation(); // กันไม่ให้ไปคลิกเลือกคน
+function markTaskDone(assignee, rowIndex, taskName, jobNumber, btn, e) {
+  e.stopPropagation();
   btn.disabled = true;
   btn.textContent = '...';
   google.script.run
     .withSuccessHandler(function(res) {
       if (res.ok) {
         showToast('ทำเครื่องหมาย Done แล้ว!');
-        btn.parentElement.style.opacity = '0.4';
-        btn.remove(); // เอาปุ่มออก
-        
-        // หักลบจำนวนใน state แล้วสั่งเรนเดอร์ใหม่
-        const person = state.people.find(function(p){return p.name===assignee;});
-        if (person) {
-          person.open = Math.max(0, person.open - 1);
-          if (person.todayTasks) person.todayTasks = person.todayTasks.filter(function(t){return t.rowIndex!==rowIndex;});
-          if (person.periodTasks) person.periodTasks = person.periodTasks.filter(function(t){return t.rowIndex!==rowIndex;});
-          renderPeople();
-        }
+        google.script.run
+          .withSuccessHandler(function(allData) {
+            if (allData.ok) {
+              state.people = allData.capacity.people;
+              state.tasks = allData.tasks.tasks;
+              renderPeople();
+              renderTasks();
+            }
+          })
+          .getAllData();
       } else {
         showToast('Error: ' + res.error);
         btn.disabled = false;
-        btn.textContent = '✔ Done';
+        btn.textContent = '✔';
       }
     })
     .withFailureHandler(function(err) {
       showToast('Error: ' + err.message);
       btn.disabled = false;
-      btn.textContent = '✔ Done';
+      btn.textContent = '✔';
     })
-    .handleMarkDone({action:'markDone', assignee:assignee, rowIndex:rowIndex});
+    .handleMarkDone({action:'markDone', assignee:assignee, rowIndex:rowIndex, taskName:taskName, jobNumber:jobNumber});
 }
 
 function handleAssignedDragStart(event, fromAssignee, rowIndex) {
@@ -1539,7 +1577,6 @@ function assignTaskViaDrag(taskId, targetAssignee) {
         const person = state.people.find(function(p){return p.name===targetAssignee;});
         if (person) {
           person.open = Math.max(0, person.open + 1);
-          // ดึงข้อมูลรอบใหม่เพื่อดึงงานเข้าแถวในตัวคน
           google.script.run
             .withSuccessHandler(function(allData) {
               if (allData.ok) {
@@ -1572,7 +1609,6 @@ function relocateTaskViaDrag(fromAssignee, rowIndex, targetAssignee) {
     .withSuccessHandler(function(res) {
       if (res.ok) {
         showToast('ย้ายงาน \u2192 ' + targetAssignee + ' สำเร็จ!');
-        // ดึงข้อมูลใหม่เพื่อให้อัปเดตตารางและจำนวนของทั้งสองคน
         google.script.run
           .withSuccessHandler(function(allData) {
             if (allData.ok) {
@@ -1598,25 +1634,6 @@ function relocateTaskViaDrag(fromAssignee, rowIndex, targetAssignee) {
     });
 }
 
-function setSelectValue(id, val) {
-  const sel = document.getElementById(id);
-  const safeVal = val || '';
-  let found = false;
-  for (let i = 0; i < sel.options.length; i++) {
-    if (sel.options[i].value === safeVal) {
-      found = true;
-      break;
-    }
-  }
-  if (!found && safeVal) {
-    const opt = document.createElement('option');
-    opt.value = safeVal;
-    opt.text = safeVal;
-    sel.appendChild(opt);
-  }
-  sel.value = safeVal;
-}
-
 function parseToIsoDate(dStr) {
   if (!dStr) return '';
   dStr = String(dStr).trim();
@@ -1639,7 +1656,7 @@ function parseToIsoDate(dStr) {
   return '';
 }
 
-function openEditModal(assignee, rowIndex, name, brand, workType, rawDate, jobNumber) {
+function openEditModal(assignee, rowIndex, name, brand, workType, rawDate, jobNumber, status) {
   document.getElementById('edit-assignee').value = assignee;
   document.getElementById('edit-row-index').value = rowIndex;
   document.getElementById('edit-old-task-name').value = name;
@@ -1652,6 +1669,10 @@ function openEditModal(assignee, rowIndex, name, brand, workType, rawDate, jobNu
   
   document.getElementById('edit-work-type').value = workType || '';
   syncChipsState('edit-work-type', 'chip-work-type-container');
+  
+  document.getElementById('edit-status').value = status || 'Not started';
+  syncChipsState('edit-status', 'chip-status-container');
+  
   document.getElementById('edit-due-date').value = parseToIsoDate(rawDate);
   
   document.getElementById('edit-modal').classList.add('show');
@@ -1670,6 +1691,7 @@ function saveEditTask() {
   const taskName = document.getElementById('edit-task-name').value;
   const brand = document.getElementById('edit-brand').value;
   const workType = document.getElementById('edit-work-type').value;
+  const status = document.getElementById('edit-status').value;
   const dueDate = document.getElementById('edit-due-date').value;
   
   if (!taskName) {
@@ -1714,7 +1736,8 @@ function saveEditTask() {
         taskName: taskName,
         brand: brand,
         workType: workType,
-        dueDate: dueDate
+        dueDate: dueDate,
+        status: status
       });
     return;
   }
@@ -1754,7 +1777,8 @@ function saveEditTask() {
       taskName: taskName,
       brand: brand,
       workType: workType,
-      dueDate: dueDate
+      dueDate: dueDate,
+      status: status
     });
 }
 
