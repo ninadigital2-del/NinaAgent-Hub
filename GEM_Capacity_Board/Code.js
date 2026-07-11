@@ -1018,6 +1018,14 @@ header{background:#fff;border-bottom:1px solid #e5e3dd;padding:10px 20px;display
 .chip-add{background:transparent;border:1px dashed #bbb;color:#6366f1;}
 .chip-add:hover{background:#f8fafc;border-color:#6366f1;}
 .modal-title{font-size:15px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:6px}
+.status-tag{display:inline-block;padding:2px 6px;font-size:10px;border-radius:10px;margin-right:6px;font-weight:600;text-transform:uppercase;letter-spacing:0.02em;vertical-align:middle}
+.status-tag.tag-not-start{background:#f0efea;color:#888;border:1px solid #e5e3dd}
+.status-tag.tag-inprogress{background:#FFF9E6;color:#EF9F27;border:1px solid #F5E5C0}
+.status-tag.tag-done{background:#EAF3DE;color:#639922;border:1px solid #D6E8C2}
+.status-tag.tag-late{background:#FCEBEB;color:#E24B4A;border:1px solid #F5C6C6}
+.task-name-text.text-inprogress{color:#EF9F27 !important}
+.task-name-text.text-done{color:#639922 !important;text-decoration:line-through;opacity:0.8}
+.task-name-text.text-late{color:#E24B4A !important;font-weight:600}
 .modal-form-group{margin-bottom:12px}
 .modal-form-group label{display:block;font-size:12px;color:#888;margin-bottom:4px;text-transform:uppercase;font-weight:500}
 .modal-form-group input{width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:6px;font-size:14px;background:#fff;color:#1a1a18}
@@ -1149,6 +1157,42 @@ function esc(str) {
     .replace(/\\\\/g, '\\\\\\\\')
     .replace(/'/g, '\\\\\\\'')
     .replace(/"/g, '&quot;');
+}
+
+function getStatusMeta(status, rawDate) {
+  let isLate = false;
+  if (rawDate) {
+    const d = new Date(rawDate);
+    d.setHours(0,0,0,0);
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    if (d < today && status !== 'Done' && status !== 'Cancelled') {
+      isLate = true;
+    }
+  }
+  
+  let tagClass = 'tag-not-start';
+  let textClass = '';
+  let tagText = 'Not Start';
+  
+  if (isLate) {
+    tagClass = 'tag-late';
+    textClass = 'text-late';
+    tagText = 'Late';
+  } else if (status === 'Done') {
+    tagClass = 'tag-done';
+    textClass = 'text-done';
+    tagText = 'Done';
+  } else if (status === 'In progress') {
+    tagClass = 'tag-inprogress';
+    textClass = 'text-inprogress';
+    tagText = 'In progress';
+  } else {
+    if (status && status !== 'Not Start' && status !== 'Not started') {
+      tagText = status;
+    }
+  }
+  return { tagClass: tagClass, textClass: textClass, text: tagText };
 }
 
 function selectChip(el, inputId) {
@@ -1300,14 +1344,16 @@ function renderPeople() {
         const escDate = esc(t.rawDate);
         const escJob = esc(t.jobNumber);
         const escStatus = esc(t.status || '');
-        return '<div class="today-item is-today" draggable="true" ondragstart="handleAssignedDragStart(event, &#39;'+p.name+'&#39;, '+t.rowIndex+')">'
+        const stMeta = getStatusMeta(t.status, t.rawDate);
+        return '<div class="today-item is-today" draggable="true" ondragstart="handleAssignedDragStart(event, \\''+p.name+'\\', '+t.rowIndex+')">'
              + '<span class="task-date">วันนี้</span>'
-             + '<span class="task-name-text" title="'+escName+'">\u00b7 '+t.name+'</span>'
+             + '<span class="task-name-text ' + stMeta.textClass + '" title="'+escName+'">'
+             + '<span class="status-tag ' + stMeta.tagClass + '">' + esc(stMeta.text) + '</span>' + t.name + '</span>'
              + '<div class="today-item-actions" onclick="event.stopPropagation()">'
-             + '<button class="btn-done" onclick="markTaskDone(&#39;'+p.name+'&#39;, '+t.rowIndex+', &#39;'+escName+'&#39;, &#39;'+escJob+'&#39;, this, event)" title="ทำเสร็จแล้ว">✔</button>'
-             + '<button class="btn-edit" onclick="openEditModal(&#39;'+p.name+'&#39;, '+t.rowIndex+', &#39;'+escName+'&#39;, &#39;'+escBrand+'&#39;, &#39;'+escWorkType+'&#39;, &#39;'+escDate+'&#39;, &#39;'+escJob+'&#39;, &#39;'+escStatus+'&#39;)" title="แก้ไข">✎</button>'
-             + '<button class="btn-return" onclick="returnTaskToPool(&#39;'+p.name+'&#39;, '+t.rowIndex+', &#39;'+escName+'&#39;, &#39;'+escJob+'&#39;, this)" title="ตีกลับเข้าระบบ (Unassign)">↩</button>'
-             + '<button class="btn-delete" onclick="deleteTaskPermanently(&#39;'+p.name+'&#39;, '+t.rowIndex+', &#39;'+escName+'&#39;, &#39;'+escJob+'&#39;, this)" title="ลบงานทิ้งถาวร">🗑</button>'
+             + '<button class="btn-done" onclick="markTaskDone(\\''+p.name+'\\', '+t.rowIndex+', \\''+escName+'\\', \\''+escJob+'\\', this, event)" title="ทำเสร็จแล้ว">✔</button>'
+             + '<button class="btn-edit" onclick="openEditModal(\\''+p.name+'\\', '+t.rowIndex+', \\''+escName+'\\', \\''+escBrand+'\\', \\''+escWorkType+'\\', \\''+escDate+'\\', \\''+escJob+'\\', \\''+escStatus+'\\')" title="แก้ไข">✎</button>'
+             + '<button class="btn-return" onclick="returnTaskToPool(\\''+p.name+'\\', '+t.rowIndex+', \\''+escName+'\\', \\''+escJob+'\\', this)" title="ตีกลับเข้าระบบ (Unassign)">↩</button>'
+             + '<button class="btn-delete" onclick="deleteTaskPermanently(\\''+p.name+'\\', '+t.rowIndex+', \\''+escName+'\\', \\''+escJob+'\\', this)" title="ลบงานทิ้งถาวร">🗑</button>'
              + '</div></div>';
       }).join('');
       let pItems = (p.periodTasks || []).map(function(t){
@@ -1317,14 +1363,16 @@ function renderPeople() {
         const escDate = esc(t.rawDate);
         const escJob = esc(t.jobNumber);
         const escStatus = esc(t.status || '');
-        return '<div class="today-item" draggable="true" ondragstart="handleAssignedDragStart(event, &#39;'+p.name+'&#39;, '+t.rowIndex+')">'
+        const stMeta = getStatusMeta(t.status, t.rawDate);
+        return '<div class="today-item" draggable="true" ondragstart="handleAssignedDragStart(event, \\''+p.name+'\\', '+t.rowIndex+')">'
              + '<span class="task-date">'+t.dateStr+'</span>'
-             + '<span class="task-name-text" title="'+escName+'">\u00b7 '+t.name+'</span>'
+             + '<span class="task-name-text ' + stMeta.textClass + '" title="'+escName+'">'
+             + '<span class="status-tag ' + stMeta.tagClass + '">' + esc(stMeta.text) + '</span>' + t.name + '</span>'
              + '<div class="today-item-actions" onclick="event.stopPropagation()">'
-             + '<button class="btn-done" onclick="markTaskDone(&#39;'+p.name+'&#39;, '+t.rowIndex+', &#39;'+escName+'&#39;, &#39;'+escJob+'&#39;, this, event)" title="ทำเสร็จแล้ว">✔</button>'
-             + '<button class="btn-edit" onclick="openEditModal(&#39;'+p.name+'&#39;, '+t.rowIndex+', &#39;'+escName+'&#39;, &#39;'+escBrand+'&#39;, &#39;'+escWorkType+'&#39;, &#39;'+escDate+'&#39;, &#39;'+escJob+'&#39;, &#39;'+escStatus+'&#39;)" title="แก้ไข">✎</button>'
-             + '<button class="btn-return" onclick="returnTaskToPool(&#39;'+p.name+'&#39;, '+t.rowIndex+', &#39;'+escName+'&#39;, &#39;'+escJob+'&#39;, this)" title="ตีกลับเข้าระบบ (Unassign)">↩</button>'
-             + '<button class="btn-delete" onclick="deleteTaskPermanently(&#39;'+p.name+'&#39;, '+t.rowIndex+', &#39;'+escName+'&#39;, &#39;'+escJob+'&#39;, this)" title="ลบงานทิ้งถาวร">🗑</button>'
+             + '<button class="btn-done" onclick="markTaskDone(\\''+p.name+'\\', '+t.rowIndex+', \\''+escName+'\\', \\''+escJob+'\\', this, event)" title="ทำเสร็จแล้ว">✔</button>'
+             + '<button class="btn-edit" onclick="openEditModal(\\''+p.name+'\\', '+t.rowIndex+', \\''+escName+'\\', \\''+escBrand+'\\', \\''+escWorkType+'\\', \\''+escDate+'\\', \\''+escJob+'\\', \\''+escStatus+'\\')" title="แก้ไข">✎</button>'
+             + '<button class="btn-return" onclick="returnTaskToPool(\\''+p.name+'\\', '+t.rowIndex+', \\''+escName+'\\', \\''+escJob+'\\', this)" title="ตีกลับเข้าระบบ (Unassign)">↩</button>'
+             + '<button class="btn-delete" onclick="deleteTaskPermanently(\\''+p.name+'\\', '+t.rowIndex+', \\''+escName+'\\', \\''+escJob+'\\', this)" title="ลบงานทิ้งถาวร">🗑</button>'
              + '</div></div>';
       }).join('');
       
