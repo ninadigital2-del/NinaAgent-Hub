@@ -137,6 +137,32 @@ function getDropdownSettings() {
     props.setProperty('GEM_BRANDS', JSON.stringify(brands));
   }
   
+  // Remove the old hardcoded dummy work types that were added during testing
+  const dummyWorkTypes = ["New AW", "New VDO", "Project", "Resize", "Adapt", "Revise", "Content"];
+  let removedAnyWT = false;
+  let allWorkTypesSet = new Set(workTypes);
+  dummyWorkTypes.forEach(w => {
+    if (allWorkTypesSet.has(w)) {
+      allWorkTypesSet.delete(w);
+      removedAnyWT = true;
+    }
+  });
+  
+  if (removedAnyWT) {
+    props.setProperty('GEM_WORK_TYPES', JSON.stringify(Array.from(allWorkTypesSet)));
+  }
+
+  const notionWorkTypesObj = getNotionWorkTypes();
+  if (notionWorkTypesObj.ok) {
+    notionWorkTypesObj.workTypes.forEach(w => allWorkTypesSet.add(w));
+  }
+  
+  workTypes = Array.from(allWorkTypesSet).sort();
+  if (workTypes.length === 0) {
+    workTypes = ["New AW", "New VDO", "Project", "Resize", "Adapt", "Revise", "Content"];
+    props.setProperty('GEM_WORK_TYPES', JSON.stringify(workTypes));
+  }
+  
   return { brands: brands, workTypes: workTypes, brandMapping: brandMapping };
 }
 
@@ -186,6 +212,20 @@ function doPost(e) {
 }
 
 // ---------- DATA: NOTION ----------
+
+function getNotionWorkTypes() {
+  const props = PropertiesService.getScriptProperties();
+  const key   = props.getProperty('NOTION_API_KEY') || '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';
+  const dbId  = '2e69dccd181d81df8919fbacf921c7d5';
+
+  const res = notionFetch(`databases/${dbId}`, 'GET', null, key);
+  if (!res || res.error) return { ok: false, workTypes: [] };
+  
+  if (res.properties && res.properties['Work Type'] && res.properties['Work Type'].multi_select) {
+    return { ok: true, workTypes: res.properties['Work Type'].multi_select.options.map(o => o.name) };
+  }
+  return { ok: false, workTypes: [] };
+}
 
 function getNotionTasks() {
   const props = PropertiesService.getScriptProperties();
