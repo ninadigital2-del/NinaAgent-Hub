@@ -62,11 +62,21 @@ function getAllData() {
   console.log('getNotionTasks: ' + (t2-t1) + 'ms');
   console.log('total: ' + (t2-t0) + 'ms');
 
+  const settings = getDropdownSettings();
+
+  if (tasks.ok && settings.brandMapping) {
+    tasks.tasks.forEach(t => {
+      if (t.brandCode && settings.brandMapping[t.brandCode]) {
+        t.brandCode = settings.brandMapping[t.brandCode];
+      }
+    });
+  }
+
   return {
     ok: capacity.ok && tasks.ok,
     capacity,
     tasks,
-    settings: getDropdownSettings(),
+    settings,
     timings: {
       capacity: t1-t0,
       tasks: t2-t1,
