@@ -80,25 +80,40 @@ function getDropdownSettings() {
   let brandsStr = props.getProperty('GEM_BRANDS');
   let workTypesStr = props.getProperty('GEM_WORK_TYPES');
   
-  let brands = [];
+  let customBrands = [];
   let workTypes = [];
   
   try {
-    if (brandsStr) brands = JSON.parse(brandsStr);
+    if (brandsStr) customBrands = JSON.parse(brandsStr);
     if (workTypesStr) workTypes = JSON.parse(workTypesStr);
   } catch(e) {}
 
-  if (!brands || brands.length === 0) {
-    brands = ["Nina", "STD", "NINA AI", "VIVA", "KOKUYO", "Elephant", "Quantum"];
-    props.setProperty('GEM_BRANDS', JSON.stringify(brands));
-  }
   if (!workTypes || workTypes.length === 0) {
     workTypes = ["New AW", "New VDO", "Project", "Resize", "Adapt", "Revise", "Content"];
     props.setProperty('GEM_WORK_TYPES', JSON.stringify(workTypes));
   }
   
-  return { brands: brands, workTypes: workTypes };
+  // Fetch Brands from Notion dynamically
+  const notionBrandsObj = getNotionBrands();
+  let brandMapping = {};
+  
+  let allBrandsSet = new Set(customBrands);
+  if (notionBrandsObj.ok) {
+    notionBrandsObj.brands.forEach(b => {
+      if (b.name) allBrandsSet.add(b.name);
+      if (b.code) brandMapping[b.code] = b.name;
+    });
+  }
+  
+  let brands = Array.from(allBrandsSet).sort();
+  if (brands.length === 0) {
+    brands = ["Nina", "STD", "NINA AI", "VIVA", "KOKUYO", "Elephant", "Quantum"];
+    props.setProperty('GEM_BRANDS', JSON.stringify(brands));
+  }
+  
+  return { brands: brands, workTypes: workTypes, brandMapping: brandMapping };
 }
+
 
 function addDropdownSetting(type, newValue) {
   const props = PropertiesService.getScriptProperties();
@@ -189,7 +204,8 @@ function getNotionTasks() {
 function getNotionBrands() {
   const props = PropertiesService.getScriptProperties();
   const key   = props.getProperty('NOTION_API_KEY') || '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';
-  const dbId  = '2eb9dccd181d80debb97000b71806eef';
+  // ID ของ Database Brands
+  const dbId  = '2eb9dccd181d808fb888cdf883503df6';
 
   const res = notionFetch(`databases/${dbId}/query`, 'POST', {
     sorts: [{ property: 'Name', direction: 'ascending' }],
@@ -1441,10 +1457,12 @@ function renderTasks() {
     return;
   }
 
-  // group by brand
+  // group by brand using brandMapping
   const groups = {};
+  const mapping = state.settings.brandMapping || {};
   state.tasks.forEach(function(t) {
-    const brand = t.brandCode || '(ไม่ระบุแบรนด์)';
+    const rawBrand = t.brandCode || '';
+    const brand = rawBrand ? (mapping[rawBrand] || rawBrand) : '(ไม่ระบุแบรนด์)';
     if (!groups[brand]) groups[brand] = [];
     groups[brand].push(t);
   });
@@ -1502,7 +1520,11 @@ function renderTasks() {
       const dueD = t.dueDate ? new Date(t.dueDate) : null;
       const dueC = dueD?(dueD<now?'tag-late':(dueD-now<7*864e5?'tag-due':'')):'';
       const escName = esc(t.name);
-      const escBrand = esc(t.brandCode);
+      // use the mapped brand name instead of the raw brand code
+      const rawBrand = t.brandCode || '';
+      const mappedBrand = rawBrand ? (mapping[rawBrand] || rawBrand) : '';
+      const escBrand = esc(mappedBrand);
+      
       const escWorkType = esc(t.workType);
       const escDate = esc(t.dueDate);
       const escId = esc(t.id);
