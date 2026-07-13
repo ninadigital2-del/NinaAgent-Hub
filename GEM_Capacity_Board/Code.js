@@ -108,6 +108,22 @@ function getDropdownSettings() {
   let brandMapping = {};
   
   let allBrandsSet = new Set(customBrands);
+  
+  // Remove the old hardcoded dummy brands that were added during testing
+  const dummyBrands = ["Nina", "STD", "NINA AI", "VIVA", "KOKUYO", "Elephant", "Quantum"];
+  let removedAny = false;
+  dummyBrands.forEach(b => {
+    if (allBrandsSet.has(b)) {
+      allBrandsSet.delete(b);
+      removedAny = true;
+    }
+  });
+  
+  // If we removed any dummy brands, update the PropertiesService to save the clean list
+  if (removedAny) {
+    props.setProperty('GEM_BRANDS', JSON.stringify(Array.from(allBrandsSet)));
+  }
+
   if (notionBrandsObj.ok) {
     notionBrandsObj.brands.forEach(b => {
       if (b.name) allBrandsSet.add(b.name);
