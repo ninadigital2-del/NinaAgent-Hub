@@ -16,7 +16,11 @@ function updateClock() {
     const dateOptions = { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' };
     const dateString = new Intl.DateTimeFormat('th-TH', dateOptions).format(now);
 
-    document.getElementById('clock').innerHTML = `${dateString} | ${timeString}`;
+    const clockEl = document.getElementById('clock');
+    if (clockEl) clockEl.innerHTML = `${dateString} | ${timeString}`;
+    
+    const mobileClockEl = document.getElementById('mobile-clock');
+    if (mobileClockEl) mobileClockEl.innerHTML = `${dateString} | ${timeString}`;
 }
 
 // Initial update and set interval
@@ -27,6 +31,25 @@ const pdfModal = document.getElementById('pdfModal');
 const pdfIframe = document.getElementById('pdfIframe');
 const pdfTitle = document.getElementById('pdfTitle');
 const pdfLoader = document.getElementById('pdfLoader');
+
+// Sidebar Logic
+const menuToggle = document.getElementById('menuToggle');
+const sidebar = document.getElementById('sidebar');
+const sidebarOverlay = document.getElementById('sidebarOverlay');
+
+if (menuToggle) {
+    menuToggle.addEventListener('click', () => {
+        sidebar.classList.toggle('open');
+        sidebarOverlay.classList.toggle('active');
+    });
+}
+
+if (sidebarOverlay) {
+    sidebarOverlay.addEventListener('click', () => {
+        sidebar.classList.remove('open');
+        sidebarOverlay.classList.remove('active');
+    });
+}
 
 function openTool(action, details, url) {
     const newTab = window.open('about:blank', '_blank');
