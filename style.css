@@ -1,10 +1,10 @@
 :root {
-    --bg-color: #0b0f19;
-    --sidebar-bg: #13141f; /* Darker background for sidebar */
-    --text-primary: #f8fafc;
-    --text-secondary: #94a3b8;
-    --glass-bg: rgba(30, 41, 59, 0.4);
-    --glass-border: rgba(255, 255, 255, 0.08);
+    --bg-color: #f1f5f9;
+    --sidebar-bg: #ffffff;
+    --text-primary: #1e293b;
+    --text-secondary: #64748b;
+    --glass-bg: rgba(255, 255, 255, 0.8);
+    --glass-border: rgba(0, 0, 0, 0.05);
     --primary: #6366f1;
     --primary-hover: #4f46e5;
     --pink: #ec4899;
@@ -157,12 +157,12 @@ body {
 }
 
 .nav-item:hover {
-    background: rgba(255,255,255,0.05);
-    color: var(--text-primary);
+    background: rgba(0,0,0,0.03);
+    color: var(--primary);
 }
 
 .nav-item.active {
-    background: linear-gradient(90deg, rgba(99, 102, 241, 0.15) 0%, transparent 100%);
+    background: linear-gradient(90deg, rgba(99, 102, 241, 0.08) 0%, transparent 100%);
     color: var(--primary);
     border-left: 3px solid var(--primary);
 }
@@ -182,7 +182,13 @@ body {
     border-top: 1px solid var(--glass-border);
     font-size: 0.8rem;
     color: var(--text-secondary);
-    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.sidebar-footer p {
+    margin-bottom: 0;
 }
 
 /* Main Content */
@@ -216,13 +222,17 @@ body {
 
 .time-widget {
     font-family: 'Outfit', sans-serif;
-    font-weight: 500;
-    font-size: 0.95rem;
-    padding: 0.4rem 1rem;
-    background: rgba(255,255,255,0.05);
-    border-radius: 20px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    padding: 0.5rem 0.8rem;
+    background: rgba(0,0,0,0.03);
+    border-radius: 8px;
     border: 1px solid var(--glass-border);
-    color: var(--text-secondary);
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
 }
 
 .content-scroll {
@@ -259,7 +269,7 @@ body {
 }
 
 .btn-icon:hover {
-    background: rgba(255,255,255,0.1);
+    background: rgba(0,0,0,0.05);
 }
 
 /* Sidebar Overlay */
@@ -309,13 +319,14 @@ body {
     display: flex;
     align-items: flex-start;
     gap: 1.25rem;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.02);
 }
 
 .glass-card::before {
     content: '';
     position: absolute;
     top: 0; left: 0; right: 0; height: 100%;
-    background: linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0) 100%);
+    background: linear-gradient(180deg, rgba(0,0,0,0.01) 0%, rgba(0,0,0,0) 100%);
     opacity: 0;
     transition: opacity 0.3s ease;
     pointer-events: none;
@@ -323,8 +334,8 @@ body {
 
 .glass-card:hover {
     transform: translateY(-5px);
-    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
-    border-color: rgba(255, 255, 255, 0.2);
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.08);
+    border-color: rgba(0, 0, 0, 0.1);
 }
 
 .glass-card:hover::before {
@@ -373,8 +384,8 @@ body {
     padding: 0.25rem 0.6rem;
     border-radius: 100px;
     font-weight: 600;
-    background: rgba(255,255,255,0.1);
-    color: #cbd5e1;
+    background: rgba(0,0,0,0.05);
+    color: var(--text-secondary);
 }
 
 .badge-script { background: rgba(99, 102, 241, 0.2); color: #818cf8; }
@@ -452,7 +463,7 @@ body {
     transition: all 0.2s;
 }
 
-.btn-close:hover { background: rgba(255,255,255,0.1); color: white; }
+.btn-close:hover { background: rgba(0,0,0,0.05); color: var(--primary); }
 
 .modal-body {
     flex-grow: 1;

@@ -56,12 +56,6 @@ function showDashboard(element) {
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
     if (element) element.classList.add('active');
 
-    // Update Top Title
-    const titleEl = document.getElementById('top-title');
-    if (titleEl) titleEl.innerHTML = '<i class="fa-solid fa-table-cells-large"></i> Dashboard';
-    const subTitleEl = document.getElementById('top-subtitle');
-    if (subTitleEl) subTitleEl.innerText = 'ศูนย์รวมเครื่องมือ AI สำหรับจัดการเวิร์กโฟลว์อัจฉริยะ';
-
     // Show dashboard, hide iframe
     document.getElementById('dashboard-view').style.display = 'block';
     document.getElementById('iframe-view').style.display = 'none';
@@ -78,16 +72,6 @@ function loadToolInFrame(element, toolName, url) {
     // Update active state in sidebar
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
     if (element) element.classList.add('active');
-
-    // Update Top Title
-    const titleEl = document.getElementById('top-title');
-    if (titleEl) {
-        // Find the icon from the clicked element
-        const iconHtml = element ? element.querySelector('i').outerHTML : '<i class="fa-solid fa-rocket"></i>';
-        titleEl.innerHTML = iconHtml + ' ' + toolName;
-    }
-    const subTitleEl = document.getElementById('top-subtitle');
-    if (subTitleEl) subTitleEl.innerText = 'กำลังรันเครื่องมือ...';
 
     // Show iframe, hide dashboard
     document.getElementById('dashboard-view').style.display = 'none';
