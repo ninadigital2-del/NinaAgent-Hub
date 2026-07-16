@@ -540,10 +540,32 @@ body {
     
     .mobile-header { display: flex; }
     
-    .layout-wrapper {
-        flex-direction: column;
+    body {
+        overflow: auto; /* Let body scroll natively on mobile */
+        height: auto;
     }
     
+    .layout-wrapper {
+        flex-direction: column;
+        overflow: visible;
+        height: auto;
+    }
+    
+    .main-content {
+        overflow: visible;
+    }
+    
+    .content-scroll {
+        overflow: visible;
+        padding: 1.5rem 1rem;
+    }
+    
+    #dashboard-view {
+        height: auto !important;
+        overflow-y: visible !important;
+        padding: 0 !important;
+    }
+
     .sidebar {
         position: fixed;
         top: 0;
