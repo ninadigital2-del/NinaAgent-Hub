@@ -59,6 +59,7 @@ function showDashboard(element) {
     // Show dashboard, hide iframe
     document.getElementById('dashboard-view').style.display = 'block';
     document.getElementById('iframe-view').style.display = 'none';
+    document.querySelector('.content-scroll').style.padding = '';
     
     // Clear iframe to save memory
     document.getElementById('tool-frame').src = '';
@@ -77,6 +78,13 @@ function loadToolInFrame(element, toolName, url) {
     document.getElementById('dashboard-view').style.display = 'none';
     const iframeView = document.getElementById('iframe-view');
     iframeView.style.display = 'block';
+    
+    // Remove padding for iframe view to prevent cropping
+    if (window.innerWidth <= 768) {
+        document.querySelector('.content-scroll').style.padding = '0';
+    } else {
+        document.querySelector('.content-scroll').style.padding = '0 1rem';
+    }
     
     // Show loader and set src
     document.getElementById('iframe-loader').style.display = 'flex';
