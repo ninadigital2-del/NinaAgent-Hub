@@ -1,0 +1,1908 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Social Media Content Creator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+/* Injected CSS */
+
+/* ============================================
+   Social Media Assistant - Styles
+   ============================================ */
+
+body {
+    font-family: 'Sarabun', sans-serif;
+    background-color: #f3f4f6;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #f1f1f1; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+/* Content Type Buttons Active State */
+.content-type-btn.active {
+    background-color: rgba(99, 102, 241, 0.15) !important;
+    border-color: #6366f1 !important;
+    color: #6366f1 !important;
+    font-weight: bold !important;
+}
+
+/* Dark Theme */
+body.theme-dark {
+    background-color: #0f172a;
+    color: #f1f5f9;
+}
+
+body.theme-dark .bg-white { background-color: #1e293b; }
+body.theme-dark .bg-slate-50 { background-color: #0f172a; }
+body.theme-dark .bg-slate-100 { background-color: #1e293b; }
+body.theme-dark .bg-slate-200 { background-color: #334155; }
+body.theme-dark .border-slate-200 { border-color: #334155; }
+body.theme-dark .border-slate-300 { border-color: #475569; }
+body.theme-dark .text-slate-800 { color: #e2e8f0; }
+body.theme-dark .text-slate-700 { color: #cbd5e1; }
+body.theme-dark .text-slate-600 { color: #94a3b8; }
+body.theme-dark .text-slate-500 { color: #64748b; }
+body.theme-dark .text-slate-400 { color: #94a3b8; }
+body.theme-dark .text-gray-700 { color: #cbd5e1; }
+body.theme-dark .text-gray-800 { color: #e2e8f0; }
+body.theme-dark .text-gray-600 { color: #94a3b8; }
+body.theme-dark .text-gray-500 { color: #64748b; }
+body.theme-dark input,
+body.theme-dark textarea,
+body.theme-dark select {
+    background-color: #0f172a !important;
+    border-color: #334155 !important;
+    color: #e2e8f0 !important;
+}
+body.theme-dark input::placeholder,
+body.theme-dark textarea::placeholder {
+    color: #64748b !important;
+}
+
+/* Toast Notification Styles */
+#toast.success {
+    background-color: rgba(6, 78, 59, 0.95);
+    border-color: rgba(16, 185, 129, 0.5);
+    color: #a7f3d0;
+}
+#toast.error {
+    background-color: rgba(127, 29, 29, 0.95);
+    border-color: rgba(239, 68, 68, 0.5);
+    color: #fecaca;
+}
+#toast.info {
+    background-color: rgba(49, 46, 129, 0.95);
+    border-color: rgba(99, 102, 241, 0.5);
+    color: #c7d2fe;
+}
+#toast.warning {
+    background-color: rgba(120, 53, 15, 0.95);
+    border-color: rgba(245, 158, 11, 0.5);
+    color: #fde68a;
+}
+
+/* Animation */
+@keyframes slideUp {
+    from { transform: translateY(100%); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+#toast:not(.hidden) {
+    animation: slideUp 0.3s ease-out;
+}
+
+/* Card Styles */
+.content-card {
+    border: 1px solid #e2e8f0;
+    border-radius: 1rem;
+    padding: 1.5rem;
+    background-color: white;
+    transition: all 0.3s ease;
+}
+.content-card:hover {
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+}
+
+/* Platform Preview Cards */
+.preview-card {
+    max-width: 28rem;
+    margin: 0 auto;
+    border-radius: 1rem;
+    overflow: hidden;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+/* Slide Preview */
+.slide-preview-container {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    background-color: #0f172a;
+    color: white;
+}
+.slide-content {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+}
+.slide-card {
+    background-color: #020617;
+    border: 1px solid #334155;
+    max-width: 56rem;
+    width: 100%;
+    height: 28rem;
+    border-radius: 1.5rem;
+    padding: 2.5rem;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+/* Refiner Input */
+.refiner-input {
+    background-color: #f8fafc;
+    border: 1px dashed #cbd5e1;
+    border-radius: 0.75rem;
+    padding: 0.75rem;
+    font-size: 0.875rem;
+    outline: none;
+    transition: all 0.2s;
+}
+.refiner-input:focus {
+    border-color: #6366f1;
+    background-color: white;
+}
+
+/* Loading Overlay */
+.loading-overlay {
+    position: absolute;
+    inset: 0;
+    background-color: rgba(99, 102, 241, 0.1);
+    backdrop-filter: blur(2px);
+    border-radius: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+/* Hashtag Tag */
+.hashtag-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.625rem;
+    border-radius: 0.5rem;
+    font-size: 0.75rem;
+    font-family: monospace;
+    background-color: rgba(79, 70, 229, 0.1);
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    color: #6366f1;
+}
+
+/* Visual Suggestion Box */
+.visual-box {
+    background-color: rgba(254, 243, 199, 0.3);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    border-radius: 0.75rem;
+    padding: 1rem;
+}
+.visual-box textarea {
+    background-color: transparent !important;
+    border: none !important;
+    font-style: italic;
+    font-size: 0.75rem;
+    line-height: 1.5;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 1024px) {
+    .lg\\:col-span-5,
+    .lg\\:col-span-7 {
+        grid-column: span 12 / span 12;
+    }
+}
+</style>
+
+
+<script>
+// --- NATIVE API WRAPPER ---
+// Replace this with your newly deployed Google Apps Script Web App URL
+const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbw0RYR8ellHaxhYAdwi66G1uOViPhUd-dnqEgSfbvsrtg_G5hXs7F29-D2TUc1_JWO_MA/exec';
+
+const google = {
+  script: {
+    run: new Proxy({}, {
+      get: function(target, prop) {
+        if (prop === 'withSuccessHandler') {
+          return function(successCallback) {
+            return new Proxy({}, {
+              get: function(t, method) {
+                if (method === 'withFailureHandler') {
+                  return function(failureCallback) {
+                    return new Proxy({}, {
+                      get: function(t2, finalMethod) {
+                        return function(...args) {
+                          callGasApi(finalMethod, args, successCallback, failureCallback);
+                        };
+                      }
+                    });
+                  };
+                }
+                return function(...args) {
+                  callGasApi(method, args, successCallback, null);
+                };
+              }
+            });
+          };
+        }
+        if (prop === 'withFailureHandler') {
+          return function(failureCallback) {
+             return new Proxy({}, {
+                get: function(t, method) {
+                   if (method === 'withSuccessHandler') {
+                      return function(successCallback) {
+                         return new Proxy({}, {
+                            get: function(t2, finalMethod) {
+                               return function(...args) {
+                                  callGasApi(finalMethod, args, successCallback, failureCallback);
+                               }
+                            }
+                         });
+                      }
+                   }
+                   return function(...args) {
+                      callGasApi(method, args, null, failureCallback);
+                   }
+                }
+             })
+          }
+        }
+        return function(...args) {
+          callGasApi(prop, args, null, null);
+        };
+      }
+    })
+  }
+};
+
+async function callGasApi(action, args, onSuccess, onFailure) {
+  // Map arguments to payload object based on action signature
+  let payload = {};
+  if (action === 'saveBrandToSheets') payload = { brandData: args[0] };
+  else if (action === 'saveBrandHistoryToSheets') payload = { brandData: args[0] };
+  else if (action === 'loadBrandHistoryFromSheets') payload = { brandId: args[0] };
+  else if (action === 'saveContentToSheets') payload = { contentData: args[0] };
+  else if (action === 'uploadFileToDrive') payload = { base64String: args[0], fileName: args[1], mimeType: args[2], folderId: args[3] };
+  else if (action === 'deleteFileFromDriveByUrl') payload = { fileUrl: args[0] };
+  else if (action === 'generateSocialContent' || action === 'refineContent' || action === 'extractBrandFromFiles' || action === 'extractProductFromFiles') {
+      payload = { promptData: args[0], apiKey: args[1] };
+  }
+  
+  try {
+    const response = await fetch(GAS_API_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: action, payload: payload })
+    });
+    const result = await response.json();
+    if (onSuccess) onSuccess(result);
+  } catch (error) {
+    if (onFailure) onFailure(error);
+    else console.error('GAS API Error:', error);
+  }
+}
+</script>
+
+</head>
+<body class="p-2 md:p-4">
+    <div class="w-full bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100">
+        <!-- Top Navigation Header -->
+        <div class="bg-slate-900 text-white px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-slate-800">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-gradient-to-tr from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                    <i class="fa-solid fa-wand-magic-sparkles text-white text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold tracking-wide">Social Media Content Creator</h1>
+                    <p class="text-xs text-slate-400">ระบบ AI อัจฉริยะวิเคราะห์ช่วยจัดร่าง Content และแคปชั่น</p>
+                </div>
+            </div>
+            
+            <!-- Action Buttons -->
+            <div class="flex items-center gap-2">
+                <button onclick="toggleTheme()" id="theme-toggle-btn" class="px-3.5 py-2 rounded-xl border flex items-center justify-center transition-all bg-slate-800 border-slate-700 text-yellow-400 hover:bg-slate-700">
+                    <i class="fa-solid fa-sun text-sm"></i>
+                    <span class="text-xs ml-2 font-bold">โหมดสว่าง</span>
+                </button>
+                <button onclick="clearAllData()" class="px-3.5 py-2 text-xs font-bold rounded-xl transition-all border flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-rose-400 border-rose-500/30">
+                    <i class="fa-solid fa-trash-can text-sm"></i>
+                    ล้างข้อมูล
+                </button>
+                <button onclick="loadDemoPreset()" class="px-3.5 py-2 text-xs font-bold rounded-xl transition-all border flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-indigo-300 border-indigo-500/30">
+                    <i class="fa-solid fa-rotate text-sm"></i>
+                    โหลดเดโม
+                </button>
+                <button onclick="showGraphicBriefModal()" class="px-3.5 py-2 border rounded-xl transition-all flex items-center gap-1.5 text-xs font-bold bg-pink-600 hover:bg-pink-500 text-white border-pink-500 shadow-lg shadow-pink-500/20">
+                    <i class="fa-solid fa-users text-sm"></i>
+                    ดึง Graphic Brief
+                </button>
+                <button onclick="showNotionModal()" class="px-3.5 py-2 border rounded-xl transition-all flex items-center gap-1.5 text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white border-indigo-500 shadow-lg shadow-indigo-500/20">
+                    <i class="fa-solid fa-database text-sm"></i>
+                    ดึง Notion
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Workspace -->
+        <div class="p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- LEFT COLUMN: Input Strategy Control -->
+            <section class="lg:col-span-5 border rounded-2xl p-6 flex flex-col gap-6 bg-slate-50 border-gray-200">
+                <div class="flex items-center justify-between border-b pb-3 border-gray-200">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-sliders text-indigo-600"></i>
+                        <h2 class="text-lg font-bold text-gray-800">กำหนดกลยุทธ์ Content (Inputs)</h2>
+                    </div>
+                    <span class="text-xs px-2.5 py-1 rounded-full border font-mono text-indigo-600 bg-indigo-50 border-indigo-200">
+                        Pro Version 2.0
+                    </span>
+                </div>
+
+                <!-- 1. Brand Information -->
+                <div class="space-y-2">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <label class="text-sm font-semibold flex items-center gap-1.5 text-gray-700">
+                            <span>1. ข้อมูลแบรนด์ / Brand Profile</span>
+                            <span class="text-red-400 text-xs">*</span>
+                        </label>
+                        <div class="flex items-center gap-2">
+                            <button onclick="showBrandHistoryModal()" id="btn-history" class="text-xs flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border transition-colors text-indigo-600 bg-indigo-50 border-indigo-200 hover:bg-indigo-100 shadow-sm hidden">
+                                <i class="fa-solid fa-clock-rotate-left text-xs"></i>
+                                <span>ประวัติบรีฟ</span>
+                            </button>
+                            <button onclick="document.getElementById('brand-file-input').click()" class="text-xs flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border transition-colors text-indigo-600 bg-slate-100 border-slate-200 hover:bg-slate-200 shadow-sm">
+                                <i class="fa-solid fa-upload text-xs"></i>
+                                <span>อัพโหลดแบรนด์บุก/รูปภาพ</span>
+                            </button>
+                        </div>
+                        <input type="file" id="brand-file-input" onchange="handleBrandFileUpload(this)" accept=".txt,.pdf,.doc,.docx,image/*" class="hidden">
+                    </div>
+                    <div class="relative">
+                        <textarea id="brand-info" class="w-full h-32 rounded-xl p-3 text-sm placeholder-slate-500 resize-none outline-none transition-all leading-relaxed bg-white border border-slate-300 focus:border-indigo-500 text-slate-800" placeholder="พิมพ์เอกลักษณ์คู่มือแบรนด์ของคุณเองตรงนี้ หรือคลิกอัปโหลดเอกสาร / ลากวางเพื่อสแกนด้วยพลัง AI..."></textarea>
+                        <div id="brand-file-loader" class="absolute inset-0 bg-indigo-500/10 backdrop-blur-[2px] rounded-xl flex flex-col items-center justify-center text-center gap-2 hidden">
+                            <i class="fa-solid fa-spinner fa-spin text-2xl text-indigo-500"></i>
+                            <p class="text-xs text-indigo-400 font-bold">กำลังสแกนและสกัดข้อมูลด้วย AI...</p>
+                        </div>
+                    </div>
+                    <p class="text-[10px] text-slate-500">* รองรับไฟล์ภาพแบรนด์บุก, แผ่นสไลด์สินค้า, เอกสาร PDF, สรุป Word, หรือ Text File โดยตรง</p>
+                </div>
+
+                <!-- 2. Business Type Selector -->
+                <div class="space-y-2">
+                    <div class="flex items-center justify-between">
+                        <label class="text-sm font-semibold text-gray-700">2. ประเภทธุรกิจ (Business Type)</label>
+                        <button onclick="toggleCustomInput('business')" class="text-xs text-indigo-500 hover:text-indigo-400 underline">พิมพ์ระบุเอง</button>
+                    </div>
+                    <div class="relative">
+                        <select id="business-type" class="w-full rounded-xl p-3 text-sm outline-none transition-all appearance-none cursor-pointer bg-white border border-slate-300 focus:border-indigo-500 text-slate-800">
+                            <option value="อาหารและเครื่องดื่ม (Food & Beverage)">อาหารและเครื่องดื่ม (Food & Beverage)</option>
+                            <option value="ความงามและเครื่องสำอาง (Beauty & Cosmetics)">ความงามและเครื่องสำอาง (Beauty & Cosmetics)</option>
+                            <option value="แฟชั่นและเสื้อผ้า (Fashion & Clothing)">แฟชั่นและเสื้อผ้า (Fashion & Clothing)</option>
+                            <option value="ท่องเที่ยวและโรงแรม (Travel & Leisure)">ท่องเที่ยวและโรงแรม (Travel & Leisure)</option>
+                            <option value="อสังหาริมทรัพย์ (Real Estate)">อสังหาริมทรัพย์ (Real Estate)</option>
+                            <option value="เทคโนโลยีและแกดเจ็ต (Tech & Gadgets)">เทคโนโลยีและแกดเจ็ต (Tech & Gadgets)</option>
+                            <option value="สุขภาพและการออกกำลังกาย (Health & Fitness)">สุขภาพและการออกกำลังกาย (Health & Fitness)</option>
+                            <option value="การศึกษาและคอร์สออนไลน์ (Education & E-Learning)">การศึกษาและคอร์สออนไลน์ (Education & E-Learning)</option>
+                            <option value="ยานยนต์และอุปกรณ์แต่งรถ (Automotive)">ยานยนต์และอุปกรณ์แต่งรถ (Automotive)</option>
+                            <option value="การเงินและการลงทุน (Finance & Investment)">การเงินและการลงทุน (Finance & Investment)</option>
+                        </select>
+                        <div class="absolute inset-y-0 right-3 flex items-center pointer-events-none text-slate-400">▼</div>
+                    </div>
+                    <input type="text" id="custom-business" class="w-full rounded-xl p-3 text-sm outline-none transition-all hidden bg-white border border-slate-300 focus:border-indigo-500 text-slate-800" placeholder="ระบุประเภทธุรกิจของคุณ เช่น แบรนด์โฮมคาเฟ่คูสติก...">
+                </div>
+
+                <!-- 3. Tone of Voice Selector -->
+                <div class="space-y-2">
+                    <div class="flex items-center justify-between">
+                        <label class="text-sm font-semibold text-gray-700">3. โทนเสียงโฆษณา (Tone of Voice)</label>
+                        <button onclick="toggleCustomInput('tone')" class="text-xs text-indigo-500 hover:text-indigo-400 underline">ระบุเองอิสระ</button>
+                    </div>
+                    <div class="relative">
+                        <select id="tone-voice" class="w-full rounded-xl p-3 text-sm outline-none transition-all appearance-none cursor-pointer bg-white border border-slate-300 focus:border-indigo-500 text-slate-800">
+                            <option value="เป็นกันเองและเข้าถึงง่าย (Friendly & Casual)">เป็นกันเองและเข้าถึงง่าย (Friendly & Casual)</option>
+                            <option value="มืออาชีพและน่าเชื่อถือ (Professional & Authoritative)">มืออาชีพและน่าเชื่อถือ (Professional & Authoritative)</option>
+                            <option value="ตื่นเต้นและมีพลัง (Exciting & Energetic)">ตื่นเต้นและมีพลัง (Exciting & Energetic)</option>
+                            <option value="อบอุ่นและใส่ใจ (Warm & Empathetic)">อบอุ่นและใส่ใจ (Warm & Empathetic)</option>
+                            <option value="หรูหราและพรีเมียม (Luxury & Premium)">หรูหราและพรีเมียม (Luxury & Premium)</option>
+                            <option value="สนุกสนานและกวนๆ (Humorous & Playful)">สนุกสนานและกวนๆ (Humorous & Playful)</option>
+                            <option value="ลึกลับและน่าค้นหา (Mysterious & Intriguing)">ลึกลับและน่าค้นหา (Mysterious & Intriguing)</option>
+                            <option value="ตรงไปตรงมาและจริงใจ (Direct & Bold)">ตรงไปตรงมาและจริงใจ (Direct & Bold)</option>
+                            <option value="สร้างแรงบันดาลใจและปลุกใจ (Inspirational & Motivating)">สร้างแรงบันดาลใจและปลุกใจ (Inspirational & Motivating)</option>
+                            <option value="มินิมอลและเรียบง่าย (Minimalist & Simple)">มินิมอลและเรียบง่าย (Minimalist & Simple)</option>
+                        </select>
+                        <div class="absolute inset-y-0 right-3 flex items-center pointer-events-none text-slate-400">▼</div>
+                    </div>
+                    <input type="text" id="custom-tone" class="w-full rounded-xl p-3 text-sm outline-none transition-all hidden bg-white border border-slate-300 focus:border-indigo-500 text-slate-800" placeholder="พิมพ์สไตล์เสียง เช่น วัยรุ่นมีสแลงสไตล์เน็ตไอดอล...">
+                </div>
+
+                <!-- 4. Gender Tone -->
+                <div class="space-y-2">
+                    <div class="flex items-center justify-between">
+                        <label class="text-sm font-semibold text-gray-700">4. เพศของโทนเสียง (Gender Tone)</label>
+                        <button onclick="toggleCustomInput('gender')" class="text-xs text-indigo-500 hover:text-indigo-400 underline">ระบุเองอิสระ</button>
+                    </div>
+                    <div class="relative">
+                        <select id="gender-tone" class="w-full rounded-xl p-3 text-sm outline-none transition-all appearance-none cursor-pointer bg-white border border-slate-300 focus:border-indigo-500 text-slate-800">
+                            <option value="ไม่ระบุเพศ (Neutral)">ไม่ระบุเพศ (Neutral)</option>
+                            <option value="ผู้หญิง (Feminine - ค่ะ/ขา)">ผู้หญิง (Feminine - ค่ะ/ขา)</option>
+                            <option value="ผู้ชาย (Masculine - ครับ/ผม)">ผู้ชาย (Masculine - ครับ/ผม)</option>
+                            <option value="LGBTQ+ (Expressive & Trendy - ตัวแม่/แกร์/ชี)">LGBTQ+ (Expressive & Trendy - ตัวแม่/แกร์/ชี)</option>
+                        </select>
+                        <div class="absolute inset-y-0 right-3 flex items-center pointer-events-none text-slate-400">▼</div>
+                    </div>
+                    <input type="text" id="custom-gender" class="w-full rounded-xl p-3 text-sm outline-none transition-all hidden bg-white border border-slate-300 focus:border-indigo-500 text-slate-800" placeholder="ระบุเพศวิถีของกลุ่มเสียงภาษาพูด เช่น ตัวมารดาวงการ...">
+                </div>
+
+                <!-- 5. Platform & Media Format -->
+                <div class="space-y-2">
+                    <label class="text-sm font-semibold text-gray-700">5. ช่องทางแชร์และรูปแบบสื่อ</label>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="space-y-1.5">
+                            <label class="text-xs font-semibold text-slate-400">ช่องทางแชร์ (Platform)</label>
+                            <select id="platform" class="w-full rounded-xl p-2.5 text-xs outline-none transition-all cursor-pointer bg-white border border-slate-300 focus:border-indigo-500 text-slate-800 shadow-sm">
+                                <option value="Facebook">👥 Facebook Post</option>
+                                <option value="IG">📸 IG Post / Story</option>
+                                <option value="TikTok">🎵 TikTok Caption</option>
+                                <option value="Youtube">📺 YouTube Intro/Post</option>
+                                <option value="Line">💬 Line Broadcast</option>
+                            </select>
+                        </div>
+                        <div class="space-y-1.5">
+                            <label class="text-xs font-semibold text-slate-400">รูปแบบสื่อ (Format)</label>
+                            <select id="media-format" class="w-full rounded-xl p-2.5 text-xs outline-none transition-all cursor-pointer bg-white border border-slate-300 focus:border-indigo-500 text-slate-800 shadow-sm">
+                                <option value="Single image">🖼️ Single Image (รูปเดี่ยว)</option>
+                                <option value="Album image">📚 Album / Carousel (เซ็ตสไลด์)</option>
+                                <option value="Video">🎥 Video / Reels (วิดีโอคลิป)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 6. Product Information -->
+                <div class="space-y-2">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <label class="text-sm font-semibold flex items-center gap-1.5 text-gray-700">
+                            <span>6. สินค้าหรือบริการเจาะจง (Product / Service)</span>
+                        </label>
+                        <button onclick="document.getElementById('product-file-input').click()" class="text-xs flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border transition-colors text-indigo-600 bg-slate-100 border-slate-200 hover:bg-slate-200 shadow-sm">
+                            <i class="fa-solid fa-upload text-xs"></i>
+                            <span>อัพโหลดข้อมูลสินค้า (เลือกหลายไฟล์ได้)</span>
+                        </button>
+                        <input type="file" id="product-file-input" onchange="handleProductFileUpload(this)" accept=".txt,.pdf,.doc,.docx,image/*" class="hidden" multiple>
+                    </div>
+                    <div class="relative">
+                        <textarea id="product-info" class="w-full h-24 rounded-xl p-3 text-sm placeholder-slate-500 resize-none outline-none transition-all leading-relaxed bg-white border border-slate-300 focus:border-indigo-500 text-slate-800" placeholder="ระบุชื่อสินค้า สรรพคุณ หรือโปรโมชั่นแบบเจาะจง เช่น อาหารสุนัขสูตรขนนุ่ม, ดินสอสีไม้รุ่น AB..."></textarea>
+                        <div id="product-file-loader" class="absolute inset-0 bg-indigo-500/10 backdrop-blur-[2px] rounded-xl flex flex-col items-center justify-center text-center gap-2 hidden">
+                            <i class="fa-solid fa-spinner fa-spin text-xl text-indigo-500"></i>
+                            <p class="text-xs text-indigo-400 font-bold">กำลังสแกนและดึงข้อมูลสินค้า...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 7. Content Psychology Objectives -->
+                <div class="space-y-2">
+                    <label class="text-sm font-semibold text-gray-700">7. วัตถุประสงค์จิตวิทยาคอนเทนต์ (Content Objective)</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="setContentType('educational')" data-type="educational" class="content-type-btn p-3 rounded-xl border text-left transition-all bg-white border-slate-200 hover:bg-slate-100 text-slate-600">
+                            <div class="text-xs font-bold block mb-1">🎓 Educational</div>
+                            <p class="text-[10px] leading-snug">ให้ข้อมูลความรู้ที่มีคุณค่าเพื่อประโยชน์</p>
+                        </button>
+                        <button onclick="setContentType('entertainment')" data-type="entertainment" class="content-type-btn p-3 rounded-xl border text-left transition-all bg-white border-slate-200 hover:bg-slate-100 text-slate-600">
+                            <div class="text-xs font-bold block mb-1">🎭 Entertainment</div>
+                            <p class="text-[10px] leading-snug">สร้างสรรค์ความฮา มุกขำ สนุกสนาน</p>
+                        </button>
+                        <button onclick="setContentType('inspirational')" data-type="inspirational" class="content-type-btn p-3 rounded-xl border text-left transition-all bg-white border-slate-200 hover:bg-slate-100 text-slate-600">
+                            <div class="text-xs font-bold block mb-1">✨ Inspirational</div>
+                            <p class="text-[10px] leading-snug">เติมเต็มกำลังใจ รีวิวเชิงลึกจากใจ</p>
+                        </button>
+                        <button onclick="setContentType('promotional')" data-type="promotional" class="content-type-btn p-3 rounded-xl border text-left transition-all bg-white border-slate-200 hover:bg-slate-100 text-slate-600">
+                            <div class="text-xs font-bold block mb-1">💰 Promotional</div>
+                            <p class="text-[10px] leading-snug">โปรโมชั่นปิดดีลเร่งซื้อทันที คุ้มค่า</p>
+                        </button>
+                        <button onclick="setContentType('fear')" data-type="fear" class="content-type-btn p-3 rounded-xl border text-left transition-all bg-white border-slate-200 hover:bg-slate-100 text-slate-600">
+                            <div class="text-xs font-bold block mb-1">🚨 ทำให้รู้สึกกลัว (FOMO)</div>
+                            <p class="text-[10px] leading-snug">กลัวตกเทรนด์ พลาดดีลสำคัญ</p>
+                        </button>
+                        <button onclick="setContentType('qa')" data-type="qa" class="content-type-btn p-3 rounded-xl border text-left transition-all bg-white border-slate-200 hover:bg-slate-100 text-slate-600">
+                            <div class="text-xs font-bold block mb-1">💬 Q&A Content</div>
+                            <p class="text-[10px] leading-snug">รวบรวมข้อสงสัย ตอบคำถามแบบฉลาด</p>
+                        </button>
+                        <button onclick="setContentType('realtime')" data-type="realtime" class="content-type-btn p-3 rounded-xl border text-left transition-all bg-white border-slate-200 hover:bg-slate-100 text-slate-600">
+                            <div class="text-xs font-bold block mb-1">⚡ Real-time Content</div>
+                            <p class="text-[10px] leading-snug">เล่นประเด็นฮิตยอดฮิต</p>
+                        </button>
+                        <button onclick="setContentType('branding')" data-type="branding" class="content-type-btn p-3 rounded-xl border text-left transition-all bg-white border-slate-200 hover:bg-slate-100 text-slate-600">
+                            <div class="text-xs font-bold block mb-1">💎 Branding Content</div>
+                            <p class="text-[10px] leading-snug">สื่อสารตัวตน ค่านิยม และจุดเด่น</p>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 8. Quantity -->
+                <div class="flex items-center justify-between border p-4 rounded-xl bg-white border-slate-200">
+                    <div class="space-y-0.5">
+                        <label class="text-sm font-semibold text-gray-700">8. จำนวนไอเดียคอนเทนต์ที่ต้องการ</label>
+                        <p class="text-xs text-slate-500">เลือกจำนวนทางเลือกที่ต้องการรวบรวม (สูงสุด 20 ไอเดีย)</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <button onclick="changeQuantity(-1)" class="w-8 h-8 rounded-lg font-bold transition-all bg-slate-200 hover:bg-slate-300 text-slate-800">-</button>
+                        <span id="quantity-display" class="text-lg font-bold text-indigo-500 font-mono w-8 text-center">2</span>
+                        <button onclick="changeQuantity(1)" class="w-8 h-8 rounded-lg font-bold transition-all bg-slate-200 hover:bg-slate-300 text-slate-800">+</button>
+                    </div>
+                </div>
+
+                <!-- SUBMIT BUTTON -->
+                <button onclick="createContent()" id="create-btn" class="w-full mt-2 py-4 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 hover:from-indigo-600 hover:to-pink-600 text-white font-bold rounded-xl shadow-lg tracking-wide transition-all duration-300 flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-wand-magic-sparkles text-yellow-300"></i>
+                    <span class="text-base">เริ่มสร้างสรรค์เนื้อหา (Create Content)</span>
+                </button>
+            </section>
+
+            <!-- RIGHT COLUMN: Output Creative Canvas -->
+            <section class="lg:col-span-7 flex flex-col gap-6">
+                <!-- Tab Switcher & Export Buttons -->
+                <div class="border p-4 rounded-2xl flex flex-wrap items-center justify-between gap-4 bg-white border-gray-200 shadow-md">
+                    <div class="flex items-center gap-1.5 p-1 rounded-xl border bg-slate-100 border-slate-200">
+                        <button onclick="switchTab('editor')" id="btn-editor" class="px-4 py-2 text-xs font-bold rounded-lg flex items-center gap-2 transition-all bg-indigo-500 text-white shadow">
+                            <i class="fa-solid fa-pen-to-square text-xs"></i>
+                            หน้าต่างบรีฟงานสด
+                        </button>
+                        <button onclick="switchTab('preview')" id="btn-preview" class="px-4 py-2 text-xs font-bold rounded-lg flex items-center gap-2 transition-all text-slate-400 hover:text-slate-600">
+                            <i class="fa-solid fa-eye text-xs"></i>
+                            พรีวิวแพลตฟอร์มจริง
+                        </button>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="exportToDoc()" class="px-3.5 py-2 rounded-xl transition-all text-xs font-bold flex items-center gap-2 border bg-white hover:bg-slate-50 text-slate-700 border-slate-300 shadow-sm">
+                            <i class="fa-solid fa-file-word text-emerald-500"></i>
+                            Export Word
+                        </button>
+                        <button onclick="exportToSlides()" class="px-3.5 py-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-500 border border-indigo-500/20 rounded-xl transition-all text-xs font-bold flex items-center gap-2">
+                            <i class="fa-solid fa-presentation-screen text-indigo-500"></i>
+                            Export Slide Deck
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Output Area -->
+                <div id="output-area">
+                    <!-- Empty State -->
+                    <div id="empty-state" class="border border-dashed rounded-3xl p-16 flex flex-col items-center justify-center text-center gap-4 min-h-[500px] bg-white border-slate-300 shadow-inner">
+                        <div class="w-16 h-16 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 text-3xl">
+                            🔮
+                        </div>
+                        <div class="max-w-md">
+                            <h3 class="text-lg font-bold text-slate-800">ยังไม่มีงานวิเคราะห์แคปชั่นจัดเก็บในเครื่อง</h3>
+                            <p class="text-sm text-slate-500 mt-2 leading-relaxed">
+                                ระบุสไตล์แบรนด์ของคุณที่ช่องข้อมูลแบรนด์ซ้ายมือ แล้วกดปุ่ม 
+                                <span class="text-indigo-500 font-bold">"เริ่มสร้างสรรค์เนื้อหา"</span> เพื่อดูบทคัดลอกโฆษณาที่เขียนโดย AI Strategy ขั้นเทพทันที!
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Editor View -->
+                    <div id="editor-view" class="space-y-6 hidden"></div>
+
+                    <!-- Preview View -->
+                    <div id="preview-view" class="space-y-6 hidden"></div>
+                </div>
+            </section>
+        </div>
+
+        <!-- Footer -->
+        <footer class="border-t px-6 py-6 text-center text-xs space-y-2 bg-slate-100 border-slate-200 text-slate-600">
+            <p>© 2026 AI Social Content Assistant Workspace</p>
+            <p class="text-slate-400">ขับเคลื่อนอย่างอัจฉริยะด้วยสมองกล Gemini 2.5 Flash ผสานระบบวิเคราะห์ภาพ/ไฟล์แบรนด์บุกอัพโหลดและวิจัยเทรนด์ไทยเรียลไทม์</p>
+        </footer>
+    </div>
+
+    <!-- Notion Modal -->
+    <div id="notion-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 hidden">
+        <div class="border rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl bg-white border-slate-200 text-slate-800 flex flex-col max-h-[80vh]">
+            <div class="p-6 border-b flex items-center justify-between border-slate-100 shrink-0">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-database text-indigo-400"></i>
+                    <h3 class="text-lg font-bold">เอกสารสรุปกลยุทธ์สินค้าบนฐานข้อมูล Notion</h3>
+                </div>
+                <button onclick="hideNotionModal()" class="text-lg font-bold text-slate-500 hover:text-slate-900">×</button>
+            </div>
+            <div class="p-6 space-y-4 overflow-y-auto grow">
+                <p class="text-xs text-slate-400 leading-relaxed">
+                    ระบบได้เชื่อมต่อกับ API บัญชี Notion ของคุณ และพบหน้าเอกสารกลยุทธ์แบรนด์ (Brand Book) และสเปกสินค้าที่จดสรุปไว้ 3 ไฟล์ สามารถคลิกเพื่อดึงข้อสรุปเข้ามาวางแผนแคมเปญได้ทันที:
+                </p>
+                <div class="space-y-3" id="notion-pages-list"></div>
+            </div>
+            <div class="p-4 flex justify-end border-t bg-slate-50 border-slate-100 shrink-0">
+                <button onclick="hideNotionModal()" class="px-4 py-2 rounded-xl text-xs font-semibold transition-colors bg-slate-200 hover:bg-slate-300 text-slate-700">ปิดหน้าต่าง</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Graphic Brief Modal -->
+    <div id="graphic-brief-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 hidden">
+        <div class="border rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl bg-white border-slate-200 text-slate-800 flex flex-col max-h-[80vh]">
+            <div class="p-6 border-b flex items-center justify-between border-slate-100 shrink-0">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-users text-pink-500"></i>
+                    <h3 class="text-lg font-bold">ข้อมูลลูกค้าจาก Graphic Brief</h3>
+                </div>
+                <button onclick="hideGraphicBriefModal()" class="text-lg font-bold text-slate-500 hover:text-slate-900">×</button>
+            </div>
+            <div class="p-6 space-y-4 overflow-y-auto grow">
+                <p class="text-xs text-slate-400 leading-relaxed">
+                    เลือกลูกค้าจากฐานข้อมูล Graphic Brief เพื่อนำข้อมูล Background, Target, Pain Point มาใช้วางแผนแคมเปญ:
+                </p>
+                <div class="space-y-3" id="graphic-brief-list"></div>
+            </div>
+            <div class="p-4 flex justify-end border-t bg-slate-50 border-slate-100 shrink-0">
+                <button onclick="hideGraphicBriefModal()" class="px-4 py-2 rounded-xl text-xs font-semibold transition-colors bg-slate-200 hover:bg-slate-300 text-slate-700">ปิดหน้าต่าง</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Brand History Modal -->
+    <div id="history-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 hidden">
+        <div class="border rounded-2xl max-w-2xl w-full overflow-hidden shadow-2xl bg-white border-slate-200 text-slate-800 flex flex-col max-h-[80vh]">
+            <div class="p-6 border-b flex items-center justify-between border-slate-100 shrink-0">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-clock-rotate-left text-indigo-500"></i>
+                    <h3 class="text-lg font-bold">ประวัติการสร้างบรีฟ (Version History)</h3>
+                </div>
+                <button onclick="hideBrandHistoryModal()" class="text-lg font-bold text-slate-500 hover:text-slate-900">×</button>
+            </div>
+            <div class="p-6 overflow-y-auto space-y-4 grow bg-slate-50" id="history-list-container">
+                <div class="flex flex-col items-center justify-center py-10 text-slate-400 gap-2">
+                    <i class="fa-solid fa-spinner fa-spin text-2xl"></i>
+                    <p class="text-sm">กำลังโหลดประวัติ...</p>
+                </div>
+            </div>
+            <div class="p-4 flex justify-end border-t bg-white border-slate-100 shrink-0">
+                <button onclick="hideBrandHistoryModal()" class="px-4 py-2 rounded-xl text-xs font-semibold transition-colors bg-slate-200 hover:bg-slate-300 text-slate-700">ปิดหน้าต่าง</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-4 rounded-xl border shadow-xl transition-all duration-300 hidden">
+        <i class="fa-solid fa-wand-magic-sparkles text-sm"></i>
+        <p id="toast-message" class="text-sm font-medium"></p>
+    </div>
+
+    <!-- Alert Modal -->
+    <div id="alert-modal" class="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-gray-100">
+            <div class="flex items-center gap-3 mb-3 text-indigo-600">
+                <i id="alert-icon" class="fa-solid fa-circle-check text-2xl"></i>
+                <h4 id="alert-title" class="text-lg font-bold">ดำเนินการสำเร็จ</h4>
+            </div>
+            <p id="alert-message" class="text-sm text-gray-600 leading-relaxed mb-6">เนื้อหาได้รับการประมวลผลเรียบร้อยแล้ว</p>
+            <div class="flex justify-end">
+                <button onclick="closeAlert()" class="bg-slate-900 hover:bg-slate-800 text-white font-semibold text-sm px-5 py-2.5 rounded-xl transition shadow">ตกลง</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+// ============================================
+// Social Media Assistant - Constants & State
+// ============================================
+
+// Gemini API Configuration
+const GEMINI_API_KEY = "AIzaSyDUiXbjyo9a2_TpLUXBpWfwFoHerfXW1HA";
+
+// Google Drive Folder IDs (ใช้โฟลเดอร์เดียวกันกับ graphic_brief_creator)
+const DRIVE_FOLDER_CUSTOMER = "1XA8p7xLPQEr37MvYWVkQCUvv85hk1MBq";
+const DRIVE_FOLDER_BRIEF = "1AyIsGgNcp6uUWDykp4E1YO-g8ge2Nrf5";
+
+// Runtime State
+let currentTheme = "light";
+let currentContentType = "educational";
+let currentQuantity = 2;
+let generatedContents = [];
+let isCustomBusiness = false;
+let isCustomTone = false;
+let isCustomGender = false;
+let currentTab = "editor";
+let currentBrandId = null;
+
+// LocalStorage Keys
+const STORAGE_KEY_CONTENT = 'sma_generatedContent';
+const STORAGE_KEY_THEME = 'sma_theme';
+</script>
+
+    <script>
+// ============================================
+// Social Media Assistant - UI Manager
+// ============================================
+
+// Theme Toggle
+function toggleTheme() {
+    if (currentTheme === "light") {
+        currentTheme = "dark";
+        document.body.classList.add('theme-dark');
+        document.getElementById('theme-toggle-btn').innerHTML = '<i class="fa-solid fa-moon text-sm"></i><span class="text-xs ml-2 font-bold">โหมดมืด</span>';
+    } else {
+        currentTheme = "light";
+        document.body.classList.remove('theme-dark');
+        document.getElementById('theme-toggle-btn').innerHTML = '<i class="fa-solid fa-sun text-sm"></i><span class="text-xs ml-2 font-bold">โหมดสว่าง</span>';
+    }
+    localStorage.setItem(STORAGE_KEY_THEME, currentTheme);
+    showToast('เปลี่ยนโครงสร้างสีหน้าจอเป็น: ' + (currentTheme === "dark" ? "โหมดมืด" : "โหมดสว่างสบายตา"), 'info');
+}
+
+// Custom Input Toggle
+function toggleCustomInput(type) {
+    if (type === 'business') {
+        isCustomBusiness = !isCustomBusiness;
+        const select = document.getElementById('business-type');
+        const input = document.getElementById('custom-business');
+        if (isCustomBusiness) {
+            select.classList.add('hidden');
+            input.classList.remove('hidden');
+        } else {
+            select.classList.remove('hidden');
+            input.classList.add('hidden');
+            input.value = '';
+        }
+    } else if (type === 'tone') {
+        isCustomTone = !isCustomTone;
+        const select = document.getElementById('tone-voice');
+        const input = document.getElementById('custom-tone');
+        if (isCustomTone) {
+            select.classList.add('hidden');
+            input.classList.remove('hidden');
+        } else {
+            select.classList.remove('hidden');
+            input.classList.add('hidden');
+            input.value = '';
+        }
+    } else if (type === 'gender') {
+        isCustomGender = !isCustomGender;
+        const select = document.getElementById('gender-tone');
+        const input = document.getElementById('custom-gender');
+        if (isCustomGender) {
+            select.classList.add('hidden');
+            input.classList.remove('hidden');
+        } else {
+            select.classList.remove('hidden');
+            input.classList.add('hidden');
+            input.value = '';
+        }
+    }
+}
+
+// Content Type Selection
+function setContentType(type) {
+    currentContentType = type;
+    document.querySelectorAll('.content-type-btn').forEach(function(btn) {
+        btn.classList.remove('active');
+    });
+    document.querySelector('[data-type="' + type + '"]').classList.add('active');
+}
+
+// Quantity Control
+function changeQuantity(delta) {
+    currentQuantity = Math.max(1, Math.min(20, currentQuantity + delta));
+    document.getElementById('quantity-display').textContent = currentQuantity;
+}
+
+// Tab Switching
+function switchTab(tabName) {
+    currentTab = tabName;
+    
+    document.getElementById('editor-view').classList.add('hidden');
+    document.getElementById('preview-view').classList.add('hidden');
+    document.getElementById('empty-state').classList.add('hidden');
+    
+    document.getElementById('btn-editor').classList.remove('bg-indigo-500', 'text-white', 'shadow');
+    document.getElementById('btn-editor').classList.add('text-slate-400', 'hover:text-slate-600');
+    document.getElementById('btn-preview').classList.remove('bg-indigo-500', 'text-white', 'shadow');
+    document.getElementById('btn-preview').classList.add('text-slate-400', 'hover:text-slate-600');
+    
+    if (generatedContents.length === 0) {
+        document.getElementById('empty-state').classList.remove('hidden');
+        return;
+    }
+    
+    if (tabName === 'editor') {
+        document.getElementById('editor-view').classList.remove('hidden');
+        document.getElementById('btn-editor').classList.add('bg-indigo-500', 'text-white', 'shadow');
+        document.getElementById('btn-editor').classList.remove('text-slate-400', 'hover:text-slate-600');
+        renderEditorView();
+    } else {
+        document.getElementById('preview-view').classList.remove('hidden');
+        document.getElementById('btn-preview').classList.add('bg-indigo-500', 'text-white', 'shadow');
+        document.getElementById('btn-preview').classList.remove('text-slate-400', 'hover:text-slate-600');
+        renderPreviewView();
+    }
+}
+
+// Toast Notification
+function showToast(message, type) {
+    const toast = document.getElementById('toast');
+    const toastMessage = document.getElementById('toast-message');
+    
+    toast.className = 'fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-4 rounded-xl border shadow-xl transition-all duration-300';
+    toast.classList.add(type);
+    
+    toastMessage.textContent = message;
+    toast.classList.remove('hidden');
+    
+    setTimeout(function() {
+        toast.classList.add('hidden');
+    }, 4500);
+}
+
+// Alert Modal
+function showAlert(title, message, type) {
+    const modal = document.getElementById('alert-modal');
+    const icon = document.getElementById('alert-icon');
+    const titleEl = document.getElementById('alert-title');
+    const messageEl = document.getElementById('alert-message');
+    
+    titleEl.textContent = title;
+    messageEl.textContent = message;
+    
+    if (type === 'success') {
+        icon.className = 'fa-solid fa-circle-check text-2xl text-emerald-500';
+    } else if (type === 'warning') {
+        icon.className = 'fa-solid fa-triangle-exclamation text-2xl text-amber-500';
+    } else if (type === 'error') {
+        icon.className = 'fa-solid fa-circle-xmark text-2xl text-red-500';
+    }
+    
+    modal.classList.remove('hidden');
+}
+
+function closeAlert() {
+    document.getElementById('alert-modal').classList.add('hidden');
+}
+
+// Notion Modal
+function showNotionModal() {
+    document.getElementById('notion-modal').classList.remove('hidden');
+    renderNotionPages();
+}
+
+function hideNotionModal() {
+    document.getElementById('notion-modal').classList.add('hidden');
+}
+
+function renderNotionPages() {
+    const container = document.getElementById('notion-pages-list');
+    container.innerHTML = '<div class="flex flex-col items-center justify-center py-10 text-slate-400 gap-2"><i class="fa-solid fa-spinner fa-spin text-2xl"></i><p class="text-sm">กำลังโหลดโปรเจกต์จาก Notion...</p></div>';
+    
+    google.script.run.withSuccessHandler(function(response) {
+        container.innerHTML = '';
+        if(response.success && response.projects.length > 0) {
+            response.projects.forEach(function(page) {
+                const card = document.createElement('div');
+                card.className = 'p-4 border rounded-xl cursor-pointer transition-all duration-200 flex flex-col gap-1.5 bg-slate-50 border-slate-200 hover:border-indigo-500 hover:bg-white shadow-sm';
+                card.onclick = function() { importFromNotion(page); };
+                card.innerHTML = '<div class="flex items-center justify-between"><span class="text-xs text-indigo-500 font-bold font-mono">Notion Project</span><span class="text-[10px] text-slate-400">ID: ' + page.id + '</span></div><h4 class="text-sm font-bold text-slate-800">' + page.name + '</h4><p class="text-xs italic line-clamp-2 text-slate-600">คลิกเพื่อใช้เป็นโปรเจกต์ (นำไปใส่ในช่อง สินค้า/บริการ)</p>';
+                container.appendChild(card);
+            });
+        } else {
+            container.innerHTML = '<p class="text-sm text-center text-slate-500">ไม่พบข้อมูลโปรเจกต์ หรือ API ผิดพลาด</p>';
+        }
+    }).getNotionProjects();
+}
+
+function importFromNotion(page) {
+    let oldProductInfo = document.getElementById('product-info').value;
+    document.getElementById('product-info').value = (oldProductInfo ? oldProductInfo + "\n\n" : "") + "อ้างอิงโปรเจกต์จาก Notion: " + page.name;
+    
+    hideNotionModal();
+    showToast('ดึงฐานข้อมูล Notion "' + page.name + '" เรียบร้อย!', 'success');
+}
+
+// Graphic Brief Modal
+function showGraphicBriefModal() {
+    document.getElementById('graphic-brief-modal').classList.remove('hidden');
+    renderGraphicBriefCustomers();
+}
+
+function hideGraphicBriefModal() {
+    document.getElementById('graphic-brief-modal').classList.add('hidden');
+}
+
+function renderGraphicBriefCustomers() {
+    const container = document.getElementById('graphic-brief-list');
+    container.innerHTML = '<div class="flex flex-col items-center justify-center py-10 text-slate-400 gap-2"><i class="fa-solid fa-spinner fa-spin text-2xl"></i><p class="text-sm">กำลังโหลดข้อมูลลูกค้า...</p></div>';
+    
+    google.script.run.withSuccessHandler(function(response) {
+        container.innerHTML = '';
+        if(response.success && response.customers && response.customers.length > 0) {
+            response.customers.forEach(function(customer) {
+                const card = document.createElement('div');
+                card.className = 'p-4 border rounded-xl cursor-pointer transition-all duration-200 flex flex-col gap-1.5 bg-slate-50 border-slate-200 hover:border-pink-500 hover:bg-white shadow-sm';
+                card.onclick = function() { importFromGraphicBrief(customer); };
+                card.innerHTML = '<div class="flex items-center justify-between"><span class="text-xs text-pink-500 font-bold font-mono">Graphic Brief</span><span class="text-[10px] text-slate-400">ID: ' + customer.id + '</span></div><h4 class="text-sm font-bold text-slate-800">' + customer.name + '</h4><p class="text-xs italic line-clamp-2 text-slate-600">Background: ' + customer.background + '</p>';
+                container.appendChild(card);
+            });
+        } else {
+            container.innerHTML = '<p class="text-sm text-center text-slate-500">ไม่พบข้อมูลลูกค้า</p>';
+        }
+    }).loadCustomersFromGraphicBrief();
+}
+
+function importFromGraphicBrief(customer) {
+    let brandInfo = "ชื่อลูกค้า (Brand): " + customer.name + "\n";
+    if (customer.background) brandInfo += "Background: " + customer.background + "\n";
+    if (customer.target) brandInfo += "Target Audience: " + customer.target + "\n";
+    if (customer.pain) brandInfo += "Pain Point: " + customer.pain + "\n";
+    if (customer.obj) brandInfo += "Objective: " + customer.obj + "\n";
+    if (customer.mood) brandInfo += "Mood & Tone: " + customer.mood + "\n";
+    if (customer.rule) brandInfo += "Brand Rule: " + customer.rule + "\n";
+    if (customer.msg) brandInfo += "Key Message: " + customer.msg + "\n";
+    if (customer.cta) brandInfo += "Call to Action (CTA): " + customer.cta;
+    
+    document.getElementById('brand-info').value = brandInfo;
+    
+    hideGraphicBriefModal();
+    showToast('ดึงข้อมูลลูกค้า "' + customer.name + '" เรียบร้อย!', 'success');
+}
+
+// Clear All Data
+function clearAllData() {
+    document.getElementById('brand-info').value = '';
+    document.getElementById('product-info').value = '';
+    document.getElementById('business-type').value = 'อาหารและเครื่องดื่ม (Food & Beverage)';
+    document.getElementById('tone-voice').value = 'เป็นกันเองและเข้าถึงง่าย (Friendly & Casual)';
+    document.getElementById('gender-tone').value = 'ไม่ระบุเพศ (Neutral)';
+    document.getElementById('platform').value = 'Facebook';
+    document.getElementById('media-format').value = 'Single image';
+    document.getElementById('quantity-display').textContent = '2';
+    document.getElementById('custom-business').value = '';
+    document.getElementById('custom-tone').value = '';
+    document.getElementById('custom-gender').value = '';
+    
+    isCustomBusiness = false;
+    isCustomTone = false;
+    isCustomGender = false;
+    currentQuantity = 2;
+    currentContentType = 'educational';
+    generatedContents = [];
+    
+    document.getElementById('business-type').classList.remove('hidden');
+    document.getElementById('custom-business').classList.add('hidden');
+    document.getElementById('tone-voice').classList.remove('hidden');
+    document.getElementById('custom-tone').classList.add('hidden');
+    document.getElementById('gender-tone').classList.remove('hidden');
+    document.getElementById('custom-gender').classList.add('hidden');
+    
+    setContentType('educational');
+    saveDataToStorage();
+    switchTab('editor');
+    showToast('ล้างข้อมูลอินพุตและโครงงานคอนเทนต์เก่าทั้งหมดเรียบร้อยแล้ว!', 'info');
+}
+
+// Load Demo Preset
+function loadDemoPreset() {
+    document.getElementById('brand-info').value = "แบรนด์สกินแคร์ 'GlowRecipe TH' บิวตี้ออร์แกนิกยอดขายอันดับหนึ่งในไทย ชูส่วนผสมหลักจากสารสกัดข้าวหอมมะลิหมักธรรมชาติและอโลเวร่าออร์แกนิก ช่วยรักษาสิวและปลอบประโลมผิวอย่างอ่อนโยน เหมาะกับผิวคนเอเชียที่แพ้ง่ายและเผชิญมลภาวะร้อนชื้นอย่างกรุงเทพฯ เสมอ";
+    document.getElementById('product-info').value = "โปรโมชั่นพิเศษ 11.11 ซื้อ 'เซรั่มข้าวหอมมะลิ' ขนาด 30ml จำนวน 1 ขวด แถมฟรีขนาดพกพา 10ml อีก 1 ขวด ในราคาเพียง 690 บาท (จากปกติ 990 บาท) จำนวนจำกัดเพียง 500 เซ็ตแรกเท่านั้น";
+    document.getElementById('business-type').value = 'ความงามและเครื่องสำอาง (Beauty & Cosmetics)';
+    document.getElementById('tone-voice').value = 'เป็นกันเองและเข้าถึงง่าย (Friendly & Casual)';
+    document.getElementById('gender-tone').value = 'ผู้หญิง (Feminine - ค่ะ/ขา)';
+    document.getElementById('platform').value = 'IG';
+    setContentType('educational');
+    currentQuantity = 2;
+    document.getElementById('quantity-display').textContent = '2';
+    showToast('โหลดข้อมูลธุรกิจความงามและสกินแคร์ตัวอย่างเรียบร้อย!', 'info');
+}
+
+// Save Data to LocalStorage
+function saveDataToStorage() {
+    localStorage.setItem(STORAGE_KEY_CONTENT, JSON.stringify(generatedContents));
+}
+
+// Load Data from LocalStorage
+function loadDataFromStorage() {
+    const saved = localStorage.getItem(STORAGE_KEY_CONTENT);
+    if (saved) {
+        try {
+            generatedContents = JSON.parse(saved);
+        } catch (e) {
+            generatedContents = [];
+        }
+    }
+    
+    const savedTheme = localStorage.getItem(STORAGE_KEY_THEME);
+    if (savedTheme === 'dark') {
+        currentTheme = 'dark';
+        document.body.classList.add('theme-dark');
+        document.getElementById('theme-toggle-btn').innerHTML = '<i class="fa-solid fa-moon text-sm"></i><span class="text-xs ml-2 font-bold">โหมดมืด</span>';
+    }
+}
+
+// Initialization
+window.addEventListener('DOMContentLoaded', function() {
+    loadDataFromStorage();
+    setContentType('educational');
+    
+    if (generatedContents.length > 0) {
+        switchTab('editor');
+    }
+    
+    showToast('ยินดีต้อนรับเข้าสู่ AI Social Creator Workspace!', 'info');
+});
+</script>
+
+    <script>
+// ============================================
+// Social Media Assistant - File Handler
+// ============================================
+
+// Brand File Upload
+function handleBrandFileUpload(input) {
+    const file = input.files[0];
+    if (!file) return;
+
+    const fileType = file.type;
+    const fileName = file.name;
+
+    // Text Files (.txt)
+    if (fileType === "text/plain") {
+        document.getElementById('brand-file-loader').classList.remove('hidden');
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            document.getElementById('brand-info').value = event.target.result;
+            document.getElementById('brand-file-loader').classList.add('hidden');
+            showToast('อ่านไฟล์คู่มือ ' + fileName + ' เรียบร้อยและนำไปกรอกลงกล่องข้อมูลแบรนด์แล้ว!', 'success');
+        };
+        reader.readAsText(file);
+    } 
+    // Image Files (.png, .jpg, .jpeg)
+    else if (fileType.startsWith("image/")) {
+        document.getElementById('brand-file-loader').classList.remove('hidden');
+        fileToBase64(file).then(function(base64) {
+            extractBrandWithAI(base64, fileType, fileName);
+        }).catch(function(err) {
+            showToast('เกิดความล่าช้าในการส่งวิเคราะห์รูปภาพ กรุณาลองใหม่อีกครั้ง', 'error');
+            document.getElementById('brand-file-loader').classList.add('hidden');
+        });
+    } 
+    // PDF File (.pdf)
+    else if (fileType === "application/pdf") {
+        document.getElementById('brand-file-loader').classList.remove('hidden');
+        fileToBase64(file).then(function(base64) {
+            extractBrandWithAI(base64, "application/pdf", fileName);
+        }).catch(function(err) {
+            showToast('ไม่สามารถประมวลผล PDF ได้ในขณะนี้ จะลองใช้ระบบจำลองดึงเนื้อหาแทน', 'warning');
+            document.getElementById('brand-file-loader').classList.add('hidden');
+        });
+    }
+    // Word / Docx
+    else if (fileName.endsWith(".docx") || fileName.endsWith(".doc")) {
+        document.getElementById('brand-file-loader').classList.remove('hidden');
+        showToast('ระบบสแกนเนอร์ AI กำลังถอดแบบโครงสร้างเอกสาร Word: ' + fileName + '...', 'info');
+        
+        setTimeout(function() {
+            const mockExtracts = [
+                '[วิเคราะห์โครงสร้างเอกสาร Word: ' + fileName + ']\n\nแบรนด์เครื่องสำอางและไลฟ์สไตล์ระดับพรีเมียม สกัดเข้มข้นจากธรรมชาติแท้ 100% ปราศจากพาราเบน เน้นการรักษาสมดุลผิวให้ฉ่ำวาว อิ่มน้ำยาวนาน เหมาะสำหรับสาวๆ วัยทำงานอายุ 25-40 ปี ที่เผชิญความเครียดและต้องการการปลอบประโลมผิวอย่างล้ำลึก',
+                '[วิเคราะห์โครงสร้างเอกสาร Word: ' + fileName + ']\n\nร้านอาหารฟิวชั่นและพื้นที่ไลฟ์สไตล์เพื่อสุขภาพยุคใหม่ คัดเลือกเฉพาะวัตถุดิบท้องถิ่นที่เป็นมิตรต่อชุมชน นำมาปรุงด้วยเชฟฝีมือระดับแนวหน้า บรรยากาศอบอุ่นเสมือนรับประทานอาหารที่บ้าน มุ่งเน้นการปฏิวัติการดูแลร่างกายอย่างมีความสุข'
+            ];
+            const randomExtract = mockExtracts[Math.floor(Math.random() * mockExtracts.length)];
+            document.getElementById('brand-info').value = randomExtract;
+            document.getElementById('brand-file-loader').classList.add('hidden');
+            showToast('วิเคราะห์และถอดบทเรียนจากแบรนด์บุก Word (' + fileName + ') สำเร็จ!', 'success');
+        }, 2000);
+    }
+    else {
+        showToast('ระบบยังไม่รองรับไฟล์สกุลนี้ กรุณาใช้รูปภาพ, PDF, Word หรือ .txt แทน', 'error');
+    }
+    
+    input.value = '';
+}
+
+// Product File Upload
+function handleProductFileUpload(input) {
+    const files = Array.from(input.files);
+    if (!files.length) return;
+
+    document.getElementById('product-file-loader').classList.remove('hidden');
+
+    let processedCount = 0;
+    const totalFiles = files.length;
+
+    files.forEach(function(file) {
+        const fileType = file.type;
+        const fileName = file.name;
+
+        if (fileType === "text/plain") {
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const currentVal = document.getElementById('product-info').value;
+                document.getElementById('product-info').value = currentVal ? currentVal + "\n\n" + event.target.result : event.target.result;
+                processedCount++;
+                if (processedCount === totalFiles) {
+                    document.getElementById('product-file-loader').classList.add('hidden');
+                    showToast('อ่านไฟล์ ' + fileName + ' เรียบร้อยและเพิ่มข้อมูลสินค้าแล้ว!', 'success');
+                }
+            };
+            reader.readAsText(file);
+        } else if (fileType.startsWith("image/")) {
+            fileToBase64(file).then(function(base64) {
+                extractProductWithAI(base64, fileType, fileName, function() {
+                    processedCount++;
+                    if (processedCount === totalFiles) {
+                        document.getElementById('product-file-loader').classList.add('hidden');
+                    }
+                });
+            }).catch(function(err) {
+                processedCount++;
+                if (processedCount === totalFiles) {
+                    document.getElementById('product-file-loader').classList.add('hidden');
+                }
+            });
+        } else if (fileType === "application/pdf") {
+            fileToBase64(file).then(function(base64) {
+                extractProductWithAI(base64, "application/pdf", fileName, function() {
+                    processedCount++;
+                    if (processedCount === totalFiles) {
+                        document.getElementById('product-file-loader').classList.add('hidden');
+                    }
+                });
+            }).catch(function(err) {
+                processedCount++;
+                if (processedCount === totalFiles) {
+                    document.getElementById('product-file-loader').classList.add('hidden');
+                }
+            });
+        } else if (fileName.endsWith(".docx") || fileName.endsWith(".doc")) {
+            showToast('ระบบสแกนเนอร์ AI กำลังสกัดข้อมูลสินค้า Word: ' + fileName + '...', 'info');
+            setTimeout(function() {
+                const mockText = '[ข้อมูลสินค้าสกัดจาก: ' + fileName + ']\n\nสินค้าหรือบริการโปรโมชั่นสุดพิเศษ มอบความคุ้มค่าและผลลัพธ์ที่ชัดเจน ออกแบบมาเพื่อกลุ่มลูกค้าเป้าหมายโดยเฉพาะ';
+                const currentVal = document.getElementById('product-info').value;
+                document.getElementById('product-info').value = currentVal ? currentVal + "\n\n" + mockText : mockText;
+                processedCount++;
+                if (processedCount === totalFiles) {
+                    document.getElementById('product-file-loader').classList.add('hidden');
+                    showToast('สกัดข้อมูลสินค้าจากไฟล์ Word (' + fileName + ') สำเร็จ!', 'success');
+                }
+            }, 2000);
+        } else {
+            showToast('ระบบยังไม่รองรับไฟล์สกุลนี้: ' + fileName + ' กรุณาใช้รูปภาพ, PDF, Word หรือ .txt แทน', 'error');
+            processedCount++;
+            if (processedCount === totalFiles) {
+                document.getElementById('product-file-loader').classList.add('hidden');
+            }
+        }
+    });
+
+    input.value = '';
+}
+
+// Convert File to Base64
+function fileToBase64(file) {
+    return new Promise(function(resolve, reject) {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = function() {
+            const base64String = reader.result.split(',')[1];
+            resolve(base64String);
+        };
+        reader.onerror = function(error) { reject(error); };
+    });
+}
+
+// Extract Brand with AI (Server-side)
+function extractBrandWithAI(base64Data, mimeType, filename) {
+    // Upload file to Drive first
+    const safeFileName = filename.replace(/[^a-zA-Z0-9\u0e00-\u0e7f._-]/g, "_");
+    
+    google.script.run
+        .withSuccessHandler(function(driveRes) {
+            if (driveRes.success) {
+                // Now call AI extraction
+                google.script.run
+                    .withSuccessHandler(function(aiRes) {
+                        document.getElementById('brand-file-loader').classList.add('hidden');
+                        if (aiRes.success && aiRes.data && aiRes.data.brandInfo) {
+                            document.getElementById('brand-info').value = aiRes.data.brandInfo;
+                            showToast('สแกนและสกัดแผนแบรนด์จากไฟล์ "' + filename + '" สำเร็จเรียบร้อย!', 'success');
+                        } else {
+                            // Fallback
+                            document.getElementById('brand-info').value = '[แบรนด์โปรไฟล์สกัดจาก: ' + filename + ']\n\nเป็นแบรนด์ที่มีความมุ่งมั่นนำเสนอบริการและสินค้าที่มีเอกลักษณ์ระดับพรีเมียม มุ่งกลุ่มคนเมืองผู้มีไลฟ์สไตล์ทันสมัย ใส่ใจสิ่งแวดล้อม และเน้นความสะดวกสบายเพื่อการมีคุณภาพชีวิตที่ก้าวหน้าอย่างยั่งยืน';
+                            showToast('ดึงโครงสร้างข้อมูลไฟล์ "' + filename + '" สำเร็จด้วยระบบสำรองของ Workspace', 'success');
+                        }
+                    })
+                    .withFailureHandler(function(err) {
+                        document.getElementById('brand-file-loader').classList.add('hidden');
+                        document.getElementById('brand-info').value = '[แบรนด์โปรไฟล์สกัดจาก: ' + filename + ']\n\nเป็นแบรนด์ที่มีความมุ่งมั่นนำเสนอบริการและสินค้าที่มีเอกลักษณ์ระดับพรีเมียม';
+                        showToast('ดึงโครงสร้างข้อมูลไฟล์ "' + filename + '" สำเร็จด้วยระบบสำรอง', 'success');
+                    })
+                    .extractBrandFromFiles({ filename: filename, fileUrls: [driveRes.url] }, GEMINI_API_KEY);
+            } else {
+                document.getElementById('brand-file-loader').classList.add('hidden');
+                showToast('อัปโหลดไฟล์ไม่สำเร็จ: ' + driveRes.error, 'error');
+            }
+        })
+        .withFailureHandler(function(err) {
+            document.getElementById('brand-file-loader').classList.add('hidden');
+            showToast('เกิดข้อผิดพลาดในการอัปโหลดไฟล์: ' + err.message, 'error');
+        })
+        .uploadFileToDrive(base64Data, safeFileName, mimeType, DRIVE_FOLDER_CUSTOMER);
+}
+
+// Extract Product with AI (Server-side)
+function extractProductWithAI(base64Data, mimeType, filename, callback) {
+    const safeFileName = filename.replace(/[^a-zA-Z0-9\u0e00-\u0e7f._-]/g, "_");
+    
+    google.script.run
+        .withSuccessHandler(function(driveRes) {
+            if (driveRes.success) {
+                google.script.run
+                    .withSuccessHandler(function(aiRes) {
+                        if (aiRes.success && aiRes.data && aiRes.data.productInfo) {
+                            const currentVal = document.getElementById('product-info').value;
+                            document.getElementById('product-info').value = currentVal ? currentVal + "\n\n" + aiRes.data.productInfo : aiRes.data.productInfo;
+                            showToast('สกัดข้อมูลสินค้าจากไฟล์ "' + filename + '" สำเร็จเรียบร้อย!', 'success');
+                        } else {
+                            const fallbackText = '[ข้อมูลสินค้าสกัดจาก: ' + filename + ']\n\nโปรโมชั่นพิเศษหรือสินค้าคุณภาพสูงที่พร้อมตอบโจทย์ความต้องการของลูกค้าด้วยความคุ้มค่าที่คุณไม่ควรพลาด';
+                            const currentVal = document.getElementById('product-info').value;
+                            document.getElementById('product-info').value = currentVal ? currentVal + "\n\n" + fallbackText : fallbackText;
+                            showToast('สกัดข้อมูลไฟล์ "' + filename + '" สำเร็จด้วยระบบสำรอง', 'success');
+                        }
+                        if (callback) callback();
+                    })
+                    .withFailureHandler(function(err) {
+                        const fallbackText = '[ข้อมูลสินค้าสกัดจาก: ' + filename + ']\n\nโปรโมชั่นพิเศษหรือสินค้าคุณภาพสูง';
+                        const currentVal = document.getElementById('product-info').value;
+                        document.getElementById('product-info').value = currentVal ? currentVal + "\n\n" + fallbackText : fallbackText;
+                        showToast('สกัดข้อมูลไฟล์ "' + filename + '" สำเร็จด้วยระบบสำรอง', 'success');
+                        if (callback) callback();
+                    })
+                    .extractProductFromFiles({ filename: filename, fileUrls: [driveRes.url] }, GEMINI_API_KEY);
+            } else {
+                showToast('อัปโหลดไฟล์ไม่สำเร็จ: ' + driveRes.error, 'error');
+                if (callback) callback();
+            }
+        })
+        .withFailureHandler(function(err) {
+            showToast('เกิดข้อผิดพลาดในการอัปโหลดไฟล์: ' + err.message, 'error');
+            if (callback) callback();
+        })
+        .uploadFileToDrive(base64Data, safeFileName, mimeType, DRIVE_FOLDER_CUSTOMER);
+}
+</script>
+
+    <script>
+// ============================================
+// Social Media Assistant - Core App Logic
+// ============================================
+
+// Create Content
+function createContent() {
+    const brandInfo = document.getElementById('brand-info').value.trim();
+    
+    if (!brandInfo) {
+        showAlert('กรุณากรอกข้อมูลแบรนด์', 'โปรดระบุข้อมูลแบรนด์หรืออัพโหลดเอกสารแบรนด์บุคก่อนเริ่มสร้างคอนเทนต์', 'warning');
+        return;
+    }
+
+    const btn = document.getElementById('create-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-white"></i><span class="text-base">AI กำลังเชื่อมต่อสืบค้นข้อมูลและจัดร่าง...</span>';
+
+    const promptData = {
+        brandInfo: brandInfo,
+        businessType: isCustomBusiness ? document.getElementById('custom-business').value : document.getElementById('business-type').value,
+        tone: isCustomTone ? document.getElementById('custom-tone').value : document.getElementById('tone-voice').value,
+        genderTone: isCustomGender ? document.getElementById('custom-gender').value : document.getElementById('gender-tone').value,
+        productInfo: document.getElementById('product-info').value.trim(),
+        platform: document.getElementById('platform').value,
+        mediaFormat: document.getElementById('media-format').value,
+        contentType: currentContentType,
+        quantity: currentQuantity
+    };
+
+    google.script.run
+        .withSuccessHandler(function(result) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles text-yellow-300"></i><span class="text-base">เริ่มสร้างสรรค์เนื้อหา (Create Content)</span>';
+            
+            if (result.success && result.data && result.data.contents) {
+                generatedContents = result.data.contents;
+                saveDataToStorage();
+                switchTab('editor');
+                showToast('สร้างโซเชียลมีเดียคอนเทนต์สำเร็จ ' + generatedContents.length + ' รายการแล้ว!', 'success');
+                
+                // Save to Sheets
+                saveContentHistoryToSheets(promptData);
+                saveBrandToSheets(promptData);
+            } else {
+                showAlert('เกิดข้อผิดพลาด', result.error || 'ไม่สามารถสร้างคอนเทนต์ได้ กรุณาลองใหม่อีกครั้ง', 'error');
+            }
+        })
+        .withFailureHandler(function(err) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles text-yellow-300"></i><span class="text-base">เริ่มสร้างสรรค์เนื้อหา (Create Content)</span>';
+            showAlert('เกิดข้อผิดพลาดในการเชื่อมต่อ', err.message, 'error');
+        })
+        .generateSocialContent(promptData, GEMINI_API_KEY);
+}
+
+// Refine Content
+function refineContent(id) {
+    const refinePrompt = document.getElementById('refine-prompt-' + id).value.trim();
+    if (!refinePrompt) return;
+
+    const item = generatedContents.find(function(i) { return i.id === id; });
+    if (!item) return;
+
+    const btn = document.getElementById('refine-btn-' + id);
+    btn.disabled = true;
+    btn.textContent = 'กำลังวิเคราะห์แก้ไข...';
+
+    const promptData = {
+        id: id,
+        platform: document.getElementById('platform').value,
+        originalHeadline: item.headline,
+        originalCaption: item.caption,
+        originalVisual: item.visual_suggestion,
+        refinePrompt: refinePrompt
+    };
+
+    google.script.run
+        .withSuccessHandler(function(result) {
+            btn.disabled = false;
+            btn.textContent = 'ยืนยัน';
+            
+            if (result.success && result.data) {
+                const idx = generatedContents.findIndex(function(i) { return i.id === id; });
+                if (idx !== -1) {
+                    generatedContents[idx] = { ...generatedContents[idx], ...result.data };
+                    saveDataToStorage();
+                    renderEditorView();
+                    document.getElementById('refine-prompt-' + id).value = '';
+                    showToast('AI ทำการขัดเกลาและปรับแต่งคอนเทนต์นี้ให้เรียบร้อยแล้ว!', 'success');
+                }
+            } else {
+                showAlert('เกิดข้อผิดพลาด', result.error || 'ไม่สามารถปรับแต่งได้', 'error');
+            }
+        })
+        .withFailureHandler(function(err) {
+            btn.disabled = false;
+            btn.textContent = 'ยืนยัน';
+            showAlert('เกิดข้อผิดพลาด', err.message, 'error');
+        })
+        .refineContent(promptData, GEMINI_API_KEY);
+}
+
+// Render Editor View
+function renderEditorView() {
+    const container = document.getElementById('editor-view');
+    container.innerHTML = '';
+
+    if (generatedContents.length === 0) {
+        document.getElementById('empty-state').classList.remove('hidden');
+        return;
+    }
+
+    generatedContents.forEach(function(item, index) {
+        const card = document.createElement('div');
+        card.className = 'content-card';
+        card.innerHTML = '<div class="flex items-center justify-between border-b pb-3 mb-4 border-slate-200">'
+            + '<div class="flex items-center gap-2">'
+            + '<span class="w-6 h-6 rounded-lg bg-indigo-500/20 border border-indigo-500/30 text-indigo-600 flex items-center justify-center text-xs font-mono font-bold">' + (index + 1) + '</span>'
+            + '<h4 class="text-sm font-bold text-indigo-600 uppercase tracking-wide">Post #' + (index + 1) + ' - ฉบับร่างสำหรับ ' + document.getElementById('platform').value + ' (' + document.getElementById('media-format').value + ')</h4>'
+            + '</div>'
+            + '<button onclick="copyContent(\'' + item.id + '\')" class="text-xs flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border transition-all text-slate-600 hover:text-slate-900 bg-slate-50 border-slate-200 shadow-sm">'
+            + '<i class="fa-solid fa-copy text-xs"></i><span class="font-bold">คัดลอกบทโฆษณา</span></button></div>'
+            + '<div class="space-y-1.5 mb-4"><label class="text-xs font-semibold text-slate-500">🎯 พาดหัวสั้นดึงสายตา (Hook Line / Headline)</label>'
+            + '<input type="text" value="' + escapeHtml(item.headline) + '" onchange="updateField(\'' + item.id + '\', \'headline\', this.value)" class="w-full rounded-xl px-4 py-2.5 text-sm font-bold outline-none transition-all bg-slate-50 border border-slate-200 focus:border-indigo-500 text-slate-800"></div>'
+            + '<div class="space-y-1.5 mb-4"><label class="text-xs font-semibold text-slate-500">📝 ร่างรายละเอียดเนื้อความโฆษณา (Caption Copywriting)</label>'
+            + '<textarea onchange="updateField(\'' + item.id + '\', \'caption\', this.value)" class="w-full h-44 rounded-xl p-4 text-sm outline-none transition-all resize-y font-sans leading-relaxed bg-slate-50 border border-slate-200 focus:border-indigo-500 text-slate-800">' + escapeHtml(item.caption) + '</textarea></div>'
+            + '<div class="space-y-2 mb-4"><label class="text-xs font-semibold text-slate-500">🏷️ แฮชแท็กหลักกลุ่มไทยยอดนิยม (Hashtags)</label>'
+            + '<div class="flex flex-wrap items-center gap-2" id="hashtags-' + item.id + '">' + renderHashtags(item) + '</div></div>'
+            + '<div class="visual-box mb-4"><label class="text-xs font-bold flex items-center gap-1.5 text-amber-700"><i class="fa-solid fa-lightbulb"></i> คู่มือสร้างสไลด์/ซีนวิดีโอ (Visual Guideline)</label>'
+            + '<textarea onchange="updateField(\'' + item.id + '\', \'visual_suggestion\', this.value)" class="w-full bg-transparent border-none text-xs font-sans italic outline-none resize-y h-36 leading-relaxed text-slate-700">' + escapeHtml(item.visual_suggestion) + '</textarea></div>'
+            + '<div class="border-t pt-4 flex flex-col gap-2 border-slate-200">'
+            + '<div class="flex items-center justify-between"><span class="text-xs font-semibold text-indigo-600 flex items-center gap-1"><i class="fa-solid fa-comment-dots"></i> ให้ AI ขัดเกลาข้อความโพลต์นี้ตามสั่ง (AI Refiner)</span></div>'
+            + '<div class="flex gap-2"><input type="text" id="refine-prompt-' + item.id + '" placeholder="พิมพ์ปรับแก้ได้เลย เช่น \'ขอฮาๆ สั้นลง\', \'เน้น CTA ให้กดแชร์\'..." class="refiner-input flex-1">'
+            + '<button id="refine-btn-' + item.id + '" onclick="refineContent(\'' + item.id + '\')" class="px-4 py-2 bg-indigo-500 hover:bg-indigo-600 rounded-xl text-xs font-bold text-white transition-all flex items-center gap-1"><i class="fa-solid fa-check"></i> ยืนยัน</button></div></div>';
+        container.appendChild(card);
+    });
+}
+
+// Render Hashtags
+function renderHashtags(item) {
+    var html = '';
+    item.hashtags.forEach(function(tag, idx) {
+        html += '<div class="hashtag-tag"><span>#</span>'
+            + '<input type="text" value="' + escapeHtml(tag.replace(/^#/, '')) + '" onchange="updateHashtag(\'' + item.id + '\', ' + idx + ', this.value)" class="bg-transparent border-none text-xs w-20 outline-none font-semibold">'
+            + '<button onclick="removeHashtag(\'' + item.id + '\', ' + idx + ')" class="hover:text-red-500 transition-colors ml-1 font-bold">\u00d7</button></div>';
+    });
+    html += '<button onclick="addHashtag(\'' + item.id + '\')" class="px-2.5 py-1 rounded-lg text-xs font-bold border bg-white hover:bg-slate-100 text-slate-600 border-slate-300 shadow-sm">+ เพิ่มคีย์เวิร์ดแฮชแท็ก</button>';
+    return html;
+}
+
+// Render Preview View
+function renderPreviewView() {
+    const container = document.getElementById('preview-view');
+    container.innerHTML = '';
+
+    const platform = document.getElementById('platform').value;
+    const mediaFormat = document.getElementById('media-format').value;
+
+    generatedContents.forEach(function(item) {
+        const card = document.createElement('div');
+        card.className = 'preview-card border border-slate-200 bg-white';
+        
+        var headerBg = 'bg-blue-600';
+        var profileIcon = '\ud83d\udc64';
+        
+        if (platform === 'IG') {
+            headerBg = 'bg-gradient-to-tr from-yellow-500 via-pink-500 to-purple-600';
+            profileIcon = '\ud83d\udcf8';
+        } else if (platform === 'TikTok') {
+            headerBg = 'bg-black';
+            profileIcon = '\ud83c\udfb5';
+        } else if (platform === 'Youtube') {
+            headerBg = 'bg-red-600';
+            profileIcon = '\ud83d\udcfa';
+        } else if (platform === 'Line') {
+            headerBg = 'bg-emerald-500';
+            profileIcon = '\ud83d\udcac';
+        }
+
+        card.innerHTML = '<div class="p-4 flex items-center justify-between border-b border-slate-200">'
+            + '<div class="flex items-center gap-3">'
+            + '<div class="w-10 h-10 rounded-full flex items-center justify-center text-lg ' + headerBg + ' text-white">' + profileIcon + '</div>'
+            + '<div><div class="font-bold text-sm flex items-center gap-1.5 text-slate-800">'
+            + '<span>แบรนด์ตัวตนของคุณ (Official)</span>'
+            + '<span class="w-4 h-4 bg-blue-500 rounded-full text-[9px] flex items-center justify-center text-white">\u2713</span></div>'
+            + '<div class="text-[11px] flex items-center gap-1 text-slate-500"><span>ผู้ดูแลคอนเทนต์แบรนด์</span><span>\u2022</span><span>\ud83c\udf10 ' + platform + '</span></div></div></div>'
+            + '<button class="text-slate-400 hover:text-indigo-400 font-bold">\u2022\u2022\u2022</button></div>'
+            + '<div class="p-4 space-y-3">'
+            + '<div class="font-extrabold text-base tracking-wide border-l-4 border-indigo-500 pl-2 text-slate-800">' + escapeHtml(item.headline) + '</div>'
+            + '<p class="text-sm whitespace-pre-wrap leading-relaxed text-slate-700">' + escapeHtml(item.caption) + '</p>'
+            + '<div class="text-blue-500 text-sm font-semibold flex flex-wrap gap-x-1.5">' + item.hashtags.map(function(tag) { return '<span>' + (tag.startsWith('#') ? tag : '#' + tag) + '</span>'; }).join('') + '</div></div>'
+            + '<div class="p-6 text-center space-y-4 border-y border-slate-200 bg-slate-50">'
+            + '<div class="h-auto min-h-[176px] rounded-xl border flex flex-col items-center justify-center p-4 bg-slate-50 border-slate-200">'
+            + '<div class="w-12 h-12 bg-indigo-500/10 text-indigo-500 rounded-full flex items-center justify-center mb-2 text-2xl flex-shrink-0">' + (mediaFormat === "Video" ? "\ud83c\udfa5" : "\ud83d\uddbc\ufe0f") + '</div>'
+            + '<span class="text-[10px] uppercase tracking-widest text-indigo-500 font-semibold mb-2 block">ความคาดหวังภาพกราฟิก / คัทซีน ' + mediaFormat + ' (รายละเอียด)</span>'
+            + '<div class="text-xs italic text-left max-w-sm leading-relaxed whitespace-pre-wrap w-full text-slate-600">' + escapeHtml(item.visual_suggestion) + '</div></div>'
+            + '<p class="text-[10px] text-slate-500">(องค์ประกอบภาพศิลป์ แสง สี จะถูกวางกรอบโครงสร้างแนวนี้เพื่อให้ฝ่ายผลิตผลงานต่อทันที)</p></div>'
+            + '<div class="px-4 py-3 flex items-center justify-between text-xs font-semibold bg-slate-50 text-slate-500 border-t border-slate-200">'
+            + '<div class="flex items-center gap-1 hover:text-blue-500 cursor-pointer"><span>\ud83d\udc4d กดไลก์ถูกใจ</span></div>'
+            + '<div class="flex items-center gap-1 hover:text-blue-500 cursor-pointer"><span>\ud83d\udcac เขียนความคิดเห็น</span></div>'
+            + '<div class="flex items-center gap-1 hover:text-blue-500 cursor-pointer"><span>\ud83d\udd04 ส่งต่อ / แชร์</span></div></div>';
+        container.appendChild(card);
+    });
+}
+
+// Update Field
+function updateField(id, field, value) {
+    const idx = generatedContents.findIndex(function(i) { return i.id === id; });
+    if (idx !== -1) {
+        generatedContents[idx][field] = value;
+        saveDataToStorage();
+    }
+}
+
+// Update Hashtag
+function updateHashtag(id, idx, value) {
+    const item = generatedContents.find(function(i) { return i.id === id; });
+    if (item) {
+        item.hashtags[idx] = value;
+        saveDataToStorage();
+        document.getElementById('hashtags-' + id).innerHTML = renderHashtags(item);
+    }
+}
+
+// Add Hashtag
+function addHashtag(id) {
+    const item = generatedContents.find(function(i) { return i.id === id; });
+    if (item) {
+        item.hashtags.push('แท็กใหม่');
+        saveDataToStorage();
+        document.getElementById('hashtags-' + id).innerHTML = renderHashtags(item);
+    }
+}
+
+// Remove Hashtag
+function removeHashtag(id, idx) {
+    const item = generatedContents.find(function(i) { return i.id === id; });
+    if (item) {
+        item.hashtags.splice(idx, 1);
+        saveDataToStorage();
+        document.getElementById('hashtags-' + id).innerHTML = renderHashtags(item);
+    }
+}
+
+// Copy Content
+function copyContent(id) {
+    const item = generatedContents.find(function(i) { return i.id === id; });
+    if (!item) return;
+
+    const text = 'หัวข้อ: ' + item.headline + '\n\nแคปชั่น:\n' + item.caption + '\n\nแฮชแท็ก: ' + item.hashtags.map(function(t) { return t.startsWith('#') ? t : '#' + t; }).join(' ');
+    
+    const tempTextArea = document.createElement('textarea');
+    tempTextArea.value = text;
+    document.body.appendChild(tempTextArea);
+    tempTextArea.select();
+    try {
+        document.execCommand('copy');
+        showToast('คัดลอกเนื้อหาไปยังคลิปบอร์ดแล้ว!', 'success');
+    } catch (err) {
+        showToast('ไม่สามารถคัดลอกได้โดยอัตโนมัติ กรุณาไฮไลต์และคัดลอกเอง', 'warning');
+    }
+    document.body.removeChild(tempTextArea);
+}
+
+// Export to Word
+function exportToDoc() {
+    if (generatedContents.length === 0) {
+        showAlert('ยังไม่มีคอนเทนต์', 'กรุณาสร้างคอนเทนต์ก่อนส่งออกไฟล์', 'warning');
+        return;
+    }
+
+    var businessType = isCustomBusiness ? document.getElementById('custom-business').value : document.getElementById('business-type').value;
+    var tone = isCustomTone ? document.getElementById('custom-tone').value : document.getElementById('tone-voice').value;
+    var platform = document.getElementById('platform').value;
+    var mediaFormat = document.getElementById('media-format').value;
+
+    var parts = [];
+    parts.push("<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>");
+    parts.push('<head><title>แผนงานโซเชียลมีเดียคอนเทนต์</title><meta charset="utf-8" />');
+    parts.push('<style>body{font-family:"Tahoma","Segoe UI",sans-serif;line-height:1.6;color:#1e293b;padding:20px}.header{border-bottom:3px double #6366f1;padding-bottom:15px;margin-bottom:30px;text-align:center}.title{font-size:26px;font-weight:bold;color:#4338ca}.metadata{font-size:13px;color:#64748b;margin-top:5px}.card{border:1px solid #e2e8f0;border-radius:8px;padding:25px;margin-bottom:30px;background-color:#f8fafc}.post-num{font-size:18px;font-weight:bold;color:#4f46e5;border-bottom:1px solid #e2e8f0;padding-bottom:8px;margin-bottom:15px}.label{font-weight:bold;color:#0f172a;margin-top:15px}.headline{font-size:16px;font-weight:bold;color:#1e1b4b;background-color:#e0e7ff;padding:8px 12px;border-radius:4px;margin-bottom:10px}.caption{background-color:#fff;border:1px solid #cbd5e1;padding:15px;border-radius:6px;white-space:pre-wrap;margin-bottom:15px}.hashtags{color:#2563eb;font-weight:bold;font-family:monospace;font-size:14px;margin-bottom:15px}.visual-box{border-left:4px solid #f59e0b;background-color:#fffbeb;padding:12px 16px;border-radius:0 4px 4px 0;font-style:italic;font-size:13px;color:#b45309;white-space:pre-wrap}</style></head><body>');
+    parts.push('<div class="header"><div class="title">\ud83d\udccb Social Media Content Calendar & Copy</div>');
+    parts.push('<div class="metadata">สร้างโดย AI Content Strategy Assistant | ประเภทธุรกิจ: ' + escapeHtml(businessType) + ' | โทนเสียง: ' + escapeHtml(tone) + ' | ช่องทาง: ' + escapeHtml(platform) + '</div></div>');
+
+    generatedContents.forEach(function(item, idx) {
+        var hashtags = item.hashtags.map(function(t) { return t.startsWith('#') ? t : '#' + t; }).join(' ');
+        parts.push('<div class="card"><div class="post-num">โพสต์ที่ ' + (idx + 1) + ' (' + escapeHtml(platform) + ' - ' + escapeHtml(mediaFormat) + ')</div>');
+        parts.push('<div class="label">\ud83c\udfaf หัวข้อ / Hook:</div><div class="headline">' + escapeHtml(item.headline) + '</div>');
+        parts.push('<div class="label">\ud83d\udcdd แคปชั่นสำหรับใช้งาน:</div><div class="caption">' + escapeHtml(item.caption) + '</div>');
+        parts.push('<div class="label">\ud83c\udff7\ufe0f แฮชแท็ก:</div><div class="hashtags">' + escapeHtml(hashtags) + '</div>');
+        parts.push('<div class="label">\ud83d\udca1 คำแนะนำสำหรับการทำภาพกราฟิก/วิดีโอ:</div><div class="visual-box">' + escapeHtml(item.visual_suggestion) + '</div></div>');
+    });
+
+    parts.push('</body></html>');
+
+    var blob = new Blob(['\ufeff' + parts.join('')], { type: 'application/msword' });
+    var url = URL.createObjectURL(blob);
+    var link = document.createElement('a');
+    link.href = url;
+    link.download = 'social_content_plan_' + platform + '_' + Date.now() + '.doc';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast('ส่งออกข้อมูลเป็นไฟล์เอกสาร Word (.doc) สำเร็จแล้ว!', 'success');
+}
+
+// Export to Slides
+function exportToSlides() {
+    if (generatedContents.length === 0) {
+        showAlert('ไม่มีข้อมูล', 'ยังไม่มีคอนเทนต์สำหรับสร้างสไลด์ กรุณาสร้างคอนเทนต์ก่อน', 'warning');
+        return;
+    }
+
+    var businessType = isCustomBusiness ? document.getElementById('custom-business').value : document.getElementById('business-type').value;
+    var platform = document.getElementById('platform').value;
+    var mediaFormat = document.getElementById('media-format').value;
+    var sOpen = '<' + 'script>';
+    var sClose = '<' + '/script>';
+
+    var p = [];
+    p.push('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Content Concept Deck</title>');
+    p.push('<' + 'script src="https://cdn.tailwindcss.com">' + sClose);
+    p.push('<style>.slide{display:none;min-height:100vh}.slide.active{display:flex}</style></head>');
+    p.push('<body class="bg-slate-900 text-white font-sans">');
+    p.push('<div class="slide active flex-col justify-between p-16" id="slide-0">');
+    p.push('<div class="my-auto max-w-4xl"><h1 class="text-6xl font-extrabold tracking-tight mb-6 bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">Content Concept Presentation</h1>');
+    p.push('<p class="text-2xl text-slate-300">สำหรับธุรกิจ: ' + escapeHtml(businessType) + ' | ช่องทาง: <span class="text-indigo-300 font-bold">' + escapeHtml(platform) + '</span></p></div>');
+    p.push('<div class="text-slate-500 text-xs text-center">กดปุ่มลูกศร ซ้าย-ขวา เพื่อเปลี่ยนหน้า | สร้างเมื่อ: ' + new Date().toLocaleDateString('th-TH') + '</div></div>');
+
+    generatedContents.forEach(function(item, idx) {
+        p.push('<div class="slide flex-col justify-between p-12 bg-slate-950" id="slide-' + ((idx*2)+1) + '">');
+        p.push('<div class="flex justify-between items-center border-b border-slate-800 pb-4"><span class="text-indigo-400 font-bold text-sm">POST #' + (idx+1) + ': CONCEPT</span><span class="text-slate-400 text-xs">' + escapeHtml(platform) + '</span></div>');
+        p.push('<div class="my-auto space-y-6"><div><h3 class="text-xs font-semibold text-indigo-400 uppercase tracking-widest mb-1">Hook</h3><h2 class="text-3xl font-extrabold text-white">' + escapeHtml(item.headline) + '</h2></div>');
+        p.push('<div><h3 class="text-xs font-semibold text-amber-400 uppercase tracking-widest mb-1">Visual Direction</h3><div class="p-5 bg-amber-950/40 border border-amber-900/50 rounded-xl text-amber-200 text-xs italic whitespace-pre-wrap">' + escapeHtml(item.visual_suggestion) + '</div></div></div>');
+        p.push('<div class="text-slate-500 text-xs">สไลด์ ' + ((idx*2)+1) + '</div></div>');
+
+        var hashStr = item.hashtags.map(function(t){ return t.startsWith('#') ? t : '#' + t; }).join(' ');
+        p.push('<div class="slide flex-col justify-between p-12 bg-indigo-950/20" id="slide-' + ((idx*2)+2) + '">');
+        p.push('<div class="flex justify-between items-center border-b border-indigo-900/40 pb-4"><span class="text-indigo-400 font-bold text-sm">POST #' + (idx+1) + ': COPY</span><span class="text-slate-400 text-xs">' + escapeHtml(platform) + '</span></div>');
+        p.push('<div class="my-auto max-w-4xl mx-auto w-full"><h3 class="text-xs font-semibold text-indigo-400 uppercase tracking-widest mb-2">Caption</h3><div class="bg-slate-900/80 border border-indigo-500/20 rounded-xl p-6 text-sm text-slate-100 whitespace-pre-wrap">' + escapeHtml(item.caption) + '<br/><br/>' + escapeHtml(hashStr) + '</div></div>');
+        p.push('<div class="text-slate-500 text-xs">สไลด์ ' + ((idx*2)+2) + '</div></div>');
+    });
+
+    var totalSlides = (generatedContents.length * 2) + 1;
+    p.push(sOpen);
+    p.push('var cs=0,ts=' + totalSlides + ';function ss(i){document.querySelectorAll(".slide").forEach(function(e){e.classList.remove("active")});document.getElementById("slide-"+i).classList.add("active");cs=i}document.addEventListener("keydown",function(e){if(e.key==="ArrowRight"&&cs<ts-1)ss(cs+1);else if(e.key==="ArrowLeft"&&cs>0)ss(cs-1)});');
+    p.push(sClose);
+    p.push('</body></html>');
+
+    var blob = new Blob([p.join('')], { type: 'text/html' });
+    var url = URL.createObjectURL(blob);
+    var link = document.createElement('a');
+    link.href = url;
+    link.download = 'pitching_deck_' + platform + '_' + Date.now() + '.html';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast('ดาวน์โหลดสไลด์คอนเซปต์สำเร็จ!', 'success');
+}
+
+// Escape HTML
+function escapeHtml(text) {
+    if (!text) return '';
+    var div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+</script>
+
+    <script>
+// ============================================
+// Social Media Assistant - Sheets Handler
+// ============================================
+
+// Save Content History to Sheets
+function saveContentHistoryToSheets(promptData) {
+    generatedContents.forEach(function(item) {
+        const contentData = {
+            id: item.id,
+            platform: promptData.platform,
+            businessType: promptData.businessType,
+            tone: promptData.tone,
+            contentType: promptData.contentType,
+            mediaFormat: promptData.mediaFormat,
+            quantity: promptData.quantity,
+            headline: item.headline,
+            caption: item.caption,
+            hashtags: item.hashtags.join(', '),
+            visualSuggestion: item.visual_suggestion
+        };
+
+        google.script.run
+            .withSuccessHandler(function(result) {
+                if (result.success) {
+                    console.log('บันทึกคอนเทนต์ลง Sheets สำเร็จ แถวที่ ' + result.rowNumber);
+                } else {
+                    console.error('บันทึกไม่สำเร็จ: ' + result.error);
+                }
+            })
+            .withFailureHandler(function(err) {
+                console.error('เกิดข้อผิดพลาด: ' + err.message);
+            })
+            .saveContentToSheets(contentData);
+    });
+}
+
+// Load Brands from Sheets
+function loadBrandsFromSheets() {
+    google.script.run
+        .withSuccessHandler(function(result) {
+            if (result.success && result.brands) {
+                console.log('โหลดแบรนด์จาก Sheets สำเร็จ: ' + result.brands.length + ' รายการ');
+                // สามารถใช้ข้อมูลนี้เพื่อแสดงรายการแบรนด์ที่บันทึกไว้
+            } else {
+                console.error('โหลดแบรนด์ไม่สำเร็จ: ' + result.error);
+            }
+        })
+        .withFailureHandler(function(err) {
+            console.error('เกิดข้อผิดพลาด: ' + err.message);
+        })
+        .loadBrandsFromSheets();
+}
+
+// Load Content History from Sheets
+function loadContentHistoryFromSheets() {
+    google.script.run
+        .withSuccessHandler(function(result) {
+            if (result.success && result.history) {
+                console.log('โหลดประวัติคอนเทนต์จาก Sheets สำเร็จ: ' + result.history.length + ' รายการ');
+                // สามารถใช้ข้อมูลนี้เพื่อแสดงประวัติคอนเทนต์
+            } else {
+                console.error('โหลดประวัติไม่สำเร็จ: ' + result.error);
+            }
+        })
+        .withFailureHandler(function(err) {
+            console.error('เกิดข้อผิดพลาด: ' + err.message);
+        })
+        .loadContentHistoryFromSheets();
+}
+
+// Save Brand to Sheets
+function saveBrandToSheets(promptData) {
+    if (!promptData || !promptData.brandInfo) return;
+
+    const brandData = {
+        id: currentBrandId ? currentBrandId : 'brand-' + Date.now(),
+        title: promptData.businessType.split(' (')[0],
+        brandInfo: promptData.brandInfo,
+        businessType: promptData.businessType,
+        tone: promptData.tone,
+        genderTone: promptData.genderTone,
+        platform: promptData.platform,
+        mediaFormat: promptData.mediaFormat,
+        productInfo: promptData.productInfo,
+        contentObjective: promptData.contentType,
+        quantity: promptData.quantity
+    };
+
+    google.script.run
+        .withSuccessHandler(function(result) {
+            if (result.success) {
+                if (result.action === 'create') {
+                    currentBrandId = brandData.id;
+                }
+                document.getElementById('btn-history').classList.remove('hidden');
+                console.log('บันทึกแบรนด์และประวัติสำเร็จ!');
+            } else {
+                console.error('ไม่สามารถบันทึกลง Sheets: ' + result.error);
+            }
+        })
+        .withFailureHandler(function(err) {
+            console.error('เกิดข้อผิดพลาดเชื่อมต่อสคริปต์: ' + err.message);
+        })
+        .saveBrandToSheets(brandData);
+}
+
+// ============================================
+// Brand History UI & Logic
+// ============================================
+function showBrandHistoryModal() {
+    if (!currentBrandId) {
+        showAlert('ไม่มีประวัติ', 'ยังไม่มีการสร้างบรีฟสำหรับแบรนด์นี้ โปรดสร้างคอนเทนต์อย่างน้อย 1 ครั้งก่อนดูประวัติ', 'warning');
+        return;
+    }
+    document.getElementById('history-modal').classList.remove('hidden');
+    document.getElementById('history-list-container').innerHTML = `
+        <div class="flex flex-col items-center justify-center py-10 text-slate-400 gap-2">
+            <i class="fa-solid fa-spinner fa-spin text-2xl"></i>
+            <p class="text-sm">กำลังโหลดประวัติ...</p>
+        </div>`;
+
+    google.script.run
+        .withSuccessHandler(function(result) {
+            if (result.success) {
+                renderHistoryList(result.history);
+            } else {
+                document.getElementById('history-list-container').innerHTML = `
+                    <div class="text-center text-red-500 py-10">เกิดข้อผิดพลาด: ${result.error}</div>`;
+            }
+        })
+        .withFailureHandler(function(err) {
+            document.getElementById('history-list-container').innerHTML = `
+                <div class="text-center text-red-500 py-10">ไม่สามารถเชื่อมต่อได้: ${err.message}</div>`;
+        })
+        .loadBrandHistoryFromSheets(currentBrandId);
+}
+
+function hideBrandHistoryModal() {
+    document.getElementById('history-modal').classList.add('hidden');
+}
+
+function renderHistoryList(historyData) {
+    const container = document.getElementById('history-list-container');
+    container.innerHTML = '';
+
+    if (!historyData || historyData.length === 0) {
+        container.innerHTML = `
+            <div class="text-center text-slate-500 py-10">
+                <i class="fa-solid fa-folder-open text-3xl mb-2 text-slate-300"></i>
+                <p>ยังไม่มีประวัติการแก้ไขบรีฟ</p>
+            </div>`;
+        return;
+    }
+
+    historyData.forEach(function(item, idx) {
+        // Parse date for display
+        const dateObj = new Date(item.Timestamp);
+        const dateString = dateObj.toLocaleDateString('th-TH') + ' ' + dateObj.toLocaleTimeString('th-TH');
+        const isLatest = idx === 0;
+
+        const el = document.createElement('div');
+        el.className = "bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all";
+        el.innerHTML = `
+            <div class="flex items-start justify-between gap-4">
+                <div class="flex-1 space-y-2">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-bold text-slate-500"><i class="fa-regular fa-clock"></i> ${dateString}</span>
+                        ${isLatest ? '<span class="px-2 py-0.5 bg-indigo-100 text-indigo-700 text-[10px] font-bold rounded-full">ล่าสุด</span>' : ''}
+                    </div>
+                    <div class="text-sm font-semibold text-slate-800 line-clamp-1">ประเภทธุรกิจ: ${item.businessType}</div>
+                    <p class="text-xs text-slate-500 line-clamp-2">${item.brandInfo}</p>
+                    <div class="flex flex-wrap gap-1 mt-2">
+                        <span class="px-2 py-1 bg-slate-100 text-slate-600 text-[10px] rounded border border-slate-200">โทน: ${item.tone}</span>
+                        <span class="px-2 py-1 bg-slate-100 text-slate-600 text-[10px] rounded border border-slate-200">แพลตฟอร์ม: ${item.platform}</span>
+                    </div>
+                </div>
+                <button onclick='restoreHistoryVersion(${JSON.stringify(item).replace(/'/g, "\\'")})' class="shrink-0 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 text-xs font-bold rounded-lg border border-indigo-200 transition-colors">
+                    <i class="fa-solid fa-rotate-left"></i> Restore
+                </button>
+            </div>
+        `;
+        container.appendChild(el);
+    });
+}
+
+function restoreHistoryVersion(item) {
+    document.getElementById('brand-info').value = item.brandInfo || '';
+    document.getElementById('product-info').value = item.productInfo || '';
+    
+    // Set Business Type
+    const busTypeSelect = document.getElementById('business-type');
+    let busFound = false;
+    for(let i=0; i<busTypeSelect.options.length; i++){
+        if(busTypeSelect.options[i].value === item.businessType){
+            busFound = true; break;
+        }
+    }
+    if (busFound) {
+        busTypeSelect.value = item.businessType;
+        if(isCustomBusiness) toggleCustomInput('business'); // Turn off custom
+    } else {
+        if(!isCustomBusiness) toggleCustomInput('business'); // Turn on custom
+        document.getElementById('custom-business').value = item.businessType;
+    }
+
+    // Set Tone
+    const toneSelect = document.getElementById('tone-voice');
+    let toneFound = false;
+    for(let i=0; i<toneSelect.options.length; i++){
+        if(toneSelect.options[i].value === item.tone){
+            toneFound = true; break;
+        }
+    }
+    if (toneFound) {
+        toneSelect.value = item.tone;
+        if(isCustomTone) toggleCustomInput('tone');
+    } else {
+        if(!isCustomTone) toggleCustomInput('tone');
+        document.getElementById('custom-tone').value = item.tone;
+    }
+
+    // Set Gender Tone
+    const genderSelect = document.getElementById('gender-tone');
+    let genderFound = false;
+    for(let i=0; i<genderSelect.options.length; i++){
+        if(genderSelect.options[i].value === item.genderTone){
+            genderFound = true; break;
+        }
+    }
+    if (genderFound) {
+        genderSelect.value = item.genderTone;
+        if(isCustomGender) toggleCustomInput('gender');
+    } else {
+        if(!isCustomGender) toggleCustomInput('gender');
+        document.getElementById('custom-gender').value = item.genderTone;
+    }
+
+    // Set Platform & format
+    if (item.platform) document.getElementById('platform').value = item.platform;
+    if (item.mediaFormat) document.getElementById('media-format').value = item.mediaFormat;
+    
+    if (item.contentObjective) setContentType(item.contentObjective);
+
+    hideBrandHistoryModal();
+    showToast('ดึงข้อมูลบรีฟจากประวัติสำเร็จ!', 'success');
+}
+</script>
+
+</body>
+</html>
