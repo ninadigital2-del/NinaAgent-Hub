@@ -1177,6 +1177,7 @@ header{background:#fff;border-bottom:1px solid #e5e3dd;padding:10px 20px;display
     </div>
     <div class="pb" id="task-panel"><div class="empty">กำลังดึงข้อมูล...</div></div>
     <div class="abar">
+      <input type="date" id="sel-assign-date" title="เลือกวันที่ลงงาน (เว้นว่างไว้เพื่อใช้วัน Due Date ปกติ)" style="padding:4px 8px; border:1px solid #ddd; border-radius:4px; font-size:12px;">
       <select id="sel-assignee"><option value="">เลือก graphic...</option></select>
       <button class="abtn" id="btn-assign" disabled>Assign</button>
     </div>
@@ -1431,7 +1432,7 @@ function renderPeople() {
         const escJob = esc(t.jobNumber);
         const escStatus = esc(t.status || '');
         const stMeta = getStatusMeta(t.status, t.rawDate);
-        return '<div class="today-item is-today" draggable="true" ondragstart="handleAssignedDragStart(event, \\''+p.name+'\\', '+t.rowIndex+')">'
+        return '<div class="today-item is-today">'
              + '<span class="task-date">วันนี้</span>'
              + '<span class="task-name-text ' + stMeta.textClass + '" title="'+escName+'">'
              + '<span class="status-tag ' + stMeta.tagClass + '">' + esc(stMeta.text) + '</span>' + t.name + '</span>'
@@ -1439,7 +1440,6 @@ function renderPeople() {
              + '<button class="btn-done" onclick="markTaskDone(\\''+p.name+'\\', '+t.rowIndex+', \\''+escName+'\\', \\''+escJob+'\\', this, event)" title="ทำเสร็จแล้ว">✔</button>'
              + '<button class="btn-edit" onclick="openEditModal(\\''+p.name+'\\', '+t.rowIndex+', \\''+escName+'\\', \\''+escBrand+'\\', \\''+escWorkType+'\\', \\''+escDate+'\\', \\''+escJob+'\\', \\''+escStatus+'\\')" title="แก้ไข">✎</button>'
              + '<button class="btn-return" onclick="returnTaskToPool(\\''+p.name+'\\', '+t.rowIndex+', \\''+escName+'\\', \\''+escJob+'\\', this)" title="ตีกลับเข้าระบบ (Unassign)">↩</button>'
-             + '<button class="btn-delete" onclick="deleteTaskPermanently(\\''+p.name+'\\', '+t.rowIndex+', \\''+escName+'\\', \\''+escJob+'\\', this)" title="ลบงานทิ้งถาวร">🗑</button>'
              + '</div></div>';
       }).join('');
       let pItems = (p.periodTasks || []).map(function(t){
@@ -1450,7 +1450,7 @@ function renderPeople() {
         const escJob = esc(t.jobNumber);
         const escStatus = esc(t.status || '');
         const stMeta = getStatusMeta(t.status, t.rawDate);
-        return '<div class="today-item" draggable="true" ondragstart="handleAssignedDragStart(event, \\''+p.name+'\\', '+t.rowIndex+')">'
+        return '<div class="today-item">'
              + '<span class="task-date">'+t.dateStr+'</span>'
              + '<span class="task-name-text ' + stMeta.textClass + '" title="'+escName+'">'
              + '<span class="status-tag ' + stMeta.tagClass + '">' + esc(stMeta.text) + '</span>' + t.name + '</span>'
@@ -1458,7 +1458,6 @@ function renderPeople() {
              + '<button class="btn-done" onclick="markTaskDone(\\''+p.name+'\\', '+t.rowIndex+', \\''+escName+'\\', \\''+escJob+'\\', this, event)" title="ทำเสร็จแล้ว">✔</button>'
              + '<button class="btn-edit" onclick="openEditModal(\\''+p.name+'\\', '+t.rowIndex+', \\''+escName+'\\', \\''+escBrand+'\\', \\''+escWorkType+'\\', \\''+escDate+'\\', \\''+escJob+'\\', \\''+escStatus+'\\')" title="แก้ไข">✎</button>'
              + '<button class="btn-return" onclick="returnTaskToPool(\\''+p.name+'\\', '+t.rowIndex+', \\''+escName+'\\', \\''+escJob+'\\', this)" title="ตีกลับเข้าระบบ (Unassign)">↩</button>'
-             + '<button class="btn-delete" onclick="deleteTaskPermanently(\\''+p.name+'\\', '+t.rowIndex+', \\''+escName+'\\', \\''+escJob+'\\', this)" title="ลบงานทิ้งถาวร">🗑</button>'
              + '</div></div>';
       }).join('');
       
@@ -1495,12 +1494,6 @@ function renderPeople() {
       if (source === 'unassigned') {
         const taskId = event.dataTransfer.getData('taskId');
         assignTaskViaDrag(taskId, p.name);
-      } else if (source === 'assigned') {
-        const fromAssignee = event.dataTransfer.getData('fromAssignee');
-        const rowIndex = parseInt(event.dataTransfer.getData('rowIndex'), 10);
-        if (fromAssignee !== p.name) {
-          relocateTaskViaDrag(fromAssignee, rowIndex, p.name);
-        }
       }
     };
 
@@ -1609,7 +1602,6 @@ function renderTasks() {
         + '</div>'
         + '<div class="task-item-actions" onclick="event.stopPropagation()">'
         + '<button class="btn-edit" onclick="openUnassignedEditModal(\\''+escId+'\\', \\''+escName+'\\', \\''+escBrand+'\\', \\''+escWorkType+'\\', \\''+escDate+'\\', \\''+escStatus+'\\')" title="แก้ไข">✎</button>'
-        + '<button class="btn-delete" onclick="deleteUnassignedTask(\\''+escId+'\\', \\''+escName+'\\', this)" title="ลบงาน">🗑</button>'
         + '</div>';
       item.onclick = function() {
         state.selectedTask = state.selectedTask===t.id?null:t.id;
@@ -1630,26 +1622,55 @@ document.getElementById('sel-assignee').addEventListener('change', updateBtn);
 
 document.getElementById('btn-assign').addEventListener('click', function() {
   const assignee = document.getElementById('sel-assignee').value;
+  const customDate = document.getElementById('sel-assign-date').value;
   const task = state.tasks.find(function(t){return t.id===state.selectedTask;});
   if (!task||!assignee) return;
+  
+  const finalDueDate = customDate ? customDate : task.dueDate;
   const btn = document.getElementById('btn-assign');
   btn.disabled = true;
   btn.textContent = 'กำลัง assign...';
+  
+  // OPTIMISTIC UI UPDATE
+  state.tasks = state.tasks.filter(function(t){return t.id!==task.id;});
+  const person = state.people.find(function(p){return p.name===assignee;});
+  if (person) {
+    person.open = Math.max(0,person.open+1);
+    if(!person.todayTasks) person.todayTasks = [];
+    person.todayTasks.push({
+      rowIndex: 9999, // Fake index
+      rawDate: finalDueDate || '',
+      dateStr: finalDueDate ? new Date(finalDueDate).toLocaleDateString('th-TH',{day:'numeric',month:'short'}) : '',
+      name: task.name,
+      brand: task.brandCode,
+      workType: task.workType,
+      jobNumber: task.jobNumber,
+      status: 'Not started'
+    });
+  }
+  state.selectedTask = null;
+  document.getElementById('sel-assignee').value = '';
+  document.querySelectorAll('.person-card').forEach(function(c){c.classList.remove('selected');});
+  renderPeople(); renderTasks(); updateBtn();
+  
   google.script.run
     .withSuccessHandler(function(res) {
       btn.textContent = 'Assign';
       if (res.ok) {
         showToast('Assign "'+task.name+'" \u2192 '+assignee+' เสร็จแล้ว');
-        state.tasks = state.tasks.filter(function(t){return t.id!==task.id;});
-        const person = state.people.find(function(p){return p.name===assignee;});
-        if (person) person.open = Math.max(0,person.open+1);
-        state.selectedTask = null;
-        document.getElementById('sel-assignee').value = '';
-        document.querySelectorAll('.person-card').forEach(function(c){c.classList.remove('selected');});
-        renderPeople(); renderTasks(); updateBtn();
+        google.script.run
+          .withSuccessHandler(function(allData) {
+            if (allData.ok) {
+              state.people = allData.capacity.people;
+              renderPeople();
+            }
+          })
+          .getAllData();
       } else {
         showToast('Error: '+(res.errors||[]).join(', '));
         btn.disabled = false;
+        // Revert UI on failure
+        fetchData();
       }
     })
     .withFailureHandler(function(err) {
@@ -1658,9 +1679,10 @@ document.getElementById('btn-assign').addEventListener('click', function() {
       btn.disabled = false;
     })
     .handleAssign({
-      action:'assign', taskId:task.id, taskName:task.name, taskUrl:task.url,
-      assignee:assignee, dueDate:task.dueDate, brand:task.brandCode,
-      workType:task.workType, owner:task.workBy, jobNumber:task.jobNumber,
+      action: 'assign', taskId: task.id, taskName: task.name, taskUrl: task.url,
+      assignee: assignee, dueDate: finalDueDate, brand: task.brandCode,
+      workType: task.workType, owner: task.workBy, jobNumber: task.jobNumber,
+      originalDueDate: task.dueDate // Send this if needed later
     });
 });
 
@@ -1710,31 +1732,50 @@ function handleAssignedDragStart(event, fromAssignee, rowIndex) {
 }
 
 function assignTaskViaDrag(taskId, targetAssignee) {
+  const customDate = document.getElementById('sel-assign-date').value;
   const task = state.tasks.find(function(t){return t.id===taskId;});
   if (!task || !targetAssignee) return;
   showToast('กำลังมอบหมายงาน...');
+  
+  const finalDueDate = customDate ? customDate : task.dueDate;
+  
+  // OPTIMISTIC UI UPDATE
+  state.tasks = state.tasks.filter(function(t){return t.id!==task.id;});
+  const person = state.people.find(function(p){return p.name===targetAssignee;});
+  if (person) {
+    person.open = Math.max(0, person.open + 1);
+    if(!person.todayTasks) person.todayTasks = [];
+    person.todayTasks.push({
+      rowIndex: 9999, // Fake index
+      rawDate: finalDueDate || '',
+      dateStr: finalDueDate ? new Date(finalDueDate).toLocaleDateString('th-TH',{day:'numeric',month:'short'}) : '',
+      name: task.name,
+      brand: task.brandCode,
+      workType: task.workType,
+      jobNumber: task.jobNumber,
+      status: 'Not started'
+    });
+  }
+  state.selectedTask = null;
+  renderTasks();
+  updateBtn();
+  renderPeople();
+
   google.script.run
     .withSuccessHandler(function(res) {
       if (res.ok) {
         showToast('Assign "' + task.name + '" \u2192 ' + targetAssignee + ' เสร็จแล้ว');
-        state.tasks = state.tasks.filter(function(t){return t.id!==task.id;});
-        const person = state.people.find(function(p){return p.name===targetAssignee;});
-        if (person) {
-          person.open = Math.max(0, person.open + 1);
-          google.script.run
-            .withSuccessHandler(function(allData) {
-              if (allData.ok) {
-                state.people = allData.capacity.people;
-                renderPeople();
-              }
-            })
-            .getAllData();
-        }
-        state.selectedTask = null;
-        renderTasks();
-        updateBtn();
+        google.script.run
+          .withSuccessHandler(function(allData) {
+            if (allData.ok) {
+              state.people = allData.capacity.people;
+              renderPeople();
+            }
+          })
+          .getAllData();
       } else {
         showToast('Error: ' + (res.error || (res.errors && res.errors.join(', ')) || 'Unknown error'));
+        fetchData(); // Revert on failure
       }
     })
     .withFailureHandler(function(err) {
@@ -1742,8 +1783,9 @@ function assignTaskViaDrag(taskId, targetAssignee) {
     })
     .handleAssign({
       action: 'assign', taskId: task.id, taskName: task.name, taskUrl: task.url,
-      assignee: targetAssignee, dueDate: task.dueDate, brand: task.brandCode,
-      workType: task.workType, owner: task.workBy, jobNumber: task.jobNumber
+      assignee: targetAssignee, dueDate: finalDueDate, brand: task.brandCode,
+      workType: task.workType, owner: task.workBy, jobNumber: task.jobNumber,
+      originalDueDate: task.dueDate
     });
 }
 
