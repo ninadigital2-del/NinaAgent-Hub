@@ -488,19 +488,15 @@ body {
 
 /* Button Classes */
 .btn-primary {
-    flex: 1; text-align: center; text-decoration: none; padding: 10px; border-radius: 8px; font-weight: 500; transition: all 0.3s ease; color: white; display: inline-block; cursor: pointer;
+    flex: 1; text-align: center; text-decoration: none; padding: 10px; border-radius: 8px; font-weight: 500; transition: all 0.3s ease; display: inline-flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer;
+    background: #1e293b; color: #ffffff; border: 1px solid #0f172a;
 }
-.btn-primary:hover { opacity: 0.9; transform: translateY(-2px); box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-
-.btn-indigo { background: #6366f1; border: 1px solid #4f46e5; }
-.btn-pink { background: #ec4899; border: 1px solid #db2777; }
-.btn-blue { background: #3b82f6; border: 1px solid #2563eb; }
-.btn-orange { background: #f97316; border: 1px solid #ea580c; }
+.btn-primary:hover { background: #334155; transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
 
 .btn-secondary {
-    flex: 1; text-align: center; padding: 10px; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 8px; color: #475569; font-weight: 500; cursor: pointer; transition: all 0.3s ease; font-family: inherit;
+    flex: 1; text-align: center; padding: 10px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; color: #475569; font-weight: 500; cursor: pointer; transition: all 0.3s ease; font-family: inherit; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
 }
-.btn-secondary:hover { background: #e2e8f0; color: #1e293b; }
+.btn-secondary:hover { background: #f8fafc; color: #1e293b; border-color: #cbd5e1; }
 
 .spinner {
     width: 40px;
