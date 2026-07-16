@@ -22,13 +22,22 @@
 }
 
 body {
-    font-family: 'Prompt', 'Outfit', sans-serif;
+    margin: 0;
+    font-family: 'Prompt', sans-serif;
     background-color: var(--bg-color);
     color: var(--text-primary);
+    overflow: hidden; /* Prevent body scroll */
+    display: flex;
+    flex-direction: column;
     height: 100vh;
-    overflow: hidden; /* Prevent body scroll, layout handles it */
+    height: 100dvh; /* Fix for mobile browser address bars */
+}
+
+.layout-wrapper {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
     position: relative;
-    line-height: 1.6;
 }
 
 /* Animated Background Orbs */
