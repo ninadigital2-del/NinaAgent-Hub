@@ -9,7 +9,7 @@
     <!-- Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- CSS -->
-    <link rel="stylesheet" href="style.css?v=2">
+    <link rel="stylesheet" href="style.css?v=3">
 </head>
 <body>
     <!-- Background Animation Elements -->
@@ -54,18 +54,32 @@
                 <nav class="sidebar-nav">
                     <div class="nav-group">
                         <div class="nav-label">หน้าหลัก</div>
-                        <a href="#" class="nav-item active">
+                        <a href="#" class="nav-item active" id="nav-dashboard" onclick="showDashboard(this)">
                             <i class="fa-solid fa-house"></i> Dashboard
                         </a>
                     </div>
                     
                     <div class="nav-group">
-                        <div class="nav-label">เครื่องมือ</div>
-                        <a href="#" class="nav-item">
-                            <i class="fa-solid fa-rocket"></i> All Tools
+                        <div class="nav-label">เครื่องมือ AI ของคุณ</div>
+                        
+                        <a href="#" class="nav-item sidebar-tool-link" onclick="loadToolInFrame(this, 'Social Media Content Creator', 'https://script.google.com/macros/s/AKfycbw0RYR8ellHaxhYAdwi66G1uOViPhUd-dnqEgSfbvsrtg_G5hXs7F29-D2TUc1_JWO_MA/exec')">
+                            <i class="fa-solid fa-wand-magic-sparkles" style="color: #a855f7;"></i> Content Creator
                         </a>
-                        <a href="#" class="nav-item">
-                            <i class="fa-solid fa-chart-line"></i> Analytics <span class="nav-badge">Soon</span>
+                        
+                        <a href="#" class="nav-item sidebar-tool-link" onclick="loadToolInFrame(this, 'Brief AI Engine', 'https://script.google.com/macros/s/AKfycbzZpN9N3nltiC0zSyl96mwJ0e7TaWvGiOxeO0VSx4KLsz005k5k8bzOFEsOzNLTONv0PA/exec')">
+                            <i class="fa-solid fa-palette" style="color: #ec4899;"></i> Brief AI Engine
+                        </a>
+                        
+                        <a href="#" class="nav-item sidebar-tool-link" onclick="loadToolInFrame(this, 'Meeting → Notion Agent Pro', 'https://script.google.com/macros/s/AKfycbzPkqKjpJWP8f4y7Uw5d0h-ClzrpGLKqk_JE-NeqTQvHDeBO0KwbIeiEU1fehjT_PQg/exec')">
+                            <i class="fa-solid fa-briefcase" style="color: #3b82f6;"></i> Meeting Agent
+                        </a>
+                        
+                        <a href="#" class="nav-item sidebar-tool-link" onclick="loadToolInFrame(this, 'GEM Graphic Capacity Board', 'https://script.google.com/macros/s/AKfycbzSCdW5W4Z60c8Ny2bw9L2qO2nB1wuOhaRy38T5T66jTL-Wnm8kfyzXHwwNfKN18kEiCw/exec')">
+                            <i class="fa-solid fa-users-rectangle" style="color: #6366f1;"></i> GEM Capacity Board
+                        </a>
+                        
+                        <a href="#" class="nav-item sidebar-tool-link" onclick="loadToolInFrame(this, 'Video to MP3 Converter', 'https://script.google.com/macros/s/AKfycbx1TiPblwAjS1xOsKi5-nVz5ka-6OqOx8Cbkdj9bZApqGV6ESSJ21MdyGsPR9gOOyeQhA/exec')">
+                            <i class="fa-solid fa-file-audio" style="color: #f97316;"></i> Video to MP3
                         </a>
                     </div>
                 </nav>
@@ -80,132 +94,146 @@
         <div class="main-content">
             <header class="top-header desktop-only">
                 <div class="header-title">
-                    <h2><i class="fa-solid fa-table-cells-large"></i> Dashboard</h2>
-                    <p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 0.2rem;">ศูนย์รวมเครื่องมือ AI สำหรับจัดการเวิร์กโฟลว์อัจฉริยะ</p>
+                    <h2 id="top-title"><i class="fa-solid fa-table-cells-large"></i> Dashboard</h2>
+                    <p id="top-subtitle" style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 0.2rem;">ศูนย์รวมเครื่องมือ AI สำหรับจัดการเวิร์กโฟลว์อัจฉริยะ</p>
                 </div>
                 <div class="time-widget" id="clock">
                     --:--:--
                 </div>
             </header>
 
-            <main class="content-scroll">
-                <!-- Mobile Time Widget -->
-                <div class="time-widget mobile-only" id="mobile-clock" style="margin-bottom: 1.5rem; display: inline-block;">
-                    --:--:--
-                </div>
-
-                <div class="section-header">
-                    <h3>เครื่องมือทั้งหมด</h3>
-                </div>
+            <main class="content-scroll" style="padding: 0;">
                 
-                <div class="cards-container">
-                    <!-- Tool Card 1 -->
-                    <div class="glass-card tool-card" style="flex-direction: column; align-items: stretch; cursor: default;">
-                        <div style="display: flex; gap: 1.25rem; align-items: flex-start; margin-bottom: 1rem;">
-                            <div class="card-icon gradient-purple">
-                                <i class="fa-solid fa-wand-magic-sparkles"></i>
-                            </div>
-                            <div class="card-content">
-                                <h3>Social Media Content Creator</h3>
-                                <p>ผู้ช่วย AI เขียนแคปชั่นและกลยุทธ์คอนเทนต์บนโซเชียลมีเดีย</p>
-                                <span class="badge badge-script">Google Apps Script</span>
-                            </div>
-                        </div>
-                        <div class="card-actions" style="display: flex; gap: 10px; margin-top: auto;">
-                            <a href="javascript:void(0);" onclick="openTool('Open Tool', 'Social Media Content Creator', 'https://script.google.com/macros/s/AKfycbw0RYR8ellHaxhYAdwi66G1uOViPhUd-dnqEgSfbvsrtg_G5hXs7F29-D2TUc1_JWO_MA/exec');" style="flex: 1; text-align: center; text-decoration: none; padding: 10px; background: rgba(99, 102, 241, 0.2); border: 1px solid rgba(99, 102, 241, 0.5); border-radius: 8px; color: white; font-weight: 500; transition: all 0.3s ease;">
-                                <i class="fa-solid fa-rocket"></i> เปิดเครื่องมือ
-                            </a>
-                            <button onclick="openManual('1UIn3oi60DCi9UWO6LiSAdr7pKbQk2DzF', 'คู่มือ Social Media Content Creator')" style="flex: 1; text-align: center; padding: 10px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; color: white; font-weight: 500; cursor: pointer; transition: all 0.3s ease; font-family: inherit;">
-                                <i class="fa-solid fa-book"></i> อ่านคู่มือ
-                            </button>
-                        </div>
+                <!-- Dashboard View -->
+                <div id="dashboard-view" style="padding: 2.5rem; height: 100%; overflow-y: auto;">
+                    <!-- Mobile Time Widget -->
+                    <div class="time-widget mobile-only" id="mobile-clock" style="margin-bottom: 1.5rem; display: inline-block;">
+                        --:--:--
                     </div>
 
-                    <!-- Tool Card 2 -->
-                    <div class="glass-card tool-card" style="flex-direction: column; align-items: stretch; cursor: default;">
-                        <div style="display: flex; gap: 1.25rem; align-items: flex-start; margin-bottom: 1rem;">
-                            <div class="card-icon gradient-pink">
-                                <i class="fa-solid fa-palette"></i>
-                            </div>
-                            <div class="card-content">
-                                <h3>Brief AI Engine</h3>
-                                <p>สร้างบรีฟงานออกแบบกราฟิกสุดสร้างสรรค์สำหรับทีมดีไซน์</p>
-                                <span class="badge badge-html">HTML / JS</span>
-                            </div>
-                        </div>
-                        <div class="card-actions" style="display: flex; gap: 10px; margin-top: auto;">
-                            <a href="javascript:void(0);" onclick="openTool('Open Tool', 'Brief AI Engine', 'https://script.google.com/macros/s/AKfycbzZpN9N3nltiC0zSyl96mwJ0e7TaWvGiOxeO0VSx4KLsz005k5k8bzOFEsOzNLTONv0PA/exec');" style="flex: 1; text-align: center; text-decoration: none; padding: 10px; background: rgba(236, 72, 153, 0.2); border: 1px solid rgba(236, 72, 153, 0.5); border-radius: 8px; color: white; font-weight: 500; transition: all 0.3s ease;">
-                                <i class="fa-solid fa-rocket"></i> เปิดเครื่องมือ
-                            </a>
-                            <button onclick="openManual('1_alPI1KEZL7fCBR7udN0AnBrh47wG9Ti', 'คู่มือ Brief AI Engine')" style="flex: 1; text-align: center; padding: 10px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; color: white; font-weight: 500; cursor: pointer; transition: all 0.3s ease; font-family: inherit;">
-                                <i class="fa-solid fa-book"></i> อ่านคู่มือ
-                            </button>
-                        </div>
+                    <div class="section-header">
+                        <h3>เครื่องมือทั้งหมด</h3>
                     </div>
+                    
+                    <div class="cards-container">
+                        <!-- Tool Card 1 -->
+                        <div class="glass-card tool-card" style="flex-direction: column; align-items: stretch; cursor: default;">
+                            <div style="display: flex; gap: 1.25rem; align-items: flex-start; margin-bottom: 1rem;">
+                                <div class="card-icon gradient-purple">
+                                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                                </div>
+                                <div class="card-content">
+                                    <h3>Social Media Content Creator</h3>
+                                    <p>ผู้ช่วย AI เขียนแคปชั่นและกลยุทธ์คอนเทนต์บนโซเชียลมีเดีย</p>
+                                    <span class="badge badge-script">Google Apps Script</span>
+                                </div>
+                            </div>
+                            <div class="card-actions" style="display: flex; gap: 10px; margin-top: auto;">
+                                <a href="javascript:void(0);" onclick="loadToolInFrame(document.querySelectorAll('.sidebar-tool-link')[0], 'Social Media Content Creator', 'https://script.google.com/macros/s/AKfycbw0RYR8ellHaxhYAdwi66G1uOViPhUd-dnqEgSfbvsrtg_G5hXs7F29-D2TUc1_JWO_MA/exec');" style="flex: 1; text-align: center; text-decoration: none; padding: 10px; background: rgba(99, 102, 241, 0.2); border: 1px solid rgba(99, 102, 241, 0.5); border-radius: 8px; color: white; font-weight: 500; transition: all 0.3s ease;">
+                                    <i class="fa-solid fa-rocket"></i> เปิดเครื่องมือ
+                                </a>
+                                <button onclick="openManual('1UIn3oi60DCi9UWO6LiSAdr7pKbQk2DzF', 'คู่มือ Social Media Content Creator')" style="flex: 1; text-align: center; padding: 10px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; color: white; font-weight: 500; cursor: pointer; transition: all 0.3s ease; font-family: inherit;">
+                                    <i class="fa-solid fa-book"></i> อ่านคู่มือ
+                                </button>
+                            </div>
+                        </div>
 
-                    <!-- Tool Card 3 -->
-                    <div class="glass-card tool-card" style="flex-direction: column; align-items: stretch; cursor: default;">
-                        <div style="display: flex; gap: 1.25rem; align-items: flex-start; margin-bottom: 1rem;">
-                            <div class="card-icon gradient-blue">
-                                <i class="fa-solid fa-briefcase"></i>
+                        <!-- Tool Card 2 -->
+                        <div class="glass-card tool-card" style="flex-direction: column; align-items: stretch; cursor: default;">
+                            <div style="display: flex; gap: 1.25rem; align-items: flex-start; margin-bottom: 1rem;">
+                                <div class="card-icon gradient-pink">
+                                    <i class="fa-solid fa-palette"></i>
+                                </div>
+                                <div class="card-content">
+                                    <h3>Brief AI Engine</h3>
+                                    <p>สร้างบรีฟงานออกแบบกราฟิกสุดสร้างสรรค์สำหรับทีมดีไซน์</p>
+                                    <span class="badge badge-html">HTML / JS</span>
+                                </div>
                             </div>
-                            <div class="card-content">
-                                <h3>Meeting → Notion Agent Pro</h3>
-                                <p>ระบบบันทึกการประชุมและสรุปงานลงฐานข้อมูล Notion</p>
-                                <span class="badge badge-api">API Integration</span>
+                            <div class="card-actions" style="display: flex; gap: 10px; margin-top: auto;">
+                                <a href="javascript:void(0);" onclick="loadToolInFrame(document.querySelectorAll('.sidebar-tool-link')[1], 'Brief AI Engine', 'https://script.google.com/macros/s/AKfycbzZpN9N3nltiC0zSyl96mwJ0e7TaWvGiOxeO0VSx4KLsz005k5k8bzOFEsOzNLTONv0PA/exec');" style="flex: 1; text-align: center; text-decoration: none; padding: 10px; background: rgba(236, 72, 153, 0.2); border: 1px solid rgba(236, 72, 153, 0.5); border-radius: 8px; color: white; font-weight: 500; transition: all 0.3s ease;">
+                                    <i class="fa-solid fa-rocket"></i> เปิดเครื่องมือ
+                                </a>
+                                <button onclick="openManual('1_alPI1KEZL7fCBR7udN0AnBrh47wG9Ti', 'คู่มือ Brief AI Engine')" style="flex: 1; text-align: center; padding: 10px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; color: white; font-weight: 500; cursor: pointer; transition: all 0.3s ease; font-family: inherit;">
+                                    <i class="fa-solid fa-book"></i> อ่านคู่มือ
+                                </button>
                             </div>
                         </div>
-                        <div class="card-actions" style="display: flex; gap: 10px; margin-top: auto;">
-                            <a href="javascript:void(0);" onclick="openTool('Open Tool', 'Meeting → Notion Agent Pro', 'https://script.google.com/macros/s/AKfycbzPkqKjpJWP8f4y7Uw5d0h-ClzrpGLKqk_JE-NeqTQvHDeBO0KwbIeiEU1fehjT_PQg/exec');" style="flex: 1; text-align: center; text-decoration: none; padding: 10px; background: rgba(59, 130, 246, 0.2); border: 1px solid rgba(59, 130, 246, 0.5); border-radius: 8px; color: white; font-weight: 500; transition: all 0.3s ease;">
-                                <i class="fa-solid fa-rocket"></i> เปิดเครื่องมือ
-                            </a>
-                            <button onclick="openManual('1fqfTMs6xC_E-m8zcS3ZCMLOHfvmuWKr0', 'คู่มือ Meeting → Notion Agent Pro')" style="flex: 1; text-align: center; padding: 10px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; color: white; font-weight: 500; cursor: pointer; transition: all 0.3s ease; font-family: inherit;">
-                                <i class="fa-solid fa-book"></i> อ่านคู่มือ
-                            </button>
-                        </div>
-                    </div>
 
-                    <!-- Tool Card 4 -->
-                    <div class="glass-card tool-card" style="flex-direction: column; align-items: stretch; cursor: default;">
-                        <div style="display: flex; gap: 1.25rem; align-items: flex-start; margin-bottom: 1rem;">
-                            <div class="card-icon gradient-purple">
-                                <i class="fa-solid fa-users-rectangle"></i>
+                        <!-- Tool Card 3 -->
+                        <div class="glass-card tool-card" style="flex-direction: column; align-items: stretch; cursor: default;">
+                            <div style="display: flex; gap: 1.25rem; align-items: flex-start; margin-bottom: 1rem;">
+                                <div class="card-icon gradient-blue">
+                                    <i class="fa-solid fa-briefcase"></i>
+                                </div>
+                                <div class="card-content">
+                                    <h3>Meeting → Notion Agent Pro</h3>
+                                    <p>ระบบบันทึกการประชุมและสรุปงานลงฐานข้อมูล Notion</p>
+                                    <span class="badge badge-api">API Integration</span>
+                                </div>
                             </div>
-                            <div class="card-content">
-                                <h3>GEM Graphic Capacity Board</h3>
-                                <p>ระบบจัดการและกระจายงาน Graphic อัจฉริยะเชื่อมต่อ Notion & Google Sheets</p>
-                                <span class="badge badge-html">HTML / JS</span>
+                            <div class="card-actions" style="display: flex; gap: 10px; margin-top: auto;">
+                                <a href="javascript:void(0);" onclick="loadToolInFrame(document.querySelectorAll('.sidebar-tool-link')[2], 'Meeting → Notion Agent Pro', 'https://script.google.com/macros/s/AKfycbzPkqKjpJWP8f4y7Uw5d0h-ClzrpGLKqk_JE-NeqTQvHDeBO0KwbIeiEU1fehjT_PQg/exec');" style="flex: 1; text-align: center; text-decoration: none; padding: 10px; background: rgba(59, 130, 246, 0.2); border: 1px solid rgba(59, 130, 246, 0.5); border-radius: 8px; color: white; font-weight: 500; transition: all 0.3s ease;">
+                                    <i class="fa-solid fa-rocket"></i> เปิดเครื่องมือ
+                                </a>
+                                <button onclick="openManual('1fqfTMs6xC_E-m8zcS3ZCMLOHfvmuWKr0', 'คู่มือ Meeting → Notion Agent Pro')" style="flex: 1; text-align: center; padding: 10px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; color: white; font-weight: 500; cursor: pointer; transition: all 0.3s ease; font-family: inherit;">
+                                    <i class="fa-solid fa-book"></i> อ่านคู่มือ
+                                </button>
                             </div>
                         </div>
-                        <div class="card-actions" style="display: flex; gap: 10px; margin-top: auto;">
-                            <a href="javascript:void(0);" onclick="openTool('Open Tool', 'GEM Graphic Capacity Board', 'https://script.google.com/macros/s/AKfycbzSCdW5W4Z60c8Ny2bw9L2qO2nB1wuOhaRy38T5T66jTL-Wnm8kfyzXHwwNfKN18kEiCw/exec');" style="flex: 1; text-align: center; text-decoration: none; padding: 10px; background: rgba(99, 102, 241, 0.2); border: 1px solid rgba(99, 102, 241, 0.5); border-radius: 8px; color: white; font-weight: 500; transition: all 0.3s ease;">
-                                <i class="fa-solid fa-rocket"></i> เปิดเครื่องมือ
-                            </a>
-                            <button onclick="openManual('https://script.google.com/macros/s/AKfycbzSCdW5W4Z60c8Ny2bw9L2qO2nB1wuOhaRy38T5T66jTL-Wnm8kfyzXHwwNfKN18kEiCw/exec?action=manual', 'คู่มือ GEM Graphic Capacity Board')" style="flex: 1; text-align: center; padding: 10px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; color: white; font-weight: 500; cursor: pointer; transition: all 0.3s ease; font-family: inherit;">
-                                <i class="fa-solid fa-book"></i> อ่านคู่มือ
-                            </button>
-                        </div>
-                    </div>
 
-                    <!-- Tool Card 5 -->
-                    <div class="glass-card tool-card" style="flex-direction: column; align-items: stretch; cursor: default;">
-                        <div style="display: flex; gap: 1.25rem; align-items: flex-start; margin-bottom: 1rem;">
-                            <div class="card-icon gradient-orange" style="background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); color: white; border-radius: 12px; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
-                                <i class="fa-solid fa-file-audio"></i>
+                        <!-- Tool Card 4 -->
+                        <div class="glass-card tool-card" style="flex-direction: column; align-items: stretch; cursor: default;">
+                            <div style="display: flex; gap: 1.25rem; align-items: flex-start; margin-bottom: 1rem;">
+                                <div class="card-icon gradient-purple">
+                                    <i class="fa-solid fa-users-rectangle"></i>
+                                </div>
+                                <div class="card-content">
+                                    <h3>GEM Graphic Capacity Board</h3>
+                                    <p>ระบบจัดการและกระจายงาน Graphic อัจฉริยะเชื่อมต่อ Notion & Google Sheets</p>
+                                    <span class="badge badge-html">HTML / JS</span>
+                                </div>
                             </div>
-                            <div class="card-content">
-                                <h3>Video to MP3 Converter</h3>
-                                <p>ระบบแปลงไฟล์วิดีโอเป็นเสียง MP3 (ประมวลผลบนเครื่อง 100% ปลอดภัย)</p>
-                                <span class="badge badge-script" style="background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.2); padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 500;">Google Apps Script</span>
+                            <div class="card-actions" style="display: flex; gap: 10px; margin-top: auto;">
+                                <a href="javascript:void(0);" onclick="loadToolInFrame(document.querySelectorAll('.sidebar-tool-link')[3], 'GEM Graphic Capacity Board', 'https://script.google.com/macros/s/AKfycbzSCdW5W4Z60c8Ny2bw9L2qO2nB1wuOhaRy38T5T66jTL-Wnm8kfyzXHwwNfKN18kEiCw/exec');" style="flex: 1; text-align: center; text-decoration: none; padding: 10px; background: rgba(99, 102, 241, 0.2); border: 1px solid rgba(99, 102, 241, 0.5); border-radius: 8px; color: white; font-weight: 500; transition: all 0.3s ease;">
+                                    <i class="fa-solid fa-rocket"></i> เปิดเครื่องมือ
+                                </a>
+                                <button onclick="openManual('https://script.google.com/macros/s/AKfycbzSCdW5W4Z60c8Ny2bw9L2qO2nB1wuOhaRy38T5T66jTL-Wnm8kfyzXHwwNfKN18kEiCw/exec?action=manual', 'คู่มือ GEM Graphic Capacity Board')" style="flex: 1; text-align: center; padding: 10px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; color: white; font-weight: 500; cursor: pointer; transition: all 0.3s ease; font-family: inherit;">
+                                    <i class="fa-solid fa-book"></i> อ่านคู่มือ
+                                </button>
                             </div>
                         </div>
-                        <div class="card-actions" style="display: flex; gap: 10px; margin-top: auto;">
-                            <a href="javascript:void(0);" onclick="openTool('Open Tool', 'Video to MP3 Converter', 'https://script.google.com/macros/s/AKfycbx1TiPblwAjS1xOsKi5-nVz5ka-6OqOx8Cbkdj9bZApqGV6ESSJ21MdyGsPR9gOOyeQhA/exec');" style="flex: 1; text-align: center; text-decoration: none; padding: 10px; background: rgba(249, 115, 22, 0.2); border: 1px solid rgba(249, 115, 22, 0.5); border-radius: 8px; color: white; font-weight: 500; transition: all 0.3s ease;">
-                                <i class="fa-solid fa-rocket"></i> เปิดเครื่องมือ
-                            </a>
+
+                        <!-- Tool Card 5 -->
+                        <div class="glass-card tool-card" style="flex-direction: column; align-items: stretch; cursor: default;">
+                            <div style="display: flex; gap: 1.25rem; align-items: flex-start; margin-bottom: 1rem;">
+                                <div class="card-icon gradient-orange" style="background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); color: white; border-radius: 12px; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
+                                    <i class="fa-solid fa-file-audio"></i>
+                                </div>
+                                <div class="card-content">
+                                    <h3>Video to MP3 Converter</h3>
+                                    <p>ระบบแปลงไฟล์วิดีโอเป็นเสียง MP3 (ประมวลผลบนเครื่อง 100% ปลอดภัย)</p>
+                                    <span class="badge badge-script" style="background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.2); padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 500;">Google Apps Script</span>
+                                </div>
+                            </div>
+                            <div class="card-actions" style="display: flex; gap: 10px; margin-top: auto;">
+                                <a href="javascript:void(0);" onclick="loadToolInFrame(document.querySelectorAll('.sidebar-tool-link')[4], 'Video to MP3 Converter', 'https://script.google.com/macros/s/AKfycbx1TiPblwAjS1xOsKi5-nVz5ka-6OqOx8Cbkdj9bZApqGV6ESSJ21MdyGsPR9gOOyeQhA/exec');" style="flex: 1; text-align: center; text-decoration: none; padding: 10px; background: rgba(249, 115, 22, 0.2); border: 1px solid rgba(249, 115, 22, 0.5); border-radius: 8px; color: white; font-weight: 500; transition: all 0.3s ease;">
+                                    <i class="fa-solid fa-rocket"></i> เปิดเครื่องมือ
+                                </a>
+                            </div>
                         </div>
                     </div>
                 </div>
+
+                <!-- Iframe View -->
+                <div id="iframe-view" style="display: none; height: 100%; width: 100%; position: relative;">
+                    <div id="iframe-loader" class="loader" style="display: none;">
+                        <div class="spinner"></div>
+                        <p style="margin-top: 1rem; color: var(--text-secondary);">กำลังโหลดเครื่องมือ...</p>
+                    </div>
+                    <iframe id="tool-frame" src="" style="width: 100%; height: 100%; border: none; background: #fff;" onload="document.getElementById('iframe-loader').style.display='none';"></iframe>
+                </div>
+
             </main>
         </div>
     </div>
@@ -233,7 +261,7 @@
     </div>
 
     <!-- JS -->
-    <script src="app.js?v=2"></script>
+    <script src="app.js?v=3"></script>
     <script>
         // Trigger page load log
         fetch('https://script.google.com/macros/s/AKfycby01Vt8mWPbziblEgfQb0sexWqrkEm9cIiFR810UVxCJF26SPXJDOkx11aT0Ezo4u9h/exec', {

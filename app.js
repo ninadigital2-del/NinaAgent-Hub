@@ -51,6 +51,66 @@ if (sidebarOverlay) {
     });
 }
 
+function showDashboard(element) {
+    // Update active state in sidebar
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    if (element) element.classList.add('active');
+
+    // Update Top Title
+    const titleEl = document.getElementById('top-title');
+    if (titleEl) titleEl.innerHTML = '<i class="fa-solid fa-table-cells-large"></i> Dashboard';
+    const subTitleEl = document.getElementById('top-subtitle');
+    if (subTitleEl) subTitleEl.innerText = 'ศูนย์รวมเครื่องมือ AI สำหรับจัดการเวิร์กโฟลว์อัจฉริยะ';
+
+    // Show dashboard, hide iframe
+    document.getElementById('dashboard-view').style.display = 'block';
+    document.getElementById('iframe-view').style.display = 'none';
+    
+    // Clear iframe to save memory
+    document.getElementById('tool-frame').src = '';
+    
+    // Close mobile sidebar if open
+    sidebar.classList.remove('open');
+    sidebarOverlay.classList.remove('active');
+}
+
+function loadToolInFrame(element, toolName, url) {
+    // Update active state in sidebar
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    if (element) element.classList.add('active');
+
+    // Update Top Title
+    const titleEl = document.getElementById('top-title');
+    if (titleEl) {
+        // Find the icon from the clicked element
+        const iconHtml = element ? element.querySelector('i').outerHTML : '<i class="fa-solid fa-rocket"></i>';
+        titleEl.innerHTML = iconHtml + ' ' + toolName;
+    }
+    const subTitleEl = document.getElementById('top-subtitle');
+    if (subTitleEl) subTitleEl.innerText = 'กำลังรันเครื่องมือ...';
+
+    // Show iframe, hide dashboard
+    document.getElementById('dashboard-view').style.display = 'none';
+    const iframeView = document.getElementById('iframe-view');
+    iframeView.style.display = 'block';
+    
+    // Show loader and set src
+    document.getElementById('iframe-loader').style.display = 'flex';
+    document.getElementById('tool-frame').src = url;
+    
+    // Close mobile sidebar if open
+    sidebar.classList.remove('open');
+    sidebarOverlay.classList.remove('active');
+    
+    // Log interaction
+    fetch('https://script.google.com/macros/s/AKfycby01Vt8mWPbziblEgfQb0sexWqrkEm9cIiFR810UVxCJF26SPXJDOkx11aT0Ezo4u9h/exec', {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'Iframe Open', details: `Opened ${toolName} in Iframe` })
+    }).catch(e => console.log(e));
+}
+
 function openTool(action, details, url) {
     const newTab = window.open('about:blank', '_blank');
     if (newTab) {
