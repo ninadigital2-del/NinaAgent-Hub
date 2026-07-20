@@ -663,7 +663,19 @@
           let dateHtml = '';
           if (task.date || task.time) {
             let dateText = task.date || '';
-            let timeText = task.time ? ` (${task.time})` : '';
+            let timeText = task.time || '';
+            
+            // Format time if it's an ISO string (like 2026-07-20T17:00:00.000Z)
+            if (timeText.includes('T')) {
+              try {
+                const t = new Date(timeText);
+                if (!isNaN(t.getTime())) {
+                  timeText = t.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+                }
+              } catch(e){}
+            }
+            if (timeText) timeText = ` (${timeText})`;
+            
             if (dateText.includes('T')) {
               try {
                 const d = new Date(dateText);
