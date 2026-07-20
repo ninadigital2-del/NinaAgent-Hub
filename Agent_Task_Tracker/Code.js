@@ -696,16 +696,11 @@ function onTaskStatusChange(e) {
 function setupTrigger() {
   try {
     const triggers = ScriptApp.getProjectTriggers();
-    let hasTimeTrigger = false;
     let editTriggersCount = 0;
     
-    // ลบ trigger onEdit เก่าทั้งหมดก่อนสร้างใหม่
+    // ลบ trigger เก่าทั้งหมดก่อนสร้างใหม่
     for (let i = 0; i < triggers.length; i++) {
-      if (triggers[i].getHandlerFunction() === 'onTaskStatusChange') {
-        ScriptApp.deleteTrigger(triggers[i]);
-      } else if (triggers[i].getHandlerFunction() === 'pushDailySummary') {
-        hasTimeTrigger = true;
-      }
+      ScriptApp.deleteTrigger(triggers[i]);
     }
     
     // สร้าง Trigger แจ้งเตือนเมื่อแก้ชีต สำหรับทุกไฟล์
@@ -719,23 +714,28 @@ function setupTrigger() {
       editTriggersCount++;
     });
     
-    // สร้าง Trigger แจ้งเตือนทุก 9 โมงเช้า
-    if (!hasTimeTrigger) {
-      ScriptApp.newTrigger('pushDailySummary')
-        .timeBased()
-        .atHour(9)
-        .everyDays(1)
-        .create();
-    }
+    // สร้าง Trigger แจ้งเตือนตอน 9 โมงเช้า
+    ScriptApp.newTrigger('pushDailySummary')
+      .timeBased()
+      .atHour(9)
+      .everyDays(1)
+      .create();
+
+    // สร้าง Trigger แจ้งเตือนตอน 17:00 (5 โมงเย็น)
+    ScriptApp.newTrigger('pushDailySummary')
+      .timeBased()
+      .atHour(17)
+      .everyDays(1)
+      .create();
       
-    return ContentService.createTextOutput(`ตั้งค่า Trigger แจ้งเตือนสำเร็จแล้ว! 🚀\n(1) ผูกตารางไปแล้ว ${editTriggersCount} ไฟล์\n(2) แจ้งสรุปงานตอน 9 โมงเช้า`);
+    return ContentService.createTextOutput(`ตั้งค่า Trigger แจ้งเตือนสำเร็จแล้ว! 🚀\n(1) ผูกตารางไปแล้ว ${editTriggersCount} ไฟล์\n(2) แจ้งเตือนงานตอน 09:00 และ 17:00`);
   } catch (err) {
     return ContentService.createTextOutput('Error: ' + err.message);
   }
 }
 
 // ============================================================
-// 9. Daily Summary (แจ้งเตือนสรุปงานตอนเช้า)
+// 9. Daily Summary (แจ้งเตือนสรุปงานตอนเช้าและเย็น)
 // ============================================================
 function pushDailySummary() {
   const day = new Date().getDay();
@@ -744,7 +744,6 @@ function pushDailySummary() {
   }
 
   let pAofCount = 0;
-  let adjustCount = 0;
   let pendingTasks = [];
   
   // ลูปเช็คตารางของทุกคน
@@ -758,10 +757,7 @@ function pushDailySummary() {
         const status = String(data[i][CONFIG.COL_STATUS] || '').trim();
         if (status === "Sent to P'Aof") {
           pAofCount++;
-          pendingTasks.push(`• [${owner}] ${data[i][CONFIG.COL_TASK_NAME] || 'ไม่ระบุชื่อ'} (รอตรวจ)`);
-        } else if (status === "มีปรับแก้") {
-          adjustCount++;
-          pendingTasks.push(`• [${owner}] ${data[i][CONFIG.COL_TASK_NAME] || 'ไม่ระบุชื่อ'} (ปรับแก้)`);
+          pendingTasks.push(`• [${owner}] ${data[i][CONFIG.COL_TASK_NAME] || 'ไม่ระบุชื่อ'}`);
         }
       }
     } catch (e) {
@@ -769,18 +765,22 @@ function pushDailySummary() {
     }
   });
   
-  let taskListContents = [];
-  if (pendingTasks.length > 0) {
-    const displayTasks = pendingTasks.slice(0, 5);
-    displayTasks.forEach(t => {
-      taskListContents.push({ type: "text", text: t, size: "sm", color: "#555555", wrap: true });
-    });
-    if (pendingTasks.length > 5) {
-      taskListContents.push({ type: "text", text: `...และอีก ${pendingTasks.length - 5} งาน`, size: "sm", color: "#aaaaaa", style: "italic", margin: "sm" });
-    }
-  } else {
-    taskListContents.push({ type: "text", text: "ไม่มีงานค้างเลย เยี่ยมมาก! 🎉", size: "sm", color: "#1DB446" });
+  // ถ้าไม่มีงานสเตตัส Sent to P'Aof ให้หยุดการทำงานทันที (ไม่ต้องแจ้งเตือน)
+  if (pAofCount === 0) {
+    return;
   }
+  
+  let taskListContents = [];
+  const displayTasks = pendingTasks.slice(0, 5);
+  displayTasks.forEach(t => {
+    taskListContents.push({ type: "text", text: t, size: "sm", color: "#555555", wrap: true });
+  });
+  if (pendingTasks.length > 5) {
+    taskListContents.push({ type: "text", text: `...และอีก ${pendingTasks.length - 5} งาน`, size: "sm", color: "#aaaaaa", style: "italic", margin: "sm" });
+  }
+
+  const hour = new Date().getHours();
+  const titleText = hour < 12 ? "🌅 งานรอตรวจเช้านี้" : "🌇 งานรอตรวจเย็นนี้";
 
   const flexContents = {
     type: "bubble",
@@ -789,7 +789,7 @@ function pushDailySummary() {
       layout: "vertical",
       backgroundColor: "#378ADD",
       contents: [
-        { type: "text", text: "🌅 สรุปงานค้างเช้านี้", weight: "bold", color: "#ffffff", size: "lg" }
+        { type: "text", text: titleText, weight: "bold", color: "#ffffff", size: "lg" }
       ]
     },
     body: {
@@ -801,24 +801,16 @@ function pushDailySummary() {
           type: "box",
           layout: "horizontal",
           contents: [
-            { type: "text", text: "📤 ส่งพี่อ๊อฟ (รอตรวจ):", color: "#aaaaaa", size: "sm", flex: 2 },
+            { type: "text", text: "📤 งานที่ต้องตรวจ:", color: "#aaaaaa", size: "sm", flex: 2 },
             { type: "text", text: `${pAofCount} งาน`, weight: "bold", size: "sm", color: "#333333", align: "end", flex: 1 }
           ]
         },
-        {
-          type: "box",
-          layout: "horizontal",
-          contents: [
-            { type: "text", text: "📝 มีปรับแก้:", color: "#aaaaaa", size: "sm", flex: 2 },
-            { type: "text", text: `${adjustCount} งาน`, weight: "bold", size: "sm", color: "#ff3333", align: "end", flex: 1 }
-          ]
-        },
         { type: "separator", margin: "md" },
-        { type: "text", text: "รายการงานค้าง:", weight: "bold", size: "sm", margin: "md" },
+        { type: "text", text: "รายชื่องาน:", weight: "bold", size: "sm", margin: "md" },
         ...taskListContents
       ]
     }
   };
   
-  pushLineFlexMessage("สรุปงานค้างเช้านี้", flexContents);
+  pushLineFlexMessage(titleText, flexContents);
 }
