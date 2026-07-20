@@ -1177,6 +1177,7 @@ header{background:#fff;border-bottom:1px solid #e5e3dd;padding:10px 20px;display
     </div>
     <div class="pb" id="task-panel"><div class="empty">กำลังดึงข้อมูล...</div></div>
     <div class="abar">
+      <span style="font-size:12px; font-weight:500; color:#555; margin-right:4px;">วันทำงาน</span>
       <input type="date" id="sel-assign-date" title="เลือกวันที่ลงงาน (เว้นว่างไว้เพื่อใช้วัน Due Date ปกติ)" style="padding:4px 8px; border:1px solid #ddd; border-radius:4px; font-size:12px;">
       <select id="sel-assignee"><option value="">เลือก graphic...</option></select>
       <button class="abtn" id="btn-assign" disabled>Assign</button>
@@ -1188,8 +1189,9 @@ header{background:#fff;border-bottom:1px solid #e5e3dd;padding:10px 20px;display
 <!-- Edit Modal -->
 <div class="modal-backdrop" id="edit-modal">
   <div class="modal-box">
-    <div class="modal-title">
-      <i class="ti ti-edit" style="color:#378ADD"></i> แก้ไขข้อมูลงาน
+    <div class="modal-title" style="display:flex; justify-content:space-between; align-items:center;">
+      <div><i class="ti ti-edit" style="color:#378ADD"></i> แก้ไขข้อมูลงาน</div>
+      <button class="btn-delete" id="btn-delete-in-modal" onclick="deleteTaskFromModal()" style="font-size:12px; padding:6px 12px; display:flex; align-items:center; gap:4px; margin:0;" title="ลบงานนี้"><i class="ti ti-trash"></i> ลบ</button>
     </div>
     <input type="hidden" id="edit-assignee">
     <input type="hidden" id="edit-row-index">
@@ -1223,6 +1225,26 @@ header{background:#fff;border-bottom:1px solid #e5e3dd;padding:10px 20px;display
     <div class="modal-actions">
       <button class="modal-btn modal-btn-cancel" onclick="closeEditModal()">ยกเลิก</button>
       <button class="modal-btn modal-btn-save" id="btn-save-edit" onclick="saveEditTask()">บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<!-- Drag Assign Modal -->
+<div class="modal-backdrop" id="drag-assign-modal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 id="drag-assign-title">ยืนยันการมอบหมายงาน</h3>
+      <div class="modal-close" onclick="closeDragAssignModal()"><i class="ti ti-x"></i></div>
+    </div>
+    <div class="modal-body">
+      <p id="drag-assign-text" style="margin-bottom: 12px; font-size: 14px; line-height: 1.5; color: #333;"></p>
+      <label style="display:block; margin-bottom: 5px; font-weight: 500; font-size: 13px; color: #555;">เลือกวันทำงาน <span style="color:#888;font-weight:normal;">(เว้นว่างเพื่อใช้วัน Due Date)</span></label>
+      <input type="date" id="drag-assign-date" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; margin-bottom: 15px; font-family: inherit;">
+      
+      <div style="text-align:right;">
+        <button class="abtn" style="background:#f1f5f9; color:#333; border:1px solid #cbd5e1; margin-right:8px;" onclick="closeDragAssignModal()">ยกเลิก</button>
+        <button class="abtn" id="drag-assign-confirm-btn" onclick="confirmDragAssign()">ยืนยัน Assign</button>
+      </div>
     </div>
   </div>
 </div>
@@ -1408,6 +1430,45 @@ function init() {
     })
     .getAllData();
 }
+
+function autoRefresh() {
+  google.script.run
+    .withSuccessHandler(function(res) {
+      const cap = res.capacity || {};
+      const tasks = res.tasks || {};
+      if (cap.ok && tasks.ok) {
+        state.people = cap.people || [];
+        state.tasks = tasks.tasks || [];
+        
+        // Update assignee dropdown without resetting selection
+        const sel = document.getElementById('sel-assignee');
+        const currentVal = sel.value;
+        sel.innerHTML = '<option value="">-- เลือกผู้รับผิดชอบ --</option>';
+        state.people.slice().sort(function(a,b){return a.open-b.open;}).forEach(function(p) {
+          const o = document.createElement('option');
+          o.value = p.name;
+          o.textContent = p.name + ' (' + p.open + ' งานค้าง)';
+          sel.appendChild(o);
+        });
+        sel.value = currentVal;
+        
+        const ms = res.timings ? res.timings.total : 0;
+        document.getElementById('sync-info').textContent = 'อัปเดต ' + new Date(cap.updatedAt).toLocaleTimeString('th-TH') + ' (' + ms + 'ms) (Auto)';
+        
+        // Ensure UI doesn't visually break while someone is dragging
+        // Optimistic UI updates will be overwritten by actual data from server, which is expected
+        renderPeople();
+        renderTasks();
+      }
+    })
+    .withFailureHandler(function(err) {
+      console.log('Auto-refresh error:', err);
+    })
+    .getAllData();
+}
+
+// Auto-refresh every 60 seconds
+setInterval(autoRefresh, 60000);
 
 function renderPeople() {
   const el = document.getElementById('people-panel');
@@ -1731,9 +1792,40 @@ function handleAssignedDragStart(event, fromAssignee, rowIndex) {
   event.dataTransfer.setData('rowIndex', rowIndex);
 }
 
+let pendingDragAssign = null;
+
 function assignTaskViaDrag(taskId, targetAssignee) {
-  const customDate = document.getElementById('sel-assign-date').value;
   const task = state.tasks.find(function(t){return t.id===taskId;});
+  if (!task || !targetAssignee) return;
+  
+  pendingDragAssign = { taskId: taskId, targetAssignee: targetAssignee, dueDate: task.dueDate };
+  
+  const dp = document.getElementById('drag-assign-date');
+  if (task.dueDate) {
+    const d = new Date(task.dueDate);
+    dp.value = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  } else {
+    dp.value = '';
+  }
+  
+  document.getElementById('drag-assign-text').innerHTML = 'คุณต้องการมอบหมายงาน <b>' + esc(task.name) + '</b><br>ให้ <b>' + esc(targetAssignee) + '</b> ใช่หรือไม่?';
+  document.getElementById('drag-assign-modal').classList.add('show');
+}
+
+function closeDragAssignModal() {
+  document.getElementById('drag-assign-modal').classList.remove('show');
+  pendingDragAssign = null;
+}
+
+function confirmDragAssign() {
+  if (!pendingDragAssign) return;
+  const taskId = pendingDragAssign.taskId;
+  const targetAssignee = pendingDragAssign.targetAssignee;
+  const task = state.tasks.find(function(t){return t.id===taskId;});
+  const customDate = document.getElementById('drag-assign-date').value;
+  
+  closeDragAssignModal();
+  
   if (!task || !targetAssignee) return;
   showToast('กำลังมอบหมายงาน...');
   
@@ -2007,7 +2099,7 @@ function returnTaskToPool(assignee, rowIndex, taskName, jobNumber, btn) {
 
 function deleteTaskPermanently(assignee, rowIndex, taskName, jobNumber, btn) {
   if (!confirm('ต้องการลบงาน "' + taskName + '" ทิ้งถาวรใช่หรือไม่?\\n(งานจะถูกลบออกจากตารางดีไซเนอร์ และถูกส่งไปถังขยะใน Notion ด้วย)')) {
-    return;
+    return false;
   }
   btn.disabled = true;
   google.script.run
@@ -2065,7 +2157,7 @@ function openUnassignedEditModal(taskId, name, brand, workType, rawDate, status)
 
 function deleteUnassignedTask(taskId, taskName, btn) {
   if (!confirm('ต้องการลบงาน "' + taskName + '" ใน Notion ใช่หรือไม่?\\n(งานชิ้นนี้จะถูกส่งไปที่ถังขยะและลบถาวรใน Notion)')) {
-    return;
+    return false;
   }
   btn.disabled = true;
   google.script.run
@@ -2095,6 +2187,27 @@ function deleteUnassignedTask(taskId, taskName, btn) {
       action: 'deleteNotion',
       pageId: taskId
     });
+}
+
+function deleteTaskFromModal() {
+  const btn = document.getElementById('btn-delete-in-modal');
+  const assignee = document.getElementById('edit-assignee').value;
+  let proceeded = false;
+  
+  if (assignee) {
+    const rowIndex = parseInt(document.getElementById('edit-row-index').value, 10);
+    const taskName = document.getElementById('edit-old-task-name').value;
+    const jobNumber = document.getElementById('edit-old-job-number').value;
+    proceeded = deleteTaskPermanently(assignee, rowIndex, taskName, jobNumber, btn);
+  } else {
+    const taskId = document.getElementById('edit-old-task-name').value;
+    const taskName = document.getElementById('edit-task-name').value;
+    proceeded = deleteUnassignedTask(taskId, taskName, btn);
+  }
+  
+  if (proceeded) {
+    closeEditModal();
+  }
 }
 
 init();
