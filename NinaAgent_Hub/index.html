@@ -9,7 +9,7 @@
     <!-- Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- CSS -->
-    <?!= include('style'); ?>
+    <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
     <!-- Background Animation Elements -->
@@ -111,20 +111,50 @@
                     </div>
 
                     <!-- Tool Card 4 -->
-                    <div class="glass-card tool-card disabled" style="flex-direction: column; align-items: stretch; cursor: default;">
+                    <div class="glass-card tool-card" style="flex-direction: column; align-items: stretch; cursor: default;">
                         <div style="display: flex; gap: 1.25rem; align-items: flex-start; margin-bottom: 1rem;">
-                            <div class="card-icon gradient-gray">
-                                <i class="fa-solid fa-bell"></i>
+                            <div class="card-icon gradient-purple">
+                                <i class="fa-solid fa-users-rectangle"></i>
                             </div>
                             <div class="card-content">
-                                <h3>Agent แจ้งเตือน (Notification)</h3>
-                                <p>ระบบแจ้งเตือนอัจฉริยะ (อยู่ระหว่างการพัฒนา)</p>
-                                <span class="badge badge-dev">In Development</span>
+                                <h3>GEM Graphic Capacity Board</h3>
+                                <p>ระบบจัดการและกระจายงาน Graphic อัจฉริยะเชื่อมต่อ Notion & Google Sheets</p>
+                                <span class="badge badge-html">HTML / JS</span>
                             </div>
+                        </div>
+                        <div class="card-actions" style="display: flex; gap: 10px; margin-top: auto;">
+                            <a href="javascript:void(0);" onclick="openTool('Open Tool', 'GEM Graphic Capacity Board', 'https://script.google.com/macros/s/AKfycbzSCdW5W4Z60c8Ny2bw9L2qO2nB1wuOhaRy38T5T66jTL-Wnm8kfyzXHwwNfKN18kEiCw/exec');" style="flex: 1; text-align: center; text-decoration: none; padding: 10px; background: rgba(99, 102, 241, 0.2); border: 1px solid rgba(99, 102, 241, 0.5); border-radius: 8px; color: white; font-weight: 500; transition: all 0.3s ease;">
+                                <i class="fa-solid fa-rocket"></i> เปิดเครื่องมือ
+                            </a>
+                            <button onclick="openManual('https://script.google.com/macros/s/AKfycbzSCdW5W4Z60c8Ny2bw9L2qO2nB1wuOhaRy38T5T66jTL-Wnm8kfyzXHwwNfKN18kEiCw/exec?action=manual', 'คู่มือ GEM Graphic Capacity Board')" style="flex: 1; text-align: center; padding: 10px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; color: white; font-weight: 500; cursor: pointer; transition: all 0.3s ease; font-family: inherit;">
+                                <i class="fa-solid fa-book"></i> อ่านคู่มือ
+                            </button>
                         </div>
                     </div>
 
                     <!-- Tool Card 5 -->
+                    <div class="glass-card tool-card" style="flex-direction: column; align-items: stretch; cursor: default;">
+                        <div style="display: flex; gap: 1.25rem; align-items: flex-start; margin-bottom: 1rem;">
+                            <div class="card-icon gradient-blue" style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: white; border-radius: 12px; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
+                                <i class="fa-solid fa-list-check"></i>
+                            </div>
+                            <div class="card-content">
+                                <h3>Agent Task Tracker</h3>
+                                <p>ระบบเช็คสถานะงาน (Google Sheets) และตอบกลับอัตโนมัติผ่าน LINE Bot</p>
+                                <span class="badge badge-html">HTML / JS</span>
+                            </div>
+                        </div>
+                        <div class="card-actions" style="display: flex; gap: 10px; margin-top: auto;">
+                            <a href="javascript:void(0);" onclick="openTool('Open Tool', 'Agent Task Tracker', 'https://script.google.com/macros/s/AKfycbwWffrwgCbxM1Ox6ujhcD78qx19vmsLYsl7Try2HdeFqkZ2aUk8EJhQMrcArBX_NMKF/exec');" style="flex: 1; text-align: center; text-decoration: none; padding: 10px; background: rgba(59, 130, 246, 0.2); border: 1px solid rgba(59, 130, 246, 0.5); border-radius: 8px; color: white; font-weight: 500; transition: all 0.3s ease;">
+                                <i class="fa-solid fa-rocket"></i> เปิดเครื่องมือ
+                            </a>
+                            <button onclick="openManual('https://script.google.com/macros/s/AKfycbwWffrwgCbxM1Ox6ujhcD78qx19vmsLYsl7Try2HdeFqkZ2aUk8EJhQMrcArBX_NMKF/exec?action=manual', 'คู่มือ Agent Task Tracker')" style="flex: 1; text-align: center; padding: 10px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; color: white; font-weight: 500; cursor: pointer; transition: all 0.3s ease; font-family: inherit;">
+                                <i class="fa-solid fa-book"></i> อ่านคู่มือ
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Tool Card 6 -->
                     <div class="glass-card tool-card" style="flex-direction: column; align-items: stretch; cursor: default;">
                         <div style="display: flex; gap: 1.25rem; align-items: flex-start; margin-bottom: 1rem;">
                             <div class="card-icon gradient-orange" style="background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); color: white; border-radius: 12px; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
@@ -177,67 +207,6 @@
     </div>
 
     <!-- JS -->
-    <?!= include('app'); ?>
-    <script>
-        const pdfModal = document.getElementById('pdfModal');
-        const pdfIframe = document.getElementById('pdfIframe');
-        const pdfTitle = document.getElementById('pdfTitle');
-        const pdfLoader = document.getElementById('pdfLoader');
-
-        function openTool(action, details, url) {
-            const newTab = window.open('about:blank', '_blank');
-            if (newTab) {
-                newTab.document.write('<div style="display:flex;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;font-size:20px;color:#666;">กำลังบันทึกและเปิดเครื่องมือ...</div>');
-            }
-
-            google.script.run
-                .withSuccessHandler(function() {
-                    if (newTab) newTab.location.href = url;
-                    else window.location.href = url;
-                })
-                .withFailureHandler(function(err) {
-                    if (newTab) newTab.location.href = url;
-                    else window.location.href = url;
-                })
-                .logAction(action, details);
-        }
-
-        function openManual(driveId, title) {
-            pdfTitle.textContent = title;
-            pdfModal.classList.add('active');
-            
-            pdfIframe.style.display = 'block';
-            pdfLoader.style.display = 'flex';
-            pdfIframe.style.opacity = '0';
-            
-            const targetUrl = 'https://drive.google.com/file/d/' + driveId + '/preview';
-            pdfIframe.src = targetUrl;
-
-            pdfIframe.onload = function() {
-                pdfLoader.style.display = 'none';
-                pdfIframe.style.transition = 'opacity 0.5s ease';
-                pdfIframe.style.opacity = '1';
-            };
-        }
-
-        function closePdfModal() {
-            pdfModal.classList.remove('active');
-            setTimeout(() => {
-                pdfIframe.src = '';
-            }, 300);
-        }
-
-        pdfModal.addEventListener('click', function(e) {
-            if (e.target === pdfModal) {
-                closePdfModal();
-            }
-        });
-
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape' && pdfModal.classList.contains('active')) {
-                closePdfModal();
-            }
-        });
-    </script>
+    <script src="js/app.js"></script>
 </body>
 </html>
