@@ -58,16 +58,30 @@ function testLog() {
 }
 
 function doGet(e) {
-  // Log page visit
-  logAction('Page Load', 'User opened NinaAgent Hub');
-  
-  return HtmlService.createTemplateFromFile('index')
-    .evaluate()
-    .setTitle('NinaAgent Hub')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+  // If still accessed via GAS, return a message to visit the new GitHub Pages URL
+  return HtmlService.createHtmlOutput('<h1>เว็บไซต์ย้ายแล้ว!</h1><p>NinaAgent Hub ได้ย้ายไปยัง GitHub Pages เพื่อความรวดเร็วและรองรับมือถือ โปรดเข้าใช้งานผ่าน URL ใหม่</p>')
+    .setTitle('NinaAgent Hub (Moved)');
 }
 
 function include(filename) {
-  return HtmlService.createHtmlOutputFromFile(filename).getContent();
+  return '';
+}
+
+function doPost(e) {
+  try {
+    const data = JSON.parse(e.postData.contents);
+    const action = data.action || 'Unknown Action';
+    const details = data.details || '';
+    
+    const sheet = getLogSheet();
+    const email = 'Anonymous (GitHub Pages)';
+    const timestamp = new Date();
+    sheet.appendRow([timestamp, email, action, details]);
+    
+    return ContentService.createTextOutput(JSON.stringify({ok: true}))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ok: false, error: err.toString()}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
 }

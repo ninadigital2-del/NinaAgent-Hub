@@ -609,3 +609,76 @@ function getNotionProjects() {
     return { success: false, error: e.toString() };
   }
 }
+
+// ============================================
+// API Endpoint for GitHub Pages Frontend
+// ============================================
+function doPost(e) {
+  try {
+    // Enable CORS by returning proper headers (GAS does this implicitly via Web App)
+    var request = JSON.parse(e.postData.contents);
+    var action = request.action;
+    var payload = request.payload || {};
+    var response = {};
+
+    switch (action) {
+      case 'saveBrandToSheets':
+        response = saveBrandToSheets(payload.brandData);
+        break;
+      case 'loadBrandsFromSheets':
+        response = loadBrandsFromSheets();
+        break;
+      case 'loadCustomersFromGraphicBrief':
+        response = loadCustomersFromGraphicBrief();
+        break;
+      case 'saveBrandHistoryToSheets':
+        response = saveBrandHistoryToSheets(payload.brandData);
+        break;
+      case 'loadBrandHistoryFromSheets':
+        response = loadBrandHistoryFromSheets(payload.brandId);
+        break;
+      case 'saveContentToSheets':
+        response = saveContentToSheets(payload.contentData);
+        break;
+      case 'loadContentHistoryFromSheets':
+        response = loadContentHistoryFromSheets();
+        break;
+      case 'uploadFileToDrive':
+        response = uploadFileToDrive(payload.base64String, payload.fileName, payload.mimeType, payload.folderId);
+        break;
+      case 'deleteFileFromDriveByUrl':
+        response = deleteFileFromDriveByUrl(payload.fileUrl);
+        break;
+      case 'generateSocialContent':
+        response = generateSocialContent(payload.promptData, payload.apiKey);
+        break;
+      case 'refineContent':
+        response = refineContent(payload.promptData, payload.apiKey);
+        break;
+      case 'extractBrandFromFiles':
+        response = extractBrandFromFiles(payload.promptData, payload.apiKey);
+        break;
+      case 'extractProductFromFiles':
+        response = extractProductFromFiles(payload.promptData, payload.apiKey);
+        break;
+      case 'getNotionProjects':
+        response = getNotionProjects();
+        break;
+      default:
+        response = { success: false, error: 'Unknown action: ' + action };
+    }
+
+    return ContentService.createTextOutput(JSON.stringify(response))
+      .setMimeType(ContentService.MimeType.JSON);
+
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: err.toString() }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+// Support OPTIONS for CORS preflight
+function doOptions(e) {
+  return ContentService.createTextOutput("")
+    .setMimeType(ContentService.MimeType.TEXT);
+}
