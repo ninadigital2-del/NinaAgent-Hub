@@ -631,8 +631,12 @@ function onTaskStatusChange(e) {
     const newValue = String(sheet.getRange(row, col).getValue() || '').trim();
     const normVal = newValue.toLowerCase().replace(/’/g, "'");
     
-    // บันทึกประวัติการเปลี่ยนสถานะลงคอลัมน์ O (Comment) 
+    // แสดงเฉพาะสถานะ "Sent to P'Aof" เท่านั้น
+    if (normVal !== "sent to p'aof") return;
+    
     const now = new Date();
+    
+    // บันทึกประวัติการเปลี่ยนสถานะลงคอลัมน์ O (Comment) เฉพาะกรณีที่เปลี่ยนเป็น "Sent to P'Aof"
     const timestampLog = Utilities.formatDate(now, "Asia/Bangkok", "dd/MM/yyyy HH:mm:ss");
     const existingComment = String(sheet.getRange(row, CONFIG.COL_COMMENT + 1).getValue() || '').trim();
     const statusLog = `[${timestampLog}] เปลี่ยนสถานะเป็น "${newValue}" (แก้ไขในชีต)`;
@@ -640,19 +644,14 @@ function onTaskStatusChange(e) {
     sheet.getRange(row, CONFIG.COL_COMMENT + 1).setValue(combinedComment);
     
     // Auto-Stamp วันที่ (คอลัมน์ C) และเวลา (คอลัมน์ E) ถ้าย้ายมา Sent to P'Aof แล้วช่องยังว่างอยู่
-    if (normVal === "sent to p'aof") {
-      const dateCell = sheet.getRange(row, 3); // คอลัมน์ C
-      const timeCell = sheet.getRange(row, 5); // คอลัมน์ E
-      if (!dateCell.getValue()) {
-        dateCell.setValue(now);
-      }
-      if (!timeCell.getValue()) {
-        timeCell.setValue(Utilities.formatDate(now, "Asia/Bangkok", "HH:mm:ss"));
-      }
+    const dateCell = sheet.getRange(row, 3); // คอลัมน์ C
+    const timeCell = sheet.getRange(row, 5); // คอลัมน์ E
+    if (!dateCell.getValue()) {
+      dateCell.setValue(now);
     }
-
-    // แสดงเฉพาะสถานะ "Sent to P'Aof" เท่านั้น
-    if (normVal !== "sent to p'aof") return;
+    if (!timeCell.getValue()) {
+      timeCell.setValue(Utilities.formatDate(now, "Asia/Bangkok", "HH:mm:ss"));
+    }
     
     // เคลียร์ Cache เพื่อให้หน้าเว็บดึงข้อมูลสดทันที
     CacheService.getScriptCache().remove(CACHE_KEY);
