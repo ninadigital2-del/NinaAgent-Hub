@@ -27,6 +27,12 @@ const CONFIG = {
   COL_OWNER: 12,       // คอลัมน์ M (เจ้าของงาน)
   COL_STATUS: 0,       // คอลัมน์ A (Check)
   COL_COMMENT: 14,     // คอลัมน์ O (ช่องใส่คอมเมนต์เมื่อมีการปรับแก้)
+  
+  // คอลัมน์ใหม่สำหรับระบบ AD Review Queue
+  COL_REVIEW_STATUS: 15,     // คอลัมน์ P (รอรีวิว, มีปรับแก้, อนุมัติแล้ว)
+  COL_SENT_TO_REVIEW_AT: 16, // คอลัมน์ Q (เวลาที่ส่งรีวิวล่าสุด)
+  COL_REVIEWED_AT: 17,       // คอลัมน์ R (เวลาที่ AD ตรวจ)
+  COL_REVISION_ROUND: 18,    // คอลัมน์ S (จำนวนรอบการปรับแก้)
 };
 
 // ============================================================
@@ -59,7 +65,7 @@ function doGet(e) {
   
   if (action === 'manual') {
     return HtmlService.createHtmlOutputFromFile('Manual')
-      .setTitle('คู่มือการใช้งาน Agent Task Tracker')
+      .setTitle('คู่มือการใช้งาน CREATIVE TEAM')
       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
   }
   
@@ -69,7 +75,7 @@ function doGet(e) {
   
   // หากเปิด URL ปกติ ให้แสดงหน้าเว็บ Index.html
   return HtmlService.createHtmlOutputFromFile('Index')
-    .setTitle('Agent Task Tracker')
+    .setTitle('CREATIVE TEAM')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
@@ -116,24 +122,41 @@ function handleApiRequest() {
         const lastRow = sheet.getLastRow();
         if (lastRow < 2) continue;
         
-        const data = sheet.getRange(1, 1, lastRow, 15).getValues();
+        const data = sheet.getRange(1, 1, lastRow, 19).getValues();
         for (let i = 1; i < data.length; i++) {
           const row = data[i];
           if (row[CONFIG.COL_TASK_NAME]) { 
             const status = String(row[CONFIG.COL_STATUS] || '').trim();
-            // ดึงเฉพาะ Sent to P'Aof และ มีปรับแก้ เพื่อลดขนาดข้อมูล กัน Error 100KB cache limit
-            if (status === "Sent to P'Aof" || status === "มีปรับแก้") {
+            const reviewStatus = String(row[CONFIG.COL_REVIEW_STATUS] || '').trim();
+            const reviewedAt = row[CONFIG.COL_REVIEWED_AT] || '';
+            const sentToReviewAt = row[CONFIG.COL_SENT_TO_REVIEW_AT] || '';
+            
+            // For legacy tasks
+            const displayReviewStatus = reviewStatus || (status === "Sent to P'Aof" ? "รอรีวิว" : (status === "มีปรับแก้" ? "มีปรับแก้" : ""));
+            
+            let isToday = false;
+            if (reviewedAt && reviewedAt instanceof Date) {
+               const todayStr = Utilities.formatDate(new Date(), "Asia/Bangkok", "yyyy-MM-dd");
+               const revStr = Utilities.formatDate(reviewedAt, "Asia/Bangkok", "yyyy-MM-dd");
+               isToday = (todayStr === revStr);
+            }
+            
+            if (displayReviewStatus === "รอรีวิว" || displayReviewStatus === "มีปรับแก้" || (displayReviewStatus === "อนุมัติแล้ว" && isToday)) {
               tasks.push({
                 id: row[CONFIG.COL_TASK_ID] || '-',
                 uniqueId: `${ownerName}_${i+1}`,
                 name: row[CONFIG.COL_TASK_NAME],
                 owner: ownerName,
-                status: status,
+                status: displayReviewStatus,
+                graphicStatus: status,
                 date: (row[2] instanceof Date) ? Utilities.formatDate(row[2], "Asia/Bangkok", "yyyy-MM-dd'T'HH:mm:ss") : (row[2] || ''),
                 time: (row[4] instanceof Date) ? Utilities.formatDate(row[4], "Asia/Bangkok", "HH:mm") : (row[4] || ''),
                 brand: row[10] || '',
                 link: row[13] || '',
-                comment: row[14] || ''
+                comment: row[14] || '',
+                sentToReviewAt: (sentToReviewAt instanceof Date) ? sentToReviewAt.toISOString() : (sentToReviewAt || new Date().toISOString()),
+                reviewedAt: (reviewedAt instanceof Date) ? reviewedAt.toISOString() : (reviewedAt || ''),
+                revisionRound: parseInt(row[CONFIG.COL_REVISION_ROUND]) || 1
               });
             }
           }
@@ -176,24 +199,41 @@ function getTasksData() {
         const lastRow = sheet.getLastRow();
         if (lastRow < 2) continue;
         
-        const data = sheet.getRange(1, 1, lastRow, 15).getValues();
+        const data = sheet.getRange(1, 1, lastRow, 19).getValues();
         for (let i = 1; i < data.length; i++) {
           const row = data[i];
           if (row[CONFIG.COL_TASK_NAME]) {
             const status = String(row[CONFIG.COL_STATUS] || '').trim();
-            // ดึงเฉพาะ Sent to P'Aof และ มีปรับแก้ เพื่อลดขนาดข้อมูล
-            if (status === "Sent to P'Aof" || status === "มีปรับแก้") {
+            const reviewStatus = String(row[CONFIG.COL_REVIEW_STATUS] || '').trim();
+            const reviewedAt = row[CONFIG.COL_REVIEWED_AT] || '';
+            const sentToReviewAt = row[CONFIG.COL_SENT_TO_REVIEW_AT] || '';
+            
+            // For legacy tasks
+            const displayReviewStatus = reviewStatus || (status === "Sent to P'Aof" ? "รอรีวิว" : (status === "มีปรับแก้" ? "มีปรับแก้" : ""));
+            
+            let isToday = false;
+            if (reviewedAt && reviewedAt instanceof Date) {
+               const todayStr = Utilities.formatDate(new Date(), "Asia/Bangkok", "yyyy-MM-dd");
+               const revStr = Utilities.formatDate(reviewedAt, "Asia/Bangkok", "yyyy-MM-dd");
+               isToday = (todayStr === revStr);
+            }
+            
+            if (displayReviewStatus === "รอรีวิว" || displayReviewStatus === "มีปรับแก้" || (displayReviewStatus === "อนุมัติแล้ว" && isToday)) {
               tasks.push({
                 id: row[CONFIG.COL_TASK_ID] || '-',
                 uniqueId: `${ownerName}_${i+1}`,
                 name: row[CONFIG.COL_TASK_NAME],
                 owner: ownerName,
-                status: status,
+                status: displayReviewStatus,
+                graphicStatus: status,
                 date: (row[2] instanceof Date) ? Utilities.formatDate(row[2], "Asia/Bangkok", "yyyy-MM-dd'T'HH:mm:ss") : (row[2] || ''),
                 time: (row[4] instanceof Date) ? Utilities.formatDate(row[4], "Asia/Bangkok", "HH:mm") : (row[4] || ''),
                 brand: row[10] || '',
                 link: row[13] || '',
-                comment: row[14] || ''
+                comment: row[14] || '',
+                sentToReviewAt: (sentToReviewAt instanceof Date) ? sentToReviewAt.toISOString() : (sentToReviewAt || new Date().toISOString()),
+                reviewedAt: (reviewedAt instanceof Date) ? reviewedAt.toISOString() : (reviewedAt || ''),
+                revisionRound: parseInt(row[CONFIG.COL_REVISION_ROUND]) || 1
               });
             }
           }
@@ -279,6 +319,18 @@ function updateTaskFromWeb(taskId, newStatus, commentText) {
           
           // อัปเดตสถานะ
           sheet.getRange(row, CONFIG.COL_STATUS + 1).setValue(newStatus);
+          
+          // --- New Columns Logic ---
+          const reviewStatusCell = sheet.getRange(row, CONFIG.COL_REVIEW_STATUS + 1);
+          const reviewedAtCell = sheet.getRange(row, CONFIG.COL_REVIEWED_AT + 1);
+          
+          if (newStatus === "มีปรับแก้") {
+            reviewStatusCell.setValue("มีปรับแก้");
+            reviewedAtCell.setValue(new Date());
+          } else if (newStatus === "Done") {
+            reviewStatusCell.setValue("อนุมัติแล้ว");
+            reviewedAtCell.setValue(new Date());
+          }
           
           // บันทึกวันเวลาและประวัติการอัปเดตลงคอลัมน์ O (Comment) ทุกครั้ง!
           const timestamp = Utilities.formatDate(new Date(), "Asia/Bangkok", "dd/MM/yyyy HH:mm:ss");
@@ -648,6 +700,25 @@ function onTaskStatusChange(e) {
     if (normVal !== "sent to p'aof") return;
     
     const now = new Date();
+    
+    // --- New Columns Logic ---
+    const reviewStatusCell = sheet.getRange(row, CONFIG.COL_REVIEW_STATUS + 1);
+    const sentToReviewAtCell = sheet.getRange(row, CONFIG.COL_SENT_TO_REVIEW_AT + 1);
+    const reviewedAtCell = sheet.getRange(row, CONFIG.COL_REVIEWED_AT + 1);
+    const revisionRoundCell = sheet.getRange(row, CONFIG.COL_REVISION_ROUND + 1);
+
+    const currentReviewStatus = String(reviewStatusCell.getValue() || '').trim();
+    
+    // Increment revision ONLY if it was not already 'รอรีวิว'
+    if (currentReviewStatus !== "รอรีวิว") {
+      let currentRound = parseInt(revisionRoundCell.getValue()) || 0;
+      revisionRoundCell.setValue(currentRound + 1);
+      
+      // Update fields
+      reviewStatusCell.setValue("รอรีวิว");
+      sentToReviewAtCell.setValue(now);
+      reviewedAtCell.setValue(""); // clear
+    }
     
     // บันทึกประวัติการเปลี่ยนสถานะลงคอลัมน์ O (Comment) เฉพาะกรณีที่เปลี่ยนเป็น "Sent to P'Aof"
     const timestampLog = Utilities.formatDate(now, "Asia/Bangkok", "dd/MM/yyyy HH:mm:ss");
