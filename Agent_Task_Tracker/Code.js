@@ -115,18 +115,22 @@ function handleApiRequest() {
         for (let i = 1; i < data.length; i++) {
           const row = data[i];
           if (row[CONFIG.COL_TASK_NAME]) { 
-            tasks.push({
-              id: row[CONFIG.COL_TASK_ID] || '-',
-              uniqueId: `${ownerName}_${i+1}`,
-              name: row[CONFIG.COL_TASK_NAME],
-              owner: ownerName,
-              status: row[CONFIG.COL_STATUS],
-              date: (row[2] instanceof Date) ? Utilities.formatDate(row[2], "Asia/Bangkok", "yyyy-MM-dd'T'HH:mm:ss") : (row[2] || ''),
-              time: (row[4] instanceof Date) ? Utilities.formatDate(row[4], "Asia/Bangkok", "HH:mm") : (row[4] || ''),
-              brand: row[10] || '',
-              link: row[13] || '',
-              comment: row[14] || ''
-            });
+            const status = String(row[CONFIG.COL_STATUS] || '').trim();
+            // ดึงเฉพาะ Sent to P'Aof และ มีปรับแก้ เพื่อลดขนาดข้อมูล กัน Error 100KB cache limit
+            if (status === "Sent to P'Aof" || status === "มีปรับแก้") {
+              tasks.push({
+                id: row[CONFIG.COL_TASK_ID] || '-',
+                uniqueId: `${ownerName}_${i+1}`,
+                name: row[CONFIG.COL_TASK_NAME],
+                owner: ownerName,
+                status: status,
+                date: (row[2] instanceof Date) ? Utilities.formatDate(row[2], "Asia/Bangkok", "yyyy-MM-dd'T'HH:mm:ss") : (row[2] || ''),
+                time: (row[4] instanceof Date) ? Utilities.formatDate(row[4], "Asia/Bangkok", "HH:mm") : (row[4] || ''),
+                brand: row[10] || '',
+                link: row[13] || '',
+                comment: row[14] || ''
+              });
+            }
           }
         }
       } catch (e) {
@@ -135,7 +139,11 @@ function handleApiRequest() {
     }
     
     const resStr = JSON.stringify({ success: true, tasks: tasks });
-    cache.put(CACHE_KEY, resStr, 15);
+    try {
+      cache.put(CACHE_KEY, resStr, 15);
+    } catch (cacheErr) {
+      // Ignore cache limit errors
+    }
     return ContentService.createTextOutput(resStr)
       .setMimeType(ContentService.MimeType.JSON);
       
