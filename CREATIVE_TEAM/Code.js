@@ -152,9 +152,16 @@ function handleApiRequest() {
                 date: (row[2] instanceof Date) ? Utilities.formatDate(row[2], "Asia/Bangkok", "yyyy-MM-dd'T'HH:mm:ss") : (row[2] || ''),
                 time: (row[4] instanceof Date) ? Utilities.formatDate(row[4], "Asia/Bangkok", "HH:mm") : (row[4] || ''),
                 brand: row[10] || '',
-                link: row[13] || '',
                 comment: row[14] || '',
-                sentToReviewAt: (sentToReviewAt instanceof Date) ? sentToReviewAt.toISOString() : (sentToReviewAt || new Date().toISOString()),
+                sentToReviewAt: (sentToReviewAt instanceof Date) ? sentToReviewAt.toISOString() : 
+                                (sentToReviewAt || (row[14] && String(row[14]).match(/\[(\d{2})\/(\d{2})\/(\d{4}) (\d{2}):(\d{2}):(\d{2})\]/) ? (() => {
+                                   const m = String(row[14]).match(/\[(\d{2})\/(\d{2})\/(\d{4}) (\d{2}):(\d{2}):(\d{2})\]/);
+                                   if (m) {
+                                      const d = new Date(`${m[3]}-${m[2]}-${m[1]}T${m[4]}:${m[5]}:${m[6]}+07:00`);
+                                      return isNaN(d.getTime()) ? '' : d.toISOString();
+                                   }
+                                   return '';
+                                })() : '')),
                 reviewedAt: (reviewedAt instanceof Date) ? reviewedAt.toISOString() : (reviewedAt || ''),
                 revisionRound: parseInt(row[CONFIG.COL_REVISION_ROUND]) || 1
               });
@@ -185,6 +192,7 @@ function handleApiRequest() {
 // 3.1. API Data Fetching for google.script.run (ใช้สำหรับ Iframe)
 // ============================================================
 function getTasksData() {
+  const CACHE_KEY = "AD_REVIEW_QUEUE_TASKS_v3";
   try {
     const cache = CacheService.getScriptCache();
     const cached = cache.get(CACHE_KEY);
@@ -229,9 +237,16 @@ function getTasksData() {
                 date: (row[2] instanceof Date) ? Utilities.formatDate(row[2], "Asia/Bangkok", "yyyy-MM-dd'T'HH:mm:ss") : (row[2] || ''),
                 time: (row[4] instanceof Date) ? Utilities.formatDate(row[4], "Asia/Bangkok", "HH:mm") : (row[4] || ''),
                 brand: row[10] || '',
-                link: row[13] || '',
                 comment: row[14] || '',
-                sentToReviewAt: (sentToReviewAt instanceof Date) ? sentToReviewAt.toISOString() : (sentToReviewAt || new Date().toISOString()),
+                sentToReviewAt: (sentToReviewAt instanceof Date) ? sentToReviewAt.toISOString() : 
+                                (sentToReviewAt || (row[14] && String(row[14]).match(/\[(\d{2})\/(\d{2})\/(\d{4}) (\d{2}):(\d{2}):(\d{2})\]/) ? (() => {
+                                   const m = String(row[14]).match(/\[(\d{2})\/(\d{2})\/(\d{4}) (\d{2}):(\d{2}):(\d{2})\]/);
+                                   if (m) {
+                                      const d = new Date(`${m[3]}-${m[2]}-${m[1]}T${m[4]}:${m[5]}:${m[6]}+07:00`);
+                                      return isNaN(d.getTime()) ? '' : d.toISOString();
+                                   }
+                                   return '';
+                                })() : '')),
                 reviewedAt: (reviewedAt instanceof Date) ? reviewedAt.toISOString() : (reviewedAt || ''),
                 revisionRound: parseInt(row[CONFIG.COL_REVISION_ROUND]) || 1
               });
@@ -244,7 +259,7 @@ function getTasksData() {
     }
     
     const result = JSON.stringify({ success: true, tasks: tasks });
-    cache.put(CACHE_KEY, result, 15);
+    cache.put(CACHE_KEY, result, 600); // Cache for 10 minutes (600 seconds)
     return result;
   } catch (err) {
     return JSON.stringify({ success: false, error: err.message });
@@ -332,14 +347,13 @@ function updateTaskFromWeb(taskId, newStatus, commentText) {
             reviewedAtCell.setValue(new Date());
           }
           
-          // บันทึกวันเวลาและประวัติการอัปเดตลงคอลัมน์ O (Comment) ทุกครั้ง!
-          const timestamp = Utilities.formatDate(new Date(), "Asia/Bangkok", "dd/MM/yyyy HH:mm:ss");
-          const existingComment = String(data[i][CONFIG.COL_COMMENT] || '').trim();
-          const detailNote = commentText ? `: ${commentText}` : '';
-          const statusLog = `[${timestamp}] เปลี่ยนสถานะเป็น "${newStatus}"${detailNote}`;
-          const combinedComment = existingComment ? `${existingComment}\n${statusLog}` : statusLog;
-          
-          sheet.getRange(row, CONFIG.COL_COMMENT + 1).setValue(combinedComment);
+          if (commentText) {
+            const timestamp = Utilities.formatDate(new Date(), "Asia/Bangkok", "dd/MM/yyyy HH:mm");
+            const existingComment = String(data[i][CONFIG.COL_COMMENT] || '').trim();
+            const newLog = `[${timestamp}] (AD) ${commentText}`;
+            const combinedComment = existingComment ? `${existingComment}\n${newLog}` : newLog;
+            sheet.getRange(row, CONFIG.COL_COMMENT + 1).setValue(combinedComment);
+          }
           
           // เคลียร์ Cache เพื่อให้เรียกดูใหม่ได้ทันที
           CacheService.getScriptCache().remove(CACHE_KEY);
@@ -352,6 +366,7 @@ function updateTaskFromWeb(taskId, newStatus, commentText) {
     }
     
     if (found) {
+      CacheService.getScriptCache().remove(CACHE_KEY); // Clear cache on update
       return JSON.stringify({ success: true, taskName: taskName });
     } else {
       return JSON.stringify({ success: false, error: "ไม่พบรหัสงานนี้ในระบบ" });
@@ -505,12 +520,7 @@ function updateSheetStatusFromPostback(replyToken, row, sheetId, newStatus) {
     // อัปเดตคอลัมน์ Status
     sheet.getRange(parseInt(row), CONFIG.COL_STATUS + 1).setValue(newStatus);
     
-    // บันทึกวันเวลาและประวัติการอัปเดตลงคอลัมน์ O (Comment) ทุกครั้ง!
-    const timestamp = Utilities.formatDate(new Date(), "Asia/Bangkok", "dd/MM/yyyy HH:mm:ss");
-    const existingComment = String(sheet.getRange(parseInt(row), CONFIG.COL_COMMENT + 1).getValue() || '').trim();
-    const statusLog = `[${timestamp}] (LINE) เปลี่ยนสถานะเป็น "${newStatus}"`;
-    const combinedComment = existingComment ? `${existingComment}\n${statusLog}` : statusLog;
-    sheet.getRange(parseInt(row), CONFIG.COL_COMMENT + 1).setValue(combinedComment);
+    // Comment updating is removed as per user request
     
     // เคลียร์ Cache เพื่อให้หน้าเว็บเรียกดูข้อมูลใหม่ได้ทันที
     CacheService.getScriptCache().remove(CACHE_KEY);
@@ -671,6 +681,7 @@ function pushLineFlexMessage(altText, contents) {
 // 7. Trigger: เมื่อมีการเปลี่ยนแปลงข้อมูลใน Google Sheet (onEdit)
 // ============================================================
 function onTaskStatusChange(e) {
+  try { CacheService.getScriptCache().remove(CACHE_KEY); } catch(err) {}
   if (!e || !e.range) return;
   
   const sheet = e.range.getSheet();
@@ -709,23 +720,16 @@ function onTaskStatusChange(e) {
 
     const currentReviewStatus = String(reviewStatusCell.getValue() || '').trim();
     
-    // Increment revision ONLY if it was not already 'รอรีวิว'
+    // Update fields every time it is changed to Sent to P'Aof
     if (currentReviewStatus !== "รอรีวิว") {
       let currentRound = parseInt(revisionRoundCell.getValue()) || 0;
       revisionRoundCell.setValue(currentRound + 1);
-      
-      // Update fields
-      reviewStatusCell.setValue("รอรีวิว");
-      sentToReviewAtCell.setValue(now);
-      reviewedAtCell.setValue(""); // clear
     }
+    reviewStatusCell.setValue("รอรีวิว");
+    sentToReviewAtCell.setValue(now);
+    reviewedAtCell.setValue(""); // clear
     
-    // บันทึกประวัติการเปลี่ยนสถานะลงคอลัมน์ O (Comment) เฉพาะกรณีที่เปลี่ยนเป็น "Sent to P'Aof"
-    const timestampLog = Utilities.formatDate(now, "Asia/Bangkok", "dd/MM/yyyy HH:mm:ss");
-    const existingComment = String(sheet.getRange(row, CONFIG.COL_COMMENT + 1).getValue() || '').trim();
-    const statusLog = `[${timestampLog}] เปลี่ยนสถานะเป็น "${newValue}" (แก้ไขในชีต)`;
-    const combinedComment = existingComment ? `${existingComment}\n${statusLog}` : statusLog;
-    sheet.getRange(row, CONFIG.COL_COMMENT + 1).setValue(combinedComment);
+    // Comment updating is removed as per user request
     
     // Auto-Stamp วันที่ (คอลัมน์ C) และเวลา (คอลัมน์ E) ถ้าย้ายมา Sent to P'Aof แล้วช่องยังว่างอยู่
     const dateCell = sheet.getRange(row, 3); // คอลัมน์ C
