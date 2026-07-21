@@ -7,7 +7,7 @@
 <meta http-equiv="Content-Security-Policy" content="default-src &#x27;none&#x27;; script-src &#x27;unsafe-inline&#x27; &#x27;unsafe-eval&#x27; &#x27;wasm-unsafe-eval&#x27; blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; style-src &#x27;unsafe-inline&#x27; blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; img-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; font-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; media-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; worker-src blob:; connect-src blob: data:; frame-src &#x27;none&#x27;; object-src &#x27;none&#x27;; base-uri &#x27;none&#x27;; form-action &#x27;none&#x27;">
 <title>Ad Review Queue</title>
 <style>:root {
-  color-scheme: light dark;
+  color-scheme: light;
   background-color: var(--background) !important;
 
   /* Agent-facing contract; keep in sync with SKILL.md. */
@@ -1005,26 +1005,26 @@ html>body{padding:0}</style>
   <section class="viz-grid summary" aria-label="สรุปคิวงาน">
     <div class="card viz-stat">
       <span class="text-muted">รอรีวิวทั้งหมด</span>
-      <strong class="viz-stat-value" id="waiting-count">8</strong>
-      <p class="stat-context text-small">เพิ่มมา 3 งานในวันนี้</p>
+      <strong class="viz-stat-value" id="waiting-count">-</strong>
+      <p class="stat-context text-small" id="waiting-today-context">กำลังโหลด...</p>
     </div>
     <div class="card viz-stat">
       <span class="text-muted">ค้างนานเกิน 4 ชม.</span>
-      <strong class="viz-stat-value" id="stale-count">2</strong>
+      <strong class="viz-stat-value" id="stale-count">-</strong>
       <p class="stat-context text-small">ควรหยิบขึ้นมารีวิวก่อน</p>
     </div>
     <div class="card viz-stat">
       <span class="text-muted">งานที่เก่าที่สุด</span>
-      <strong class="viz-stat-value">6 ชม. 20 นาที</strong>
-      <p class="stat-context text-small">STD Promotion</p>
+      <strong class="viz-stat-value" id="oldest-time">-</strong>
+      <p class="stat-context text-small" id="oldest-name">-</p>
     </div>
   </section>
 
   <div class="queue-tools">
     <nav class="tabs" aria-label="สถานะงาน">
-      <button class="btn btn-primary tab-button" type="button" aria-pressed="true" data-tab="waiting">รอรีวิว <span id="tab-waiting-count">8</span></button>
-      <button class="btn tab-button" type="button" aria-pressed="false" data-tab="revision">มีปรับแก้ <span id="needs-revision-count">3</span></button>
-      <button class="btn tab-button" type="button" aria-pressed="false" data-tab="approved">อนุมัติวันนี้ <span id="approved-today-count">14</span></button>
+      <button class="btn btn-primary tab-button" type="button" aria-pressed="true" data-tab="waiting">รอรีวิว <span id="tab-waiting-count">-</span></button>
+      <button class="btn tab-button" type="button" aria-pressed="false" data-tab="revision">มีปรับแก้ <span id="needs-revision-count">-</span></button>
+      <button class="btn tab-button" type="button" aria-pressed="false" data-tab="approved">อนุมัติวันนี้ <span id="approved-today-count">-</span></button>
     </nav>
     <label class="form-label sort-field">เรียงคิว
       <select class="form-select" id="queue-sort">
@@ -1045,163 +1045,268 @@ html>body{padding:0}</style>
   <p class="toast text-small" id="queue-toast" role="status" aria-live="polite"></p>
 
   <section class="queue-list" id="queue-list" aria-label="รายการงานรอรีวิว">
-    <article class="queue-item stale" data-age="380" data-priority="1" data-deadline="1">
-      <div class="thumb" aria-label="ภาพตัวอย่าง STD Promotion">
-        <span class="thumb-mark"><i data-lucide="image" aria-hidden="true"></i><span class="text-small">Preview</span></span>
-      </div>
-      <div>
-        <div class="item-top">
-          <div>
-            <h3>STD Promotion รวมสีสุดฮิต</h3>
-            <div class="badges">
-              <span class="viz-badge">ด่วน</span>
-              <span class="viz-badge age-badge">ค้าง 6 ชม. 20 นาที</span>
-            </div>
-          </div>
-          <strong>ส่งลูกค้า วันนี้ 16:00</strong>
-        </div>
-        <div class="meta text-small">
-          <span><i data-lucide="building-2" aria-hidden="true"></i> STD</span>
-          <span><i data-lucide="rotate-ccw" aria-hidden="true"></i> รอบรีวิว 2</span>
-          <span><i data-lucide="clock-3" aria-hidden="true"></i> ส่งเมื่อ 21 ก.ค. 2026 · 04:12</span>
-        </div>
-        <div class="item-bottom">
-          <span class="person"><span class="avatar">ก</span> กิ๊บ</span>
-          <div class="actions">
-            <a class="btn" href="#details"><i data-lucide="external-link" aria-hidden="true"></i> เปิดไฟล์งาน</a>
-            <button class="btn action-revise" type="button"><i data-lucide="undo-2" aria-hidden="true"></i> ส่งกลับแก้</button>
-            <button class="btn btn-primary action-approve" type="button"><i data-lucide="check" aria-hidden="true"></i> อนุมัติ</button>
-          </div>
-        </div>
-      </div>
-    </article>
-
-    <article class="queue-item watch" data-age="190" data-priority="2" data-deadline="2">
-      <div class="thumb" aria-label="ภาพตัวอย่าง Summer Menu">
-        <span class="thumb-mark"><i data-lucide="image" aria-hidden="true"></i><span class="text-small">Preview</span></span>
-      </div>
-      <div>
-        <div class="item-top">
-          <div>
-            <h3>Summer Menu — Social Post</h3>
-            <div class="badges"><span class="viz-badge age-badge">รอ 3 ชม. 10 นาที</span></div>
-          </div>
-          <strong>กำหนดส่ง วันนี้ 18:00</strong>
-        </div>
-        <div class="meta text-small">
-          <span><i data-lucide="building-2" aria-hidden="true"></i> GEM</span>
-          <span><i data-lucide="rotate-ccw" aria-hidden="true"></i> รอบรีวิว 1</span>
-          <span><i data-lucide="clock-3" aria-hidden="true"></i> ส่งเมื่อ 21 ก.ค. 2026 · 07:22</span>
-        </div>
-        <div class="item-bottom">
-          <span class="person"><span class="avatar">โ</span> โอม</span>
-          <div class="actions">
-            <a class="btn" href="#details"><i data-lucide="external-link" aria-hidden="true"></i> เปิดไฟล์งาน</a>
-            <button class="btn action-revise" type="button">ส่งกลับแก้</button>
-            <button class="btn btn-primary action-approve" type="button">อนุมัติ</button>
-          </div>
-        </div>
-      </div>
-    </article>
-
-    <article class="queue-item fresh" data-age="45" data-priority="3" data-deadline="3">
-      <div class="thumb" aria-label="ภาพตัวอย่าง LINE OA Rich Menu">
-        <span class="thumb-mark"><i data-lucide="image" aria-hidden="true"></i><span class="text-small">Preview</span></span>
-      </div>
-      <div>
-        <div class="item-top">
-          <div>
-            <h3>LINE OA Rich Menu — July</h3>
-            <div class="badges"><span class="viz-badge age-badge">รอ 45 นาที</span></div>
-          </div>
-          <strong>กำหนดส่ง พรุ่งนี้ 12:00</strong>
-        </div>
-        <div class="meta text-small">
-          <span><i data-lucide="building-2" aria-hidden="true"></i> Brand A</span>
-          <span><i data-lucide="rotate-ccw" aria-hidden="true"></i> รอบรีวิว 1</span>
-          <span><i data-lucide="clock-3" aria-hidden="true"></i> ส่งเมื่อ 21 ก.ค. 2026 · 09:47</span>
-        </div>
-        <div class="item-bottom">
-          <span class="person"><span class="avatar">น</span> นัท</span>
-          <div class="actions">
-            <a class="btn" href="#details"><i data-lucide="external-link" aria-hidden="true"></i> เปิดไฟล์งาน</a>
-            <button class="btn action-revise" type="button">ส่งกลับแก้</button>
-            <button class="btn btn-primary action-approve" type="button">อนุมัติ</button>
-          </div>
-        </div>
-      </div>
-    </article>
+    <div class="empty">กำลังโหลดข้อมูลคิว...</div>
   </section>
 
   <script>
     (() => {
-      const root = document.getElementById(&#x27;ad-review-queue&#x27;);
-      const list = root.querySelector(&#x27;#queue-list&#x27;);
-      const toast = root.querySelector(&#x27;#queue-toast&#x27;);
-      let visibleCount = 8;
-      let needsRevisionCount = 3;
-      let approvedTodayCount = 14;
+      const root = document.getElementById('ad-review-queue');
+      const list = root.querySelector('#queue-list');
+      const toast = root.querySelector('#queue-toast');
+      
+      let rawTasks = [];
+      let currentTab = 'waiting';
 
       const announce = (message) => {
         toast.textContent = message;
-        toast.classList.add(&#x27;show&#x27;);
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 3000);
       };
 
-      const updateCount = () => {
-        visibleCount = Math.max(0, visibleCount - 1);
-        root.querySelector(&#x27;#waiting-count&#x27;).textContent = visibleCount;
-        root.querySelector(&#x27;#tab-waiting-count&#x27;).textContent = visibleCount;
+      const calculateAgeHours = (sentToReviewAt) => {
+        if (!sentToReviewAt) return 0;
+        const sent = new Date(sentToReviewAt);
+        const now = new Date();
+        return Math.max(0, Math.floor((now - sent) / (1000 * 60 * 60)));
       };
 
-      root.querySelectorAll(&#x27;.action-approve, .action-revise&#x27;).forEach((button) => {
-        button.addEventListener(&#x27;click&#x27;, () => {
-          const item = button.closest(&#x27;.queue-item&#x27;);
-          const title = item.querySelector(&#x27;h3&#x27;).textContent;
-          const revised = button.classList.contains(&#x27;action-revise&#x27;);
-          item.remove();
-          updateCount();
-          if (revised) {
-            needsRevisionCount += 1;
-            root.querySelector(&#x27;#needs-revision-count&#x27;).textContent = needsRevisionCount;
-          } else {
-            approvedTodayCount += 1;
-            root.querySelector(&#x27;#approved-today-count&#x27;).textContent = approvedTodayCount;
+      const getAgeString = (sentToReviewAt) => {
+        if (!sentToReviewAt) return 'เพิ่งส่ง';
+        const sent = new Date(sentToReviewAt);
+        const now = new Date();
+        const diffMs = Math.max(0, now - sent);
+        const diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
+        const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+        if (diffHrs > 0 && diffMins > 0) return `${diffHrs} ชม. ${diffMins} นาที`;
+        if (diffHrs > 0) return `${diffHrs} ชม.`;
+        if (diffMins > 0) return `${diffMins} นาที`;
+        return 'เพิ่งส่ง';
+      };
+
+      const getAgeClass = (ageHours) => {
+        if (ageHours > 4) return 'stale';
+        if (ageHours >= 2) return 'watch';
+        return 'fresh';
+      };
+
+      const renderList = () => {
+        const pendingTasks = rawTasks.filter(t => t.status === "รอรีวิว");
+        const revisionTasks = rawTasks.filter(t => t.status === "มีปรับแก้");
+        const approvedTasks = rawTasks.filter(t => t.status === "อนุมัติแล้ว");
+
+        root.querySelector('#waiting-count').textContent = pendingTasks.length;
+        root.querySelector('#tab-waiting-count').textContent = pendingTasks.length;
+        root.querySelector('#needs-revision-count').textContent = revisionTasks.length;
+        root.querySelector('#approved-today-count').textContent = approvedTasks.length;
+        
+        const staleCount = pendingTasks.filter(t => calculateAgeHours(t.sentToReviewAt) > 4).length;
+        root.querySelector('#stale-count').textContent = staleCount;
+
+        const todayStr = new Date().toLocaleDateString('th-TH', { year: 'numeric', month: '2-digit', day: '2-digit' });
+        const sentTodayCount = pendingTasks.filter(t => new Date(t.sentToReviewAt).toLocaleDateString('th-TH', { year: 'numeric', month: '2-digit', day: '2-digit' }) === todayStr).length;
+        const waitingTodayEl = root.querySelector('#waiting-today-context');
+        if (waitingTodayEl) waitingTodayEl.textContent = `เพิ่มมา ${sentTodayCount} งานในวันนี้`;
+
+        const oldestTimeEl = root.querySelector('#oldest-time');
+        const oldestNameEl = root.querySelector('#oldest-name');
+        if (pendingTasks.length > 0) {
+           let oldestTask = pendingTasks[0];
+           let maxAgeMs = -1;
+           const now = new Date();
+           pendingTasks.forEach(t => {
+              const ageMs = t.sentToReviewAt ? Math.max(0, now - new Date(t.sentToReviewAt)) : 0;
+              if (ageMs > maxAgeMs) { maxAgeMs = ageMs; oldestTask = t; }
+           });
+           if (oldestTimeEl && oldestNameEl) {
+              oldestTimeEl.textContent = getAgeString(oldestTask.sentToReviewAt);
+              oldestNameEl.textContent = oldestTask.name;
+           }
+        } else {
+           if (oldestTimeEl) oldestTimeEl.textContent = '-';
+           if (oldestNameEl) oldestNameEl.textContent = 'ไม่มีงานค้าง';
+        }
+
+        let tasksToRender = [];
+        if (currentTab === 'waiting') tasksToRender = pendingTasks;
+        else if (currentTab === 'revision') tasksToRender = revisionTasks;
+        else if (currentTab === 'approved') tasksToRender = approvedTasks;
+
+        const sortSelect = root.querySelector('#queue-sort');
+        const sortKey = sortSelect ? sortSelect.value : 'oldest';
+
+        tasksToRender.sort((a, b) => {
+           const aUrgent = a.name.includes("ด่วน") || a.name.includes("เร่ง");
+           const bUrgent = b.name.includes("ด่วน") || b.name.includes("เร่ง");
+           if (sortKey === 'priority') {
+             if (aUrgent && !bUrgent) return -1;
+             if (!aUrgent && bUrgent) return 1;
+           }
+           
+           const ageA = calculateAgeHours(a.sentToReviewAt);
+           const ageB = calculateAgeHours(b.sentToReviewAt);
+           if (sortKey === 'oldest') {
+             return ageB - ageA;
+           }
+           // Fallback to deadline (we don't have it explicitly so we use date)
+           return new Date(a.date) - new Date(b.date);
+        });
+
+        list.innerHTML = '';
+        if (tasksToRender.length === 0) {
+           list.innerHTML = '<div class="empty">ไม่มีคิวงานในหมวดหมู่นี้</div>';
+           return;
+        }
+
+        tasksToRender.forEach(task => {
+          const ageHours = calculateAgeHours(task.sentToReviewAt);
+          const ageClass = getAgeClass(ageHours);
+          let timeStr = '-';
+          if (task.sentToReviewAt) {
+             const d = new Date(task.sentToReviewAt);
+             const yyyy = d.getFullYear();
+             const mm = (d.getMonth() + 1).toString().padStart(2, '0');
+             const dd = d.getDate().toString().padStart(2, '0');
+             const hh = d.getHours().toString().padStart(2, '0');
+             const mins = d.getMinutes().toString().padStart(2, '0');
+             timeStr = `${dd}/${mm}/${yyyy} ${hh}:${mins} น.`;
+          } else if (task.date) {
+             const parts = task.date.split('T')[0].split('-');
+             if (parts.length === 3) {
+                timeStr = `${parts[2]}/${parts[1]}/${parts[0]} ${task.time || ''}`.trim() + ' น.';
+             }
           }
-          announce(revised ? `เปลี่ยนสถานะ “${title}” เป็นมีปรับแก้แล้ว` : `อนุมัติ “${title}” แล้ว`);
-        });
-      });
+          
+          let actionButtons = '';
+          if (currentTab === 'waiting' || currentTab === 'revision') {
+            actionButtons = `
+              <button class="btn action-revise" type="button" onclick="handleAction('${task.id}', 'มีปรับแก้')"><i data-lucide="undo-2" aria-hidden="true"></i> ส่งกลับแก้</button>
+              <button class="btn btn-primary action-approve" type="button" onclick="handleAction('${task.id}', 'Done')"><i data-lucide="check" aria-hidden="true"></i> อนุมัติ</button>
+            `;
+          }
 
-      root.querySelectorAll(&#x27;.tab-button&#x27;).forEach((button) => {
-        button.addEventListener(&#x27;click&#x27;, () => {
-          root.querySelectorAll(&#x27;.tab-button&#x27;).forEach((peer) => {
+          const isUrgent = task.name.includes("ด่วน") || task.name.includes("เร่ง");
+          const priorityBadge = isUrgent ? `<span class="viz-badge" style="background:#ef4444;color:white;">ด่วน</span>` : '';
+          
+          let ageStr = getAgeString(task.sentToReviewAt);
+          
+          let roundStr = task.revisionRound > 1 ? `<span><i data-lucide="rotate-ccw" aria-hidden="true"></i> รอบรีวิว ${task.revisionRound}</span>` : '';
+
+          const linkHtml = task.link ? `<a class="btn" href="${task.link}" target="_blank"><i data-lucide="external-link" aria-hidden="true"></i> เปิดไฟล์งาน</a>` : '';
+
+          const cardHTML = `
+            <article class="queue-item ${ageClass}" data-age="${ageHours}" data-priority="${isUrgent ? 1 : 0}">
+              <!-- Thumbnail -->
+              <div class="thumb">${priorityBadge}<i data-lucide="image" aria-hidden="true"></i><span>Preview</span></div>
+              
+              <!-- Content -->
+              <div class="content-wrapper">
+                <div class="item-top">
+                  <div>
+                    <h3>${task.name}</h3>
+                    <div class="badges">
+                      ${priorityBadge}
+                      <span class="viz-badge age-badge">${ageStr}</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="meta text-small">
+                  ${task.brand ? `<span><i data-lucide="building-2" aria-hidden="true"></i> ${task.brand}</span>` : ''}
+                  ${roundStr}
+                  <span><i data-lucide="clock-3" aria-hidden="true"></i> ส่งเมื่อ ${timeStr}</span>
+                </div>
+                ${task.comment ? `<div class="task-comment text-small" style="margin-top: 12px; padding: 10px; background: color-mix(in srgb, var(--foreground) 4%, transparent); border-radius: 6px; border-left: 3px solid var(--primary); white-space: pre-wrap; color: var(--muted-foreground);"><strong style="color: var(--foreground); display: block; margin-bottom: 4px;"><i data-lucide="message-square-text" aria-hidden="true" style="width: 14px; height: 14px; display: inline-block; vertical-align: text-bottom; margin-right: 4px;"></i>รายละเอียด / คอมเมนต์:</strong>${task.comment}</div>` : ''}
+                <div class="item-bottom">
+                  <span class="person"><span class="avatar">${task.owner.charAt(0)}</span> ${task.owner}</span>
+                  <div class="actions">
+                    ${linkHtml}
+                    ${actionButtons}
+                  </div>
+                </div>
+              </div>
+            </article>
+          `;
+          list.insertAdjacentHTML('beforeend', cardHTML);
+        });
+
+        // re-init lucide icons for dynamic content
+        if (globalThis.lucide) {
+           globalThis.lucide.createIcons({ attrs: { width: 16, height: 16 } });
+        }
+      };
+
+      const loadData = () => {
+        list.innerHTML = '<div class="empty">กำลังโหลดข้อมูลคิว...</div>';
+        google.script.run
+          .withSuccessHandler(resStr => {
+            try {
+              const res = JSON.parse(resStr);
+              if (res.success) {
+                rawTasks = res.tasks;
+                renderList();
+                const d = new Date();
+                root.querySelector('.updated').textContent = `อัปเดตล่าสุด วันนี้ ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')} น.`;
+              } else {
+                list.innerHTML = '<div class="empty" style="color:var(--destructive)">Error: ' + res.error + '</div>';
+              }
+            } catch(e) {
+              list.innerHTML = '<div class="empty" style="color:var(--destructive)">Parsing Error: ' + e.message + '</div>';
+            }
+          })
+          .withFailureHandler(err => {
+             list.innerHTML = '<div class="empty" style="color:var(--destructive)">Error: ' + err.message + '</div>';
+          })
+          .getTasksData();
+      };
+
+      window.handleAction = (taskId, newStatus) => {
+        if (!confirm('ยืนยันเปลี่ยนสถานะงาน?')) return;
+        
+        announce('กำลังอัปเดต...');
+        
+        google.script.run
+          .withSuccessHandler(resStr => {
+             try {
+               const res = JSON.parse(resStr);
+               if (res.success) {
+                 announce('อัปเดตงาน ' + res.taskName + ' สำเร็จแล้ว');
+               } else {
+                 alert('Error: ' + res.error);
+               }
+             } catch(e) {}
+             loadData();
+          })
+          .withFailureHandler(err => {
+             alert('Error: ' + err.message);
+             loadData();
+          })
+          .updateTaskFromWeb(taskId, newStatus, "");
+      };
+
+      root.querySelectorAll('.tab-button').forEach((button) => {
+        button.addEventListener('click', () => {
+          root.querySelectorAll('.tab-button').forEach((peer) => {
             const active = peer === button;
-            peer.setAttribute(&#x27;aria-pressed&#x27;, String(active));
-            peer.classList.toggle(&#x27;btn-primary&#x27;, active);
+            peer.setAttribute('aria-pressed', String(active));
+            peer.classList.toggle('btn-primary', active);
           });
-          const waiting = button.dataset.tab === &#x27;waiting&#x27;;
-          list.style.display = waiting ? &#x27;grid&#x27; : &#x27;none&#x27;;
-          announce(waiting ? &#x27;กำลังแสดงงานที่รอรีวิว&#x27; : &#x27;แท็บนี้เป็นตัวอย่างโครงสร้าง — รายการจริงจะดึงจาก Google Sheet&#x27;);
+          currentTab = button.dataset.tab;
+          renderList();
         });
       });
 
-      root.querySelector(&#x27;#queue-sort&#x27;).addEventListener(&#x27;change&#x27;, (event) => {
-        const key = event.target.value;
-        const items = [...list.querySelectorAll(&#x27;.queue-item&#x27;)];
-        items.sort((a, b) => {
-          if (key === &#x27;oldest&#x27;) return Number(b.dataset.age) - Number(a.dataset.age);
-          if (key === &#x27;deadline&#x27;) return Number(a.dataset.deadline) - Number(b.dataset.deadline);
-          return Number(a.dataset.priority) - Number(b.dataset.priority);
-        });
-        items.forEach((item) => list.appendChild(item));
-        announce(`เรียงคิวตาม “${event.target.options[event.target.selectedIndex].text}” แล้ว`);
+      root.querySelector('#queue-sort').addEventListener('change', () => {
+        renderList();
       });
 
-      root.querySelector(&#x27;#refresh-queue&#x27;).addEventListener(&#x27;click&#x27;, () => {
-        announce(&#x27;อัปเดตข้อมูลล่าสุดแล้ว เมื่อสักครู่&#x27;);
+      root.querySelector('#refresh-queue').addEventListener('click', () => {
+        announce('กำลังอัปเดตข้อมูล...');
+        loadData();
       });
+      
+      // Initial load
+      loadData();
     })();
-  </script>
-</div>
+  </script></div>
 
 <script src="https://unpkg.com/@floating-ui/core@1.7.3/dist/floating-ui.core.umd.min.js"></script>
 <script src="https://unpkg.com/@floating-ui/dom@1.7.4/dist/floating-ui.dom.umd.min.js"></script>
