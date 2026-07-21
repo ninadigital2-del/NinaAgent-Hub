@@ -40,6 +40,11 @@ function doGet(e) {
     return handleApiRequest();
   }
   
+  if (action === 'testPush') {
+    pushDailySummary();
+    return ContentService.createTextOutput("Tested!");
+  }
+  
   if (action === 'updateTask') {
     const taskId = e.parameter.taskId;
     const status = e.parameter.status;
@@ -741,10 +746,11 @@ function setupTrigger() {
       editTriggersCount++;
     });
     
-    // สร้าง Trigger แจ้งเตือนตอน 9 โมงเช้า
+    // สร้าง Trigger แจ้งเตือนตอน 9:30 โมงเช้า
     ScriptApp.newTrigger('pushDailySummary')
       .timeBased()
       .atHour(9)
+      .nearMinute(30)
       .everyDays(1)
       .create();
 
@@ -755,7 +761,7 @@ function setupTrigger() {
       .everyDays(1)
       .create();
       
-    return ContentService.createTextOutput(`ตั้งค่า Trigger แจ้งเตือนสำเร็จแล้ว! 🚀\n(1) ผูกตารางไปแล้ว ${editTriggersCount} ไฟล์\n(2) แจ้งเตือนงานตอน 09:00 และ 17:00`);
+    return ContentService.createTextOutput(`ตั้งค่า Trigger แจ้งเตือนสำเร็จแล้ว! 🚀\n(1) ผูกตารางไปแล้ว ${editTriggersCount} ไฟล์\n(2) แจ้งเตือนงานตอน 09:30 และ 17:00`);
   } catch (err) {
     return ContentService.createTextOutput('Error: ' + err.message);
   }
