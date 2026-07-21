@@ -51,7 +51,10 @@ if (sidebarOverlay) {
     });
 }
 
-function showDashboard(element) {
+function showDashboard(element, skipHash = false) {
+    if (!skipHash) {
+        if (window.location.hash !== '#dashboard') history.pushState(null, null, '#dashboard');
+    }
     // Update active state in sidebar
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
     if (element) element.classList.add('active');
@@ -69,7 +72,11 @@ function showDashboard(element) {
     sidebarOverlay.classList.remove('active');
 }
 
-function loadToolInFrame(element, toolName, url) {
+function loadToolInFrame(element, toolName, url, skipHash = false) {
+    if (!skipHash) {
+        const hashId = '#' + toolName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+        if (window.location.hash !== hashId) history.pushState(null, null, hashId);
+    }
     // Update active state in sidebar
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
     if (element) element.classList.add('active');
@@ -162,3 +169,36 @@ document.addEventListener('keydown', function(e) {
         closePdfModal();
     }
 });
+
+// Router Logic
+function handleRouting() {
+    const hash = window.location.hash;
+    if (!hash || hash === '' || hash === '#' || hash === '#dashboard') {
+        showDashboard(document.getElementById('nav-dashboard'), true);
+        return;
+    }
+
+    // Iterate sidebar links to find match
+    const links = document.querySelectorAll('.sidebar-tool-link');
+    for (let i = 0; i < links.length; i++) {
+        const link = links[i];
+        const onclickAttr = link.getAttribute('onclick');
+        if (onclickAttr) {
+            const match = onclickAttr.match(/loadToolInFrame\(this,\s*'([^']+)',\s*'([^']+)'\)/);
+            if (match) {
+                const toolName = match[1];
+                const url = match[2];
+                const expectedHash = '#' + toolName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+                if (hash === expectedHash) {
+                    loadToolInFrame(link, toolName, url, true);
+                    return;
+                }
+            }
+        }
+    }
+    // Default to dashboard if hash not found
+    showDashboard(document.getElementById('nav-dashboard'), true);
+}
+
+window.addEventListener('DOMContentLoaded', handleRouting);
+window.addEventListener('hashchange', handleRouting);
