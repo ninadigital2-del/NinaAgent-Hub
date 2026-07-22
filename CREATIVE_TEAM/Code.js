@@ -1,7 +1,7 @@
 // ============================================================
 // Task Status Tracker — Google Apps Script (AD Review Queue)
 // Master Sheet (Columns Q, R, S, T) & Sync to Individual Sheets
-// Display Graphic Designer Name (Col A) instead of Job Owner (Col N)
+// Flex Result Card (No buttons) & Short Duplicate Warning "⚠️ งานไม่สามารถกดซ้ำ"
 // ============================================================
 
 const CONFIG = {
@@ -40,7 +40,7 @@ const CONFIG = {
   MASTER_COL_REVISION_ROUND: 19 // Col T (Revision Round)
 };
 
-const CACHE_KEY = "AD_REVIEW_QUEUE_TASKS_v19";
+const CACHE_KEY = "AD_REVIEW_QUEUE_TASKS_v20";
 
 // ============================================================
 // 1. Web App Endpoint (GET)
@@ -305,7 +305,6 @@ function getTasksData() {
         isToday = (todayStr === revStr);
       }
 
-      // Worker Name: Preference Col A (Graphic Designer) then Col N
       const workerName = String(row[CONFIG.MASTER_COL_OWNER_A] || row[CONFIG.MASTER_COL_OWNER_N] || 'ไม่ระบุ').trim();
 
       // Filter: Show "รอรีวิว", "มีปรับแก้", or "อนุมัติแล้ว" of today
@@ -314,7 +313,7 @@ function getTasksData() {
           id: String(row[CONFIG.MASTER_COL_JOB_NO] || `master_${i+1}`).trim(),
           uniqueId: `master_${i+1}`,
           name: taskName,
-          owner: workerName, // Display Graphic Designer name (คนทำงาน)
+          owner: workerName,
           status: reviewStatus,
           graphicStatus: graphicStatus,
           brand: String(row[CONFIG.MASTER_COL_BRAND] || '').trim(),
@@ -337,7 +336,6 @@ function getTasksData() {
 
 // ============================================================
 // 6. Update Task Status (จาก Dashboard หรือ API)
-// Strict Lock: Once reviewed (มีปรับแก้ / อนุมัติแล้ว), block further changes
 // ============================================================
 function updateTaskFromWeb(taskId, newStatus, commentText) {
   try {
@@ -370,13 +368,12 @@ function updateTaskFromWeb(taskId, newStatus, commentText) {
       const currentReviewStatus = String(sheet.getRange(foundRow, 17).getValue() || '').trim();
       const currentRound = parseInt(sheet.getRange(foundRow, 20).getValue()) || 1;
 
-      // Strict Lock: If task is ALREADY reviewed (มีปรับแก้ or อนุมัติแล้ว), block further updates from old cards
       if ((currentReviewStatus === "มีปรับแก้" || currentReviewStatus === "อนุมัติแล้ว") && newStatus !== "รอรีวิว") {
         return JSON.stringify({ 
           success: true, 
           taskName: taskName, 
           alreadyUpdated: true, 
-          message: `ได้รับการตรวจรีวิวแล้ว (สถานะปัจจุบัน: "${currentReviewStatus}")` 
+          message: "งานไม่สามารถกดซ้ำ" 
         });
       }
 
@@ -450,7 +447,6 @@ function syncToIndividualSheet(taskId, taskName, ownerA, ownerN, newStatus) {
 
     let bestMatchRow = -1;
 
-    // Search from bottom to top (most recent task rows first)
     for (let i = data.length - 1; i >= 1; i--) {
       const rowNum = i + 1;
       const currentColA = String(data[i][0] || '').trim();
@@ -462,12 +458,11 @@ function syncToIndividualSheet(taskId, taskName, ownerA, ownerN, newStatus) {
                           
       if (isNameMatch) {
         const normColA = currentColA.toLowerCase().replace(/’/g, "'");
-        // Prioritize active row currently at "Sent to P'Aof" or "รอรีวิว" or "มีปรับแก้"
         if (normColA === "sent to p'aof" || normColA === "รอรีวิว" || normColA === "มีปรับแก้") {
           bestMatchRow = rowNum;
-          break; // Found the active pending row!
+          break;
         } else if (bestMatchRow === -1) {
-          bestMatchRow = rowNum; // Backup match
+          bestMatchRow = rowNum;
         }
       }
     }
@@ -539,7 +534,6 @@ function sendLineReviewAlert(taskName, owner, round, row, spreadsheetId) {
 
 // ============================================================
 // 8. LINE Webhook Handling
-// Strict Lock: Once reviewed, block ANY button press on old cards
 // ============================================================
 function handleLineWebhook(events) {
   events.forEach(event => {
@@ -581,6 +575,73 @@ function handlePostback(event) {
   }
 }
 
+// Helper to format review duration into "รีวิวใช้เวลา X ชม. Y น." or "รีวิวใช้เวลา X น."
+function formatDurationString(sentAtVal, reviewedAtDate) {
+  const sentAt = parseDateValue(sentAtVal);
+  if (!sentAt || !reviewedAtDate) return `อัปเดตเมื่อ ${Utilities.formatDate(reviewedAtDate || new Date(), "Asia/Bangkok", "HH:mm น.")}`;
+  
+  const diffMs = reviewedAtDate.getTime() - sentAt.getTime();
+  if (diffMs <= 0) return "รีวิวใช้เวลา 1 น.";
+  
+  const totalMins = Math.round(diffMs / (1000 * 60));
+  const hours = Math.floor(totalMins / 60);
+  const mins = totalMins % 60;
+  
+  if (hours > 0) {
+    return `รีวิวใช้เวลา ${hours} ชม. ${mins} น.`;
+  }
+  return `รีวิวใช้เวลา ${mins > 0 ? mins : 1} น.`;
+}
+
+// Sends a clean Flex Message without buttons after review action
+function replyReviewResultFlex(replyToken, taskName, workerName, brand, isApproved, durationStr) {
+  const headerText = isApproved ? "✅ Approved" : "🔄 ส่งกลับแก้ไข";
+  const headerColor = isApproved ? "#22A06B" : "#378ADD";
+
+  const contents = {
+    type: "bubble",
+    body: {
+      type: "box",
+      layout: "vertical",
+      spacing: "md",
+      contents: [
+        {
+          type: "text",
+          text: headerText,
+          weight: "bold",
+          size: "md",
+          color: headerColor
+        },
+        {
+          type: "separator"
+        },
+        {
+          type: "text",
+          text: "📌 " + taskName,
+          weight: "bold",
+          size: "sm",
+          wrap: true
+        },
+        {
+          type: "text",
+          text: "👤 " + workerName + (brand ? "  |  🏷️ " + brand : ""),
+          size: "xs",
+          color: "#555555",
+          wrap: true
+        },
+        {
+          type: "text",
+          text: "⏱️ " + durationStr,
+          size: "xs",
+          color: "#777777"
+        }
+      ]
+    }
+  };
+  
+  replyFlexMessage(replyToken, `${headerText}: ${taskName}`, contents);
+}
+
 function updateSheetStatusFromPostback(replyToken, row, sheetId, newStatus) {
   try {
     const masterSheet = getMasterRawDataSheet();
@@ -593,24 +654,27 @@ function updateSheetStatusFromPostback(replyToken, row, sheetId, newStatus) {
     const taskName = masterSheet.getRange(r, 13).getValue() || 'ไม่ระบุชื่อ';
     const ownerA = masterSheet.getRange(r, 1).getValue() || '';
     const ownerN = masterSheet.getRange(r, 14).getValue() || '';
+    const brand = masterSheet.getRange(r, 12).getValue() || '';
     const jobId = masterSheet.getRange(r, 11).getValue() || `master_${r}`;
-    
+    const sentAtVal = masterSheet.getRange(r, 18).getValue();
+    const workerName = String(ownerA || ownerN || 'ไม่ระบุ').trim();
+
     // Check current status in Col Q (17)
     const currentReviewStatus = String(masterSheet.getRange(r, 17).getValue() || '').trim();
 
-    // Strict Lock: Once a task has been reviewed ("มีปรับแก้" or "อนุมัติแล้ว"), 
-    // block ALL buttons on old cards until Graphic sends a new revision ("รอรีวิว")
+    // Shortened Duplicate / Re-trigger Warning as requested: "⚠️ งานไม่สามารถกดซ้ำ"
     if (currentReviewStatus === "มีปรับแก้" || currentReviewStatus === "อนุมัติแล้ว") {
-      replyText(replyToken, `⚠️ งาน "${taskName}" ได้รับการตรวจรีวิวแล้ว (สถานะปัจจุบัน: "${currentReviewStatus}")\nกรุณารอทีม Graphic สลับสถานะส่งงานรอบใหม่ก่อนครับ`);
+      replyText(replyToken, "⚠️ งานไม่สามารถกดซ้ำ");
       return;
     }
 
     const now = new Date();
+    const isApproved = (newStatus === "Done" || newStatus === "อนุมัติแล้ว");
 
     if (newStatus === "มีปรับแก้") {
       masterSheet.getRange(r, 17).setValue("มีปรับแก้");      // Col Q (Review Status)
       masterSheet.getRange(r, 19).setNumberFormat("dd/mm/yyyy hh:mm:ss").setValue(now); // Col S (Reviewed At)
-    } else if (newStatus === "Done" || newStatus === "อนุมัติแล้ว") {
+    } else if (isApproved) {
       masterSheet.getRange(r, 17).setValue("อนุมัติแล้ว");    // Col Q (Review Status)
       masterSheet.getRange(r, 19).setNumberFormat("dd/mm/yyyy hh:mm:ss").setValue(now); // Col S (Reviewed At)
     }
@@ -619,9 +683,12 @@ function updateSheetStatusFromPostback(replyToken, row, sheetId, newStatus) {
     syncToIndividualSheet(jobId, taskName, ownerA, ownerN, newStatus);
 
     CacheService.getScriptCache().remove(CACHE_KEY);
-    const nowStr = Utilities.formatDate(now, "Asia/Bangkok", "dd/MM/yyyy HH:mm:ss");
-    const displayStatusStr = (newStatus === "Done" || newStatus === "อนุมัติแล้ว") ? "อนุมัติแล้ว" : "มีปรับแก้";
-    replyText(replyToken, `🕒 ${nowStr}\n✅ อัปเดตงาน "${taskName}" เป็นสถานะ "${displayStatusStr}" เรียบร้อยแล้ว!`);
+
+    // Format review duration string (e.g. "รีวิวใช้เวลา 1 ชม. 30 น.")
+    const durationStr = formatDurationString(sentAtVal, now);
+
+    // Send clean Flex Message WITHOUT buttons in reply
+    replyReviewResultFlex(replyToken, taskName, workerName, brand, isApproved, durationStr);
   } catch (err) {
     replyText(replyToken, `❌ เกิดข้อผิดพลาดในการอัปเดต: ${err.message}`);
   }
@@ -678,6 +745,17 @@ function replySummaryTasks(replyToken) {
 function replyText(replyToken, text) {
   const url = 'https://api.line.me/v2/bot/message/reply';
   const payload = { replyToken: replyToken, messages: [{ type: 'text', text: text }] };
+  const options = {
+    method: 'post',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + CONFIG.LINE_CHANNEL_ACCESS_TOKEN },
+    payload: JSON.stringify(payload)
+  };
+  try { UrlFetchApp.fetch(url, options); } catch(e) {}
+}
+
+function replyFlexMessage(replyToken, altText, contents) {
+  const url = 'https://api.line.me/v2/bot/message/reply';
+  const payload = { replyToken: replyToken, messages: [{ type: 'flex', altText: altText, contents: contents }] };
   const options = {
     method: 'post',
     headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + CONFIG.LINE_CHANNEL_ACCESS_TOKEN },
@@ -753,7 +831,7 @@ function setupTrigger() {
       .everyDays(1)
       .create();
       
-    return ContentService.createTextOutput(`ตั้งค่า Trigger สำหรับ Master Sheet สำเร็จแล้ว! 🚀\n(1) ตั้งค่าระบบ Sync อัตโนมัติทุก 1 นาที (แสดงชื่อคนทำงาน Col A เป็นหลัก)\n(2) ผูก Master Sheet (onChange & onEdit)\n(3) แจ้งเตือนสรุปงาน 09:30 และ 17:00`);
+    return ContentService.createTextOutput(`ตั้งค่า Trigger สำหรับ Master Sheet สำเร็จแล้ว! 🚀\n(1) ตั้งค่าระบบ Sync อัตโนมัติทุก 1 นาที (ตอบกลับการตรวจงานด้วย Flex Card ไม่มีปุ่ม)\n(2) ผูก Master Sheet (onChange & onEdit)\n(3) แจ้งเตือนสรุปงาน 09:30 และ 17:00`);
   } catch (err) {
     return ContentService.createTextOutput('Error: ' + err.message);
   }
