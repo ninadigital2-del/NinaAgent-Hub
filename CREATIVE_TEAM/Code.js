@@ -254,6 +254,14 @@ function updateMasterSheetLog(jobNo, taskName, ownerName, action, commentText) {
     const sheet = getMasterRawDataSheet();
     if (!sheet) return;
     
+    // Ensure Headers for Q, R, S
+    const headerQ = sheet.getRange(1, 17);
+    const headerR = sheet.getRange(1, 18);
+    const headerS = sheet.getRange(1, 19);
+    if (!headerQ.getValue()) headerQ.setValue("Timestamp / Log");
+    if (!headerR.getValue()) headerR.setValue("Sent to P'Aof");
+    if (!headerS.getValue()) headerS.setValue("มีปรับแก้");
+    
     const data = sheet.getDataRange().getValues();
     let foundRow = -1;
     

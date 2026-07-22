@@ -1282,12 +1282,12 @@ html>body{padding:0}</style>
           .updateTaskFromWeb(taskId, newStatus, "");
       };
 
-      root.querySelectorAll('.tab-button').forEach((button) => {
+      root.querySelectorAll('.tab-btn').forEach((button) => {
         button.addEventListener('click', () => {
-          root.querySelectorAll('.tab-button').forEach((peer) => {
+          root.querySelectorAll('.tab-btn').forEach((peer) => {
             const active = peer === button;
             peer.setAttribute('aria-pressed', String(active));
-            peer.classList.toggle('btn-primary', active);
+            peer.classList.toggle('active', active);
           });
           currentTab = button.dataset.tab;
           renderList();
