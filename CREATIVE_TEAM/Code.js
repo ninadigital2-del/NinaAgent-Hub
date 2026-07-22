@@ -38,9 +38,13 @@ const CONFIG = {
   COL_REVISION_ROUND: 18,    // คอลัมน์ S (จำนวนรอบการปรับแก้)
   
   // ตำแหน่งคอลัมน์ใน GEM_Graphic_Master (RAW DATA)
-  MASTER_COL_JOB_NO: 10,     // คอลัมน์ K (Job No.)
-  MASTER_COL_TASK_NAME: 12,  // คอลัมน์ M (ชื่องาน)
-  MASTER_COL_OWNER: 13,      // คอลัมน์ N (เจ้าของงาน)
+  MASTER_COL_JOB_NO: 10,         // คอลัมน์ K (Job No.)
+  MASTER_COL_TASK_NAME: 12,      // คอลัมน์ M (ชื่องาน)
+  MASTER_COL_OWNER: 13,          // คอลัมน์ N (เจ้าของงาน)
+  MASTER_COL_REVIEW_STATUS: 16, // คอลัมน์ Q (Review Status)
+  MASTER_COL_SENT_AT: 17,       // คอลัมน์ R (Sent to Review At)
+  MASTER_COL_REVIEWED_AT: 18,   // คอลัมน์ S (Reviewed At)
+  MASTER_COL_REVISION_ROUND: 19 // คอลัมน์ T (Revision Round)
 };
 
 // ============================================================
@@ -204,107 +208,19 @@ function getMasterRawDataSheet() {
   return ss.getSheetByName('📥 RAW DATA');
 }
 
-function getMasterLogData() {
+function ensureMasterHeaders() {
   const sheet = getMasterRawDataSheet();
-  if (!sheet) return {};
+  if (!sheet) return;
   
-  const data = sheet.getDataRange().getValues();
-  const logMap = {};
-  for (let i = 4; i < data.length; i++) {
-    const row = data[i];
-    const jobNo = String(row[CONFIG.MASTER_COL_JOB_NO] || '').trim();
-    const taskName = String(row[CONFIG.MASTER_COL_TASK_NAME] || '').trim();
-    const owner = String(row[CONFIG.MASTER_COL_OWNER] || '').trim();
-    
-    // Create compound keys for safe lookup
-    const logs = String(row[16] || '');
-    const dataObj = {
-      logs: logs,
-      sentCount: parseInt(row[17]) || 0,
-      editCount: parseInt(row[18]) || 0
-    };
-    
-    if (jobNo) {
-       logMap[`job_${jobNo}`] = dataObj;
-    }
-    if (taskName && owner) {
-       logMap[`task_${owner}_${taskName}`] = dataObj;
-    }
-  }
-  return logMap;
-}
-
-function parseTimeFromLogs(logs, actionType) {
-  if (!logs) return '';
-  const lines = logs.split('\n');
-  for (let line of lines) {
-    if (actionType === "Sent to P'Aof" && line.toLowerCase().includes("sent to p'aof")) {
-       const m = line.match(/\[(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2}):(\d{2})\]/);
-       if (m) {
-         return new Date(`${m[3]}-${m[2]}-${m[1]}T${m[4]}:${m[5]}:${m[6]}+07:00`);
-       }
-    }
-    if (actionType === 'Done' && (line.toLowerCase().includes("done") || line.includes("อนุมัติ"))) {
-       const m = line.match(/\[(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2}):(\d{2})\]/);
-       if (m) {
-         return new Date(`${m[3]}-${m[2]}-${m[1]}T${m[4]}:${m[5]}:${m[6]}+07:00`);
-       }
-    }
-  }
-  return '';
-}
-
-function updateMasterSheetLog(jobNo, taskName, ownerName, action, commentText) {
-  try {
-    const sheet = getMasterRawDataSheet();
-    if (!sheet) return;
-    
-    // Ensure Headers for Q, R, S at Row 4
-    const headerQ = sheet.getRange(4, 17);
-    const headerR = sheet.getRange(4, 18);
-    const headerS = sheet.getRange(4, 19);
-    if (!headerQ.getValue()) headerQ.setValue("Timestamp / Log");
-    if (!headerR.getValue()) headerR.setValue("Sent to P'Aof");
-    if (!headerS.getValue()) headerS.setValue("มีปรับแก้");
-    
-    const data = sheet.getDataRange().getValues();
-    let foundRow = -1;
-    
-    for (let i = 4; i < data.length; i++) {
-      const rowJobNo = String(data[i][CONFIG.MASTER_COL_JOB_NO] || '').trim();
-      const rowTaskName = String(data[i][CONFIG.MASTER_COL_TASK_NAME] || '').trim();
-      const rowOwner = String(data[i][CONFIG.MASTER_COL_OWNER] || '').trim();
-      
-      if (jobNo && rowJobNo === jobNo) {
-         foundRow = i + 1; break;
-      } else if (taskName && rowTaskName === taskName && (rowOwner === ownerName || rowOwner.includes(ownerName))) {
-         foundRow = i + 1; break;
-      }
-    }
-    
-    if (foundRow > -1) {
-      const nowStr = Utilities.formatDate(new Date(), "Asia/Bangkok", "dd/MM/yyyy HH:mm:ss");
-      const timestampLog = `[${nowStr}] ${commentText || `เปลี่ยนสถานะเป็น "${action}"`}`;
-      
-      // Column Q (Index 16 -> Col 17)
-      const logCell = sheet.getRange(foundRow, 17);
-      const currentLog = String(logCell.getValue() || '').trim();
-      const combinedLog = currentLog ? `${timestampLog}\n${currentLog}` : timestampLog;
-      logCell.setValue(combinedLog);
-      
-      if (action === "Sent to P'Aof") {
-        const rCell = sheet.getRange(foundRow, 18);
-        const countR = parseInt(rCell.getValue()) || 0;
-        rCell.setValue(countR + 1);
-      } else if (action === "มีปรับแก้") {
-        const sCell = sheet.getRange(foundRow, 19);
-        const countS = parseInt(sCell.getValue()) || 0;
-        sCell.setValue(countS + 1);
-      }
-    }
-  } catch (e) {
-    console.error("Error updating master sheet log", e);
-  }
+  const hQ = sheet.getRange(4, 17);
+  const hR = sheet.getRange(4, 18);
+  const hS = sheet.getRange(4, 19);
+  const hT = sheet.getRange(4, 20);
+  
+  if (hQ.getValue() !== "Review Status") hQ.setValue("Review Status");
+  if (hR.getValue() !== "Sent to Review At") hR.setValue("Sent to Review At");
+  if (hS.getValue() !== "Reviewed At") hS.setValue("Reviewed At");
+  if (hT.getValue() !== "Revision Round") hT.setValue("Revision Round");
 }
 
 // ============================================================
@@ -781,8 +697,17 @@ function pushLineFlexMessage(altText, contents) {
 }
 
 // ============================================================
-// 7. Trigger: เมื่อมีการเปลี่ยนแปลงข้อมูลใน Google Sheet (onEdit)
+// 8. Cleanup Triggers
 // ============================================================
+function cleanupAllOldTriggers() {
+  const triggers = ScriptApp.getProjectTriggers();
+  let count = 0;
+  for (let i = 0; i < triggers.length; i++) {
+    ScriptApp.deleteTrigger(triggers[i]);
+    count++;
+  }
+  return "Deleted " + count + " triggers";
+}
 function onTaskStatusChange(e) {
   try { CacheService.getScriptCache().remove("AD_REVIEW_QUEUE_TASKS_v4"); } catch(err) {}
   if (!e || !e.range) return;
