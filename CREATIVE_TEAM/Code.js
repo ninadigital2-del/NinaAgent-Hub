@@ -1,7 +1,7 @@
 // ============================================================
 // Task Status Tracker — Google Apps Script (AD Review Queue)
 // Master Sheet (Columns Q, R, S, T) & Sync to Individual Sheets
-// Filter Today Onwards & Clear Past Retroactive Data
+// Hyper-Targeted Auto-Sync: Strictly target 'Sent to P'Aof' and 'มีปรับแก้'
 // ============================================================
 
 const CONFIG = {
@@ -40,7 +40,7 @@ const CONFIG = {
   MASTER_COL_REVISION_ROUND: 19 // Col T (Revision Round)
 };
 
-const CACHE_KEY = "AD_REVIEW_QUEUE_TASKS_v21";
+const CACHE_KEY = "AD_REVIEW_QUEUE_TASKS_v22";
 
 // Helper to parse date string like "22Jul26" or "22/07/2026" into "yyyy-MM-dd"
 function parseTaskDateString(dateVal) {
@@ -139,7 +139,6 @@ function clearPastData() {
       const dateVal = data[i][5]; // Col F (วันที่ส่งงาน)
       const taskDateStr = parseTaskDateString(dateVal);
 
-      // If task date is strictly before today, clear Col Q, R, S, T (17, 18, 19, 20)
       if (taskDateStr && taskDateStr < todayStr) {
         const currentQ = data[i][16];
         const currentR = data[i][17];
@@ -225,7 +224,7 @@ function parseDateValue(val) {
 
 // ============================================================
 // 4. Automatic Sync for Master Sheet (GEM_Graphic_Master)
-// Processes Tasks starting from TODAY (Asia/Bangkok) onwards
+// Hyper-Targeted: Strictly checks ONLY 'Sent to P'Aof' and 'มีปรับแก้'
 // ============================================================
 function syncMasterQueueStatus() {
   try {
@@ -263,10 +262,10 @@ function syncMasterQueueStatus() {
       const currentRound = parseInt(row[CONFIG.MASTER_COL_REVISION_ROUND]) || 1;
       const workerName = String(row[CONFIG.MASTER_COL_OWNER_A] || row[CONFIG.MASTER_COL_OWNER_N] || 'ไม่ระบุ').trim();
 
+      // HYPER-TARGETED: Only process "Sent to P'Aof" and "มีปรับแก้"
       if (normVal === "sent to p'aof") {
         if (currentReviewStatus !== "รอรีวิว") {
-          // Safeguard: If AD reviewed this task less than 2 minutes ago,
-          // wait for IMPORTRANGE formula to catch up from Graphic's personal sheet
+          // Safeguard: If AD reviewed this task less than 2 minutes ago, wait for IMPORTRANGE
           if (currentReviewedAt && (now.getTime() - currentReviewedAt.getTime()) < 2 * 60 * 1000) {
             continue;
           }
@@ -293,13 +292,8 @@ function syncMasterQueueStatus() {
           sheet.getRange(rowNum, 19).setNumberFormat("dd/mm/yyyy hh:mm:ss").setValue(now); // Col S
           hasChanges = true;
         }
-      } else if (normVal === "done" || normVal === "ok" || normVal === "อนุมัติแล้ว") {
-        if (currentReviewStatus !== "อนุมัติแล้ว") {
-          sheet.getRange(rowNum, 17).setValue("อนุมัติแล้ว"); // Col Q
-          sheet.getRange(rowNum, 19).setNumberFormat("dd/mm/yyyy hh:mm:ss").setValue(now); // Col S
-          hasChanges = true;
-        }
       }
+      // Ignore all other statuses (Done, Not Start, In Progress, etc.)
     }
 
     if (hasChanges) {
@@ -767,7 +761,7 @@ function updateSheetStatusFromPostback(replyToken, row, sheetId, newStatus) {
       masterSheet.getRange(r, 19).setNumberFormat("dd/mm/yyyy hh:mm:ss").setValue(now); // Col S (Reviewed At)
     }
 
-    // Sync status back to Graphic designer's personal sheet
+    // Sync status back to Graphic designer's personal sheet (Col A)
     syncToIndividualSheet(jobId, taskName, ownerA, ownerN, newStatus);
 
     CacheService.getScriptCache().remove(CACHE_KEY);
@@ -919,7 +913,7 @@ function setupTrigger() {
       .everyDays(1)
       .create();
       
-    return ContentService.createTextOutput(`ตั้งค่า Trigger สำหรับ Master Sheet สำเร็จแล้ว! 🚀\n(1) ตั้งค่าระบบ Sync อัตโนมัติทุก 1 นาที (ประมวลผลเฉพาะงานตั้งแต่วันนี้เป็นต้นไป)\n(2) ผูก Master Sheet (onChange & onEdit)\n(3) แจ้งเตือนสรุปงาน 09:30 และ 17:00`);
+    return ContentService.createTextOutput(`ตั้งค่า Trigger สำหรับ Master Sheet สำเร็จแล้ว! 🚀\n(1) ตั้งค่าระบบ Sync อัตโนมัติทุก 1 นาที (เจาะจงเฉพาะ Sent to P'Aof และ มีปรับแก้)\n(2) ผูก Master Sheet (onChange & onEdit)\n(3) แจ้งเตือนสรุปงาน 09:30 และ 17:00`);
   } catch (err) {
     return ContentService.createTextOutput('Error: ' + err.message);
   }
