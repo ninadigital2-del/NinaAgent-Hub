@@ -1,6 +1,6 @@
 // ============================================================
 // Task Status Tracker — Google Apps Script (AD Review Queue)
-// 100% Standalone on GEM_Graphic_Master Sheet
+// 100% Standalone on GEM_Graphic_Master Sheet (Columns Q, R, S, T)
 // ============================================================
 
 const CONFIG = {
@@ -15,7 +15,7 @@ const CONFIG = {
   // Row 4: Header, Row 5+: Data
   // Index 0-based:
   MASTER_COL_OWNER_A: 0,        // Col A (เจ้าของงาน)
-  MASTER_COL_STATUS: 1,         // Col B (Graphic Status: Sent to P'Aof, มีปรับแก้, Done ฯลฯ)
+  MASTER_COL_STATUS: 1,         // Col B (Graphic Status: IMPORTRANGE - READ ONLY)
   MASTER_COL_JOB_NO: 10,        // Col K (Job No.)
   MASTER_COL_BRAND: 11,         // Col L (Brand / Client)
   MASTER_COL_TASK_NAME: 12,     // Col M (ชื่องาน)
@@ -28,7 +28,7 @@ const CONFIG = {
   MASTER_COL_REVISION_ROUND: 19 // Col T (Revision Round)
 };
 
-const CACHE_KEY = "AD_REVIEW_QUEUE_TASKS_v8";
+const CACHE_KEY = "AD_REVIEW_QUEUE_TASKS_v9";
 
 // ============================================================
 // 1. Web App Endpoint (GET)
@@ -43,7 +43,7 @@ function doGet(e) {
   
   if (action === 'syncNow') {
     syncMasterQueueStatus();
-    return ContentService.createTextOutput("Synced successfully! GEM_Graphic_Master status checked, updated with Date & Time formatting, and LINE alerts sent.");
+    return ContentService.createTextOutput("Synced successfully! GEM_Graphic_Master status checked, updated on Columns Q-T (IMPORTRANGE protected), and LINE alerts sent.");
   }
   
   if (action === 'testPush') {
@@ -118,7 +118,6 @@ function ensureMasterHeaders() {
   if (hS.getValue() !== "Reviewed At") hS.setValue("Reviewed At");
   if (hT.getValue() !== "Revision Round") hT.setValue("Revision Round");
 
-  // Format Col R & S to show Date & Time in Master Sheet (e.g. 22/07/2026 14:30:00)
   sheet.getRange("R5:S2000").setNumberFormat("dd/mm/yyyy hh:mm:ss");
 }
 
@@ -147,6 +146,7 @@ function parseDateValue(val) {
 
 // ============================================================
 // 4. Automatic Sync for Master Sheet (GEM_Graphic_Master)
+// NOTE: Only writes to Columns Q, R, S, T (Never writes to Col B)
 // ============================================================
 function syncMasterQueueStatus() {
   try {
@@ -183,7 +183,7 @@ function syncMasterQueueStatus() {
           }
           
           sheet.getRange(rowNum, 17).setValue("รอรีวิว"); // Col Q
-          sheet.getRange(rowNum, 18).setNumberFormat("dd/mm/yyyy hh:mm:ss").setValue(now); // Col R (Sent to Review At)
+          sheet.getRange(rowNum, 18).setNumberFormat("dd/mm/yyyy hh:mm:ss").setValue(now); // Col R
           sheet.getRange(rowNum, 19).setValue("");         // Col S (Reviewed At cleared)
           sheet.getRange(rowNum, 20).setValue(newRound);   // Col T (Revision Round)
           
@@ -226,7 +226,6 @@ function handleApiRequest() {
 
 function getTasksData() {
   try {
-    // Run auto sync to catch any status updates before fetching
     syncMasterQueueStatus();
 
     const cache = CacheService.getScriptCache();
@@ -266,7 +265,6 @@ function getTasksData() {
       let reviewedAtRaw = row[CONFIG.MASTER_COL_REVIEWED_AT];
       let revisionRound = parseInt(row[CONFIG.MASTER_COL_REVISION_ROUND]) || 1;
 
-      // Fallback for sentToReviewAt if empty but status is "รอรีวิว"
       if (!sentToReviewAtRaw && reviewStatus === "รอรีวิว") {
         if (row[5] instanceof Date) {
           sentToReviewAtRaw = row[5];
@@ -317,6 +315,7 @@ function getTasksData() {
 
 // ============================================================
 // 6. Update Task Status (จาก Dashboard หรือ API)
+// NOTE: Only writes to Columns Q, R, S, T to avoid breaking IMPORTRANGE
 // ============================================================
 function updateTaskFromWeb(taskId, newStatus, commentText) {
   try {
@@ -348,16 +347,13 @@ function updateTaskFromWeb(taskId, newStatus, commentText) {
       const currentRound = parseInt(sheet.getRange(foundRow, 20).getValue()) || 1;
 
       if (newStatus === "มีปรับแก้") {
-        sheet.getRange(foundRow, 2).setValue("มีปรับแก้");       // Col B
-        sheet.getRange(foundRow, 17).setValue("มีปรับแก้");      // Col Q
+        sheet.getRange(foundRow, 17).setValue("มีปรับแก้");      // Col Q (Review Status)
         sheet.getRange(foundRow, 19).setNumberFormat("dd/mm/yyyy hh:mm:ss").setValue(now); // Col S (Reviewed At)
       } else if (newStatus === "อนุมัติแล้ว" || newStatus === "Done") {
-        sheet.getRange(foundRow, 2).setValue("Done");            // Col B
-        sheet.getRange(foundRow, 17).setValue("อนุมัติแล้ว");    // Col Q
+        sheet.getRange(foundRow, 17).setValue("อนุมัติแล้ว");    // Col Q (Review Status)
         sheet.getRange(foundRow, 19).setNumberFormat("dd/mm/yyyy hh:mm:ss").setValue(now); // Col S (Reviewed At)
       } else if (newStatus === "รอรีวิว" || newStatus === "Sent to P'Aof") {
-        sheet.getRange(foundRow, 2).setValue("Sent to P'Aof");   // Col B
-        sheet.getRange(foundRow, 17).setValue("รอรีวิว");        // Col Q
+        sheet.getRange(foundRow, 17).setValue("รอรีวิว");        // Col Q (Review Status)
         sheet.getRange(foundRow, 18).setNumberFormat("dd/mm/yyyy hh:mm:ss").setValue(now); // Col R (Sent to Review At)
         sheet.getRange(foundRow, 19).setValue("");               // Col S (Reviewed At cleared)
         if (currentReviewStatus !== "รอรีวิว") {
@@ -433,6 +429,7 @@ function sendLineReviewAlert(taskName, owner, round, row, spreadsheetId) {
 
 // ============================================================
 // 8. LINE Webhook Handling
+// NOTE: Only writes to Columns Q, S (Never writes to Col B)
 // ============================================================
 function handleLineWebhook(events) {
   events.forEach(event => {
@@ -487,13 +484,11 @@ function updateSheetStatusFromPostback(replyToken, row, sheetId, newStatus) {
     const now = new Date();
 
     if (newStatus === "มีปรับแก้") {
-      masterSheet.getRange(r, 2).setValue("มีปรับแก้");
-      masterSheet.getRange(r, 17).setValue("มีปรับแก้");
-      masterSheet.getRange(r, 19).setNumberFormat("dd/mm/yyyy hh:mm:ss").setValue(now);
+      masterSheet.getRange(r, 17).setValue("มีปรับแก้");      // Col Q (Review Status)
+      masterSheet.getRange(r, 19).setNumberFormat("dd/mm/yyyy hh:mm:ss").setValue(now); // Col S (Reviewed At)
     } else if (newStatus === "Done" || newStatus === "อนุมัติแล้ว") {
-      masterSheet.getRange(r, 2).setValue("Done");
-      masterSheet.getRange(r, 17).setValue("อนุมัติแล้ว");
-      masterSheet.getRange(r, 19).setNumberFormat("dd/mm/yyyy hh:mm:ss").setValue(now);
+      masterSheet.getRange(r, 17).setValue("อนุมัติแล้ว");    // Col Q (Review Status)
+      masterSheet.getRange(r, 19).setNumberFormat("dd/mm/yyyy hh:mm:ss").setValue(now); // Col S (Reviewed At)
     }
 
     CacheService.getScriptCache().remove(CACHE_KEY);
@@ -631,7 +626,7 @@ function setupTrigger() {
       .everyDays(1)
       .create();
       
-    return ContentService.createTextOutput(`ตั้งค่า Trigger สำหรับ Master Sheet สำเร็จแล้ว! 🚀\n(1) ตั้งค่าระบบ Sync อัตโนมัติทุก 1 นาที (ฟอร์แมต วัน/เดือน/ปี ชั่วโมง:นาที:วินาที)\n(2) ผูก Master Sheet (onChange & onEdit)\n(3) แจ้งเตือนสรุปงาน 09:30 และ 17:00`);
+    return ContentService.createTextOutput(`ตั้งค่า Trigger สำหรับ Master Sheet สำเร็จแล้ว! 🚀\n(1) ตั้งค่าระบบ Sync อัตโนมัติทุก 1 นาที (ปกป้องสูตร IMPORTRANGE)\n(2) ผูก Master Sheet (onChange & onEdit)\n(3) แจ้งเตือนสรุปงาน 09:30 และ 17:00`);
   } catch (err) {
     return ContentService.createTextOutput('Error: ' + err.message);
   }
