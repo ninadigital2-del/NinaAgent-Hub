@@ -1209,6 +1209,21 @@ html>body{padding:0}</style>
           const isUrgent = task.name.includes("ด่วน") || task.name.includes("เร่ง");
           const priorityBadge = isUrgent ? `<span class="viz-badge" style="background:#ef4444;color:white;">ด่วน</span>` : '';
           
+          const getReviewDurationString = (sentIso, reviewedIso) => {
+            if (!sentIso || !reviewedIso) return '';
+            const sent = new Date(sentIso);
+            const rev = new Date(reviewedIso);
+            const diffMs = rev.getTime() - sent.getTime();
+            if (isNaN(diffMs) || diffMs <= 0) return '';
+            const totalMins = Math.round(diffMs / (1000 * 60));
+            const hours = Math.floor(totalMins / 60);
+            const mins = totalMins % 60;
+            if (hours > 0) {
+              return ` · รีวิวใช้เวลา ${hours} ชม. ${mins} น.`;
+            }
+            return ` · รีวิวใช้เวลา ${mins > 0 ? mins : 1} น.`;
+          };
+
           let ageBadgeStr = '';
           let timeMetaStr = '';
           if (currentTab === 'waiting') {
@@ -1219,7 +1234,7 @@ html>body{padding:0}</style>
             timeMetaStr = formatDateTimeStr(task.reviewedAt, 'ส่งกลับแก้เมื่อ ') + (task.reviewedAt ? ` · รอทีมแก้ ${getAgeString(task.reviewedAt)}` : '');
           } else if (currentTab === 'approved') {
             ageBadgeStr = `<span class="viz-badge" style="background:#EAF8F1;color:#22A06B;border:1px solid #22A06B;">อนุมัติแล้ว</span>`;
-            timeMetaStr = formatDateTimeStr(task.reviewedAt, 'อนุมัติเมื่อ ');
+            timeMetaStr = formatDateTimeStr(task.reviewedAt, 'อนุมัติเมื่อ ') + getReviewDurationString(task.sentToReviewAt, task.reviewedAt);
           }
 
           let roundStr = task.revisionRound > 0 ? `<span><i data-lucide="rotate-ccw" aria-hidden="true"></i> รอบที่ ${task.revisionRound}</span>` : '';
