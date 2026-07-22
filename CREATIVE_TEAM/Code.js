@@ -802,23 +802,18 @@ function onTaskStatusChange(e) {
 function setupTrigger() {
   try {
     const triggers = ScriptApp.getProjectTriggers();
-    let editTriggersCount = 0;
     
     // ลบ trigger เก่าทั้งหมดก่อนสร้างใหม่
     for (let i = 0; i < triggers.length; i++) {
       ScriptApp.deleteTrigger(triggers[i]);
     }
     
-    // สร้าง Trigger แจ้งเตือนเมื่อแก้ชีต สำหรับทุกไฟล์
-    Object.keys(CONFIG.TEAM_SHEETS).forEach(name => {
-      const sheetId = CONFIG.TEAM_SHEETS[name];
-      const sheet = SpreadsheetApp.openById(sheetId);
-      ScriptApp.newTrigger('onTaskStatusChange')
-        .forSpreadsheet(sheet)
-        .onEdit()
-        .create();
-      editTriggersCount++;
-    });
+    // สร้าง Trigger สำหรับ Master Sheet (GEM_Graphic_Master)
+    const masterSheet = SpreadsheetApp.openById(CONFIG.MASTER_SHEET_ID);
+    ScriptApp.newTrigger('onTaskStatusChange')
+      .forSpreadsheet(masterSheet)
+      .onEdit()
+      .create();
     
     // สร้าง Trigger แจ้งเตือนตอน 9:30 โมงเช้า
     ScriptApp.newTrigger('pushDailySummary')
@@ -835,7 +830,7 @@ function setupTrigger() {
       .everyDays(1)
       .create();
       
-    return ContentService.createTextOutput(`ตั้งค่า Trigger แจ้งเตือนสำเร็จแล้ว! 🚀\n(1) ผูกตารางไปแล้ว ${editTriggersCount} ไฟล์\n(2) แจ้งเตือนงานตอน 09:30 และ 17:00`);
+    return ContentService.createTextOutput(`ตั้งค่า Trigger สำหรับ Master Sheet สำเร็จแล้ว! 🚀\n(1) ผูกตาราง Master Sheet เรียบร้อย\n(2) แจ้งเตือนงานตอน 09:30 และ 17:00`);
   } catch (err) {
     return ContentService.createTextOutput('Error: ' + err.message);
   }
