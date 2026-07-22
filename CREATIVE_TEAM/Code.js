@@ -45,7 +45,7 @@ const CONFIG = {
   MASTER_COL_REVISION_ROUND: 19 // Col T (Revision Round)
 };
 
-const CACHE_KEY = "AD_REVIEW_QUEUE_TASKS_v5";
+const CACHE_KEY = "AD_REVIEW_QUEUE_TASKS_v6";
 
 // ============================================================
 // 1. Web App Endpoint (GET)
@@ -56,6 +56,11 @@ function doGet(e) {
   if (action === 'getTasks') {
     return ContentService.createTextOutput(getTasksData())
       .setMimeType(ContentService.MimeType.JSON);
+  }
+  
+  if (action === 'syncNow') {
+    syncMasterQueueStatus();
+    return ContentService.createTextOutput("Synced successfully! IMPORTRANGE status checked, updated, and LINE alerts sent.");
   }
   
   if (action === 'testPush') {
@@ -132,7 +137,78 @@ function ensureMasterHeaders() {
 }
 
 // ============================================================
-// 4. API Data Fetching (ดึงข้อมูลงานจาก Master Sheet ส่งให้ Dashboard)
+// 4. Automatic Sync for IMPORTRANGE & Status Changes
+// ============================================================
+function syncMasterQueueStatus() {
+  try {
+    ensureMasterHeaders();
+    const sheet = getMasterRawDataSheet();
+    if (!sheet) return;
+    
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 5) return;
+    
+    const data = sheet.getRange(1, 1, lastRow, 20).getValues();
+    const now = new Date();
+    let hasChanges = false;
+
+    // Header at row 4 (index 3), Data starts at row 5 (index 4)
+    for (let i = 4; i < data.length; i++) {
+      const rowNum = i + 1;
+      const row = data[i];
+      const taskName = String(row[CONFIG.MASTER_COL_TASK_NAME] || '').trim();
+      if (!taskName) continue;
+
+      const graphicStatus = String(row[CONFIG.MASTER_COL_STATUS] || '').trim();
+      const normVal = graphicStatus.toLowerCase().replace(/’/g, "'");
+      const currentReviewStatus = String(row[CONFIG.MASTER_COL_REVIEW_STATUS] || '').trim();
+      const currentSentAt = row[CONFIG.MASTER_COL_SENT_AT];
+      const currentRound = parseInt(row[CONFIG.MASTER_COL_REVISION_ROUND]) || 1;
+      const owner = String(row[CONFIG.MASTER_COL_OWNER_N] || row[CONFIG.MASTER_COL_OWNER_A] || 'ไม่ระบุ').trim();
+
+      if (normVal === "sent to p'aof") {
+        if (currentReviewStatus !== "รอรีวิว") {
+          let newRound = currentRound;
+          if (currentReviewStatus !== "") {
+            newRound = currentRound + 1;
+          }
+          
+          sheet.getRange(rowNum, 17).setValue("รอรีวิว"); // Col Q
+          sheet.getRange(rowNum, 18).setValue(now);        // Col R (Sent to Review At)
+          sheet.getRange(rowNum, 19).setValue("");         // Col S (Reviewed At cleared)
+          sheet.getRange(rowNum, 20).setValue(newRound);   // Col T (Revision Round)
+          
+          sendLineReviewAlert(taskName, owner, newRound, rowNum, CONFIG.MASTER_SHEET_ID);
+          hasChanges = true;
+        } else if (!currentSentAt) {
+          sheet.getRange(rowNum, 18).setValue(now);
+          hasChanges = true;
+        }
+      } else if (normVal === "มีปรับแก้") {
+        if (currentReviewStatus !== "มีปรับแก้") {
+          sheet.getRange(rowNum, 17).setValue("มีปรับแก้"); // Col Q
+          sheet.getRange(rowNum, 19).setValue(now);        // Col S
+          hasChanges = true;
+        }
+      } else if (normVal === "done" || normVal === "ok" || normVal === "อนุมัติแล้ว") {
+        if (currentReviewStatus !== "อนุมัติแล้ว") {
+          sheet.getRange(rowNum, 17).setValue("อนุมัติแล้ว"); // Col Q
+          sheet.getRange(rowNum, 19).setValue(now);         // Col S
+          hasChanges = true;
+        }
+      }
+    }
+
+    if (hasChanges) {
+      CacheService.getScriptCache().remove(CACHE_KEY);
+    }
+  } catch (err) {
+    console.error("syncMasterQueueStatus error: " + err.message);
+  }
+}
+
+// ============================================================
+// 5. API Data Fetching (ดึงข้อมูลงานจาก Master Sheet ส่งให้ Dashboard)
 // ============================================================
 function handleApiRequest() {
   return ContentService.createTextOutput(getTasksData())
@@ -141,13 +217,15 @@ function handleApiRequest() {
 
 function getTasksData() {
   try {
+    // Run auto sync to catch any IMPORTRANGE status updates before fetching
+    syncMasterQueueStatus();
+
     const cache = CacheService.getScriptCache();
     const cached = cache.get(CACHE_KEY);
     if (cached) {
       return cached;
     }
 
-    ensureMasterHeaders();
     const sheet = getMasterRawDataSheet();
     if (!sheet) return JSON.stringify({ success: true, tasks: [] });
     
@@ -236,7 +314,7 @@ function getTasksData() {
 }
 
 // ============================================================
-// 5. Update Task Status (จาก Dashboard หรือ API)
+// 6. Update Task Status (จาก Dashboard หรือ API)
 // ============================================================
 function updateTaskFromWeb(taskId, newStatus, commentText) {
   try {
@@ -271,7 +349,6 @@ function updateTaskFromWeb(taskId, newStatus, commentText) {
         sheet.getRange(foundRow, 2).setValue("มีปรับแก้");       // Col B
         sheet.getRange(foundRow, 17).setValue("มีปรับแก้");      // Col Q
         sheet.getRange(foundRow, 19).setValue(now);              // Col S (Reviewed At)
-        // Col R (Sent to Review At) and Col T (Revision Round) remain unchanged
       } else if (newStatus === "อนุมัติแล้ว" || newStatus === "Done") {
         sheet.getRange(foundRow, 2).setValue("Done");            // Col B
         sheet.getRange(foundRow, 17).setValue("อนุมัติแล้ว");    // Col Q
@@ -280,7 +357,7 @@ function updateTaskFromWeb(taskId, newStatus, commentText) {
         sheet.getRange(foundRow, 2).setValue("Sent to P'Aof");   // Col B
         sheet.getRange(foundRow, 17).setValue("รอรีวิว");        // Col Q
         sheet.getRange(foundRow, 18).setValue(now);              // Col R (Sent to Review At)
-        sheet.getRange(foundRow, 19).setValue("");               // Col S (Reviewed At) cleared
+        sheet.getRange(foundRow, 19).setValue("");               // Col S (Reviewed At cleared)
         if (currentReviewStatus !== "รอรีวิว") {
           sheet.getRange(foundRow, 20).setValue(currentRound + 1); // Col T (Revision Round) + 1
         }
@@ -327,72 +404,10 @@ function syncToIndividualSheet(taskId, taskName, ownerName, newStatus) {
 }
 
 // ============================================================
-// 6. Master Sheet Edit Trigger (onTaskStatusChange)
+// 7. Master Sheet Edit & Change Triggers
 // ============================================================
 function onTaskStatusChange(e) {
-  try { CacheService.getScriptCache().remove(CACHE_KEY); } catch(err) {}
-  if (!e || !e.range) return;
-  
-  const sheet = e.range.getSheet();
-  const spreadsheetId = e.source.getId();
-  
-  if (spreadsheetId !== CONFIG.MASTER_SHEET_ID || sheet.getName() !== '📥 RAW DATA') return;
-  
-  const row = e.range.getRow();
-  const col = e.range.getColumn();
-  if (row <= 4) return; // Skip headers
-
-  ensureMasterHeaders();
-  const now = new Date();
-  const taskName = sheet.getRange(row, 13).getValue() || 'ไม่ระบุชื่อ';
-  const owner = sheet.getRange(row, 14).getValue() || sheet.getRange(row, 1).getValue() || 'ไม่ระบุ';
-
-  // If Col B (Graphic Status) was edited
-  if (col === 2) {
-    const newValue = String(sheet.getRange(row, col).getValue() || '').trim();
-    const normVal = newValue.toLowerCase().replace(/’/g, "'");
-    const currentReviewStatus = String(sheet.getRange(row, 17).getValue() || '').trim();
-    const currentRound = parseInt(sheet.getRange(row, 20).getValue()) || 1;
-
-    if (normVal === "sent to p'aof") {
-      sheet.getRange(row, 17).setValue("รอรีวิว");
-      sheet.getRange(row, 18).setValue(now);
-      sheet.getRange(row, 19).setValue("");
-      let newRound = currentRound;
-      if (currentReviewStatus !== "รอรีวิว") {
-        newRound = currentRound + 1;
-        sheet.getRange(row, 20).setValue(newRound);
-      }
-      sendLineReviewAlert(taskName, owner, newRound, row, spreadsheetId);
-    } else if (normVal === "มีปรับแก้") {
-      sheet.getRange(row, 17).setValue("มีปรับแก้");
-      sheet.getRange(row, 19).setValue(now);
-    } else if (normVal === "done" || normVal === "ok" || normVal === "อนุมัติแล้ว") {
-      sheet.getRange(row, 17).setValue("อนุมัติแล้ว");
-      sheet.getRange(row, 19).setValue(now);
-    }
-  }
-  
-  // If Col Q (Review Status) was edited directly
-  if (col === 17) {
-    const newValue = String(sheet.getRange(row, col).getValue() || '').trim();
-    const currentRound = parseInt(sheet.getRange(row, 20).getValue()) || 1;
-
-    if (newValue === "รอรีวิว") {
-      sheet.getRange(row, 2).setValue("Sent to P'Aof");
-      sheet.getRange(row, 18).setValue(now);
-      sheet.getRange(row, 19).setValue("");
-      const newRound = currentRound + 1;
-      sheet.getRange(row, 20).setValue(newRound);
-      sendLineReviewAlert(taskName, owner, newRound, row, spreadsheetId);
-    } else if (newValue === "มีปรับแก้") {
-      sheet.getRange(row, 2).setValue("มีปรับแก้");
-      sheet.getRange(row, 19).setValue(now);
-    } else if (newValue === "อนุมัติแล้ว") {
-      sheet.getRange(row, 2).setValue("Done");
-      sheet.getRange(row, 19).setValue(now);
-    }
-  }
+  syncMasterQueueStatus();
 }
 
 function sendLineReviewAlert(taskName, owner, round, row, spreadsheetId) {
@@ -443,7 +458,7 @@ function sendLineReviewAlert(taskName, owner, round, row, spreadsheetId) {
 }
 
 // ============================================================
-// 7. LINE Webhook Handling
+// 8. LINE Webhook Handling
 // ============================================================
 function handleLineWebhook(events) {
   events.forEach(event => {
@@ -599,7 +614,7 @@ function getDebugData() {
 }
 
 // ============================================================
-// 8. Triggers Setup
+// 9. Triggers Setup
 // ============================================================
 function setupTrigger() {
   try {
@@ -609,11 +624,26 @@ function setupTrigger() {
     }
     
     const masterSheet = SpreadsheetApp.openById(CONFIG.MASTER_SHEET_ID);
+    
+    // (1) 1-Minute Time-driven Trigger for IMPORTRANGE status sync & Line alerts
+    ScriptApp.newTrigger('syncMasterQueueStatus')
+      .timeBased()
+      .everyMinutes(1)
+      .create();
+
+    // (2) OnChange Trigger for spreadsheet updates
+    ScriptApp.newTrigger('syncMasterQueueStatus')
+      .forSpreadsheet(masterSheet)
+      .onChange()
+      .create();
+
+    // (3) OnEdit Trigger for manual user edits
     ScriptApp.newTrigger('onTaskStatusChange')
       .forSpreadsheet(masterSheet)
       .onEdit()
       .create();
     
+    // (4) Daily summary triggers at 09:30 and 17:00
     ScriptApp.newTrigger('pushDailySummary')
       .timeBased()
       .atHour(9)
@@ -627,7 +657,7 @@ function setupTrigger() {
       .everyDays(1)
       .create();
       
-    return ContentService.createTextOutput(`ตั้งค่า Trigger สำหรับ Master Sheet สำเร็จแล้ว! 🚀\n(1) ผูก Master Sheet (onEdit)\n(2) แจ้งเตือนงานตอน 09:30 และ 17:00`);
+    return ContentService.createTextOutput(`ตั้งค่า Trigger สำหรับ Master Sheet สำเร็จแล้ว! 🚀\n(1) ตั้งค่าระบบ Sync อัตโนมัติทุก 1 นาที (รองรับ IMPORTRANGE)\n(2) ผูก Master Sheet (onChange & onEdit)\n(3) แจ้งเตือนสรุปงาน 09:30 และ 17:00`);
   } catch (err) {
     return ContentService.createTextOutput('Error: ' + err.message);
   }
