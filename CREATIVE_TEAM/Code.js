@@ -1,7 +1,7 @@
 // ============================================================
 // Task Status Tracker — Google Apps Script (AD Review Queue)
 // Master Sheet (Columns Q, R, S, T) & Sync to Individual Sheets
-// With Double-Click / Duplicate Action Prevention
+// With Instant IMPORTRANGE Sync & LINE Notifications
 // ============================================================
 
 const CONFIG = {
@@ -40,7 +40,7 @@ const CONFIG = {
   MASTER_COL_REVISION_ROUND: 19 // Col T (Revision Round)
 };
 
-const CACHE_KEY = "AD_REVIEW_QUEUE_TASKS_v13";
+const CACHE_KEY = "AD_REVIEW_QUEUE_TASKS_v15";
 
 // ============================================================
 // 1. Web App Endpoint (GET)
@@ -158,7 +158,7 @@ function parseDateValue(val) {
 
 // ============================================================
 // 4. Automatic Sync for Master Sheet (GEM_Graphic_Master)
-// NOTE: Protects against false re-triggers if AD recently reviewed
+// Detects Graphic's status changes & sends LINE alerts
 // ============================================================
 function syncMasterQueueStatus() {
   try {
@@ -184,18 +184,11 @@ function syncMasterQueueStatus() {
       const normVal = graphicStatus.toLowerCase().replace(/’/g, "'");
       const currentReviewStatus = String(row[CONFIG.MASTER_COL_REVIEW_STATUS] || '').trim();
       const currentSentAt = row[CONFIG.MASTER_COL_SENT_AT];
-      const currentReviewedAt = parseDateValue(row[CONFIG.MASTER_COL_REVIEWED_AT]);
       const currentRound = parseInt(row[CONFIG.MASTER_COL_REVISION_ROUND]) || 1;
       const owner = String(row[CONFIG.MASTER_COL_OWNER_N] || row[CONFIG.MASTER_COL_OWNER_A] || 'ไม่ระบุ').trim();
 
       if (normVal === "sent to p'aof") {
         if (currentReviewStatus !== "รอรีวิว") {
-          // Safeguard: If AD reviewed this task less than 5 minutes ago,
-          // wait for IMPORTRANGE to catch up from Graphic's personal sheet
-          if (currentReviewedAt && (now.getTime() - currentReviewedAt.getTime()) < 5 * 60 * 1000) {
-            continue;
-          }
-
           let newRound = currentRound;
           if (currentReviewStatus !== "") {
             newRound = currentRound + 1;
@@ -334,7 +327,7 @@ function getTasksData() {
 
 // ============================================================
 // 6. Update Task Status (จาก Dashboard หรือ API)
-// With Double-Click Protection
+// Updates Master Sheet (Col Q, R, S, T) & Syncs to Graphic's Personal Sheet (Col A)
 // ============================================================
 function updateTaskFromWeb(taskId, newStatus, commentText) {
   try {
@@ -370,7 +363,7 @@ function updateTaskFromWeb(taskId, newStatus, commentText) {
       let targetStatusStr = newStatus;
       if (newStatus === "Done") targetStatusStr = "อนุมัติแล้ว";
 
-      // Double-Click Safeguard: If task is already at requested status, skip duplicate update
+      // Double-Click Safeguard
       if (currentReviewStatus === targetStatusStr && newStatus !== "รอรีวิว") {
         return JSON.stringify({ success: true, taskName: taskName, alreadyUpdated: true });
       }
@@ -515,7 +508,6 @@ function sendLineReviewAlert(taskName, owner, round, row, spreadsheetId) {
 
 // ============================================================
 // 8. LINE Webhook Handling
-// With Double-Click Protection
 // ============================================================
 function handleLineWebhook(events) {
   events.forEach(event => {
@@ -578,7 +570,7 @@ function updateSheetStatusFromPostback(replyToken, row, sheetId, newStatus) {
     if (newStatus === "Done" || newStatus === "อนุมัติแล้ว") targetReviewStatus = "อนุมัติแล้ว";
     if (newStatus === "มีปรับแก้") targetReviewStatus = "มีปรับแก้";
 
-    // Double-Click Safeguard: If task is already at requested status, send polite warning and skip re-triggering
+    // Double-Click Safeguard
     if (currentReviewStatus === targetReviewStatus) {
       replyText(replyToken, `⚠️ งาน "${taskName}" มีสถานะเป็น "${targetReviewStatus}" เรียบร้อยแล้วครับ ไม่จำเป็นต้องกดซ้ำ`);
       return;
@@ -732,7 +724,7 @@ function setupTrigger() {
       .everyDays(1)
       .create();
       
-    return ContentService.createTextOutput(`ตั้งค่า Trigger สำหรับ Master Sheet สำเร็จแล้ว! 🚀\n(1) ตั้งค่าระบบ Sync อัตโนมัติทุก 1 นาที (ป้องกันการกดปุ่มซ้ำซ้อนทั้งใน LINE และ Web Dashboard)\n(2) ผูก Master Sheet (onChange & onEdit)\n(3) แจ้งเตือนสรุปงาน 09:30 และ 17:00`);
+    return ContentService.createTextOutput(`ตั้งค่า Trigger สำหรับ Master Sheet สำเร็จแล้ว! 🚀\n(1) ตั้งค่าระบบ Sync อัตโนมัติทุก 1 นาที\n(2) ผูก Master Sheet (onChange & onEdit)\n(3) แจ้งเตือนสรุปงาน 09:30 และ 17:00`);
   } catch (err) {
     return ContentService.createTextOutput('Error: ' + err.message);
   }
