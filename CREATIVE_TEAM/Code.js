@@ -1,7 +1,7 @@
 // ============================================================
 // Task Status Tracker — Google Apps Script (AD Review Queue)
 // Master Sheet (Columns Q, R, S, T) & Sync to Individual Sheets
-// With Auto-Fix for IMPORTRANGE Overwrite Errors (Columns A-P)
+// Complete Auto-Fix for IMPORTRANGE and FILTER Overwrite Errors
 // ============================================================
 
 const CONFIG = {
@@ -40,7 +40,7 @@ const CONFIG = {
   MASTER_COL_REVISION_ROUND: 19 // Col T (Revision Round)
 };
 
-const CACHE_KEY = "AD_REVIEW_QUEUE_TASKS_v25";
+const CACHE_KEY = "AD_REVIEW_QUEUE_TASKS_v27";
 
 // Helper to parse date string like "22Jul26" or "22/07/2026" into "yyyy-MM-dd"
 function parseTaskDateString(dateVal) {
@@ -127,19 +127,33 @@ function doGet(e) {
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
-// Automatically clears any typed values/formulas in A6:P2000 that obstruct IMPORTRANGE formula expansion in A5
+// Clears blocking values in both 📥 RAW DATA and 📌 VIEW sheets so formulas expand cleanly
 function fixImportRange() {
   try {
-    const sheet = getMasterRawDataSheet();
-    if (!sheet) return "No sheet";
-    
-    // Clear A6:P2000 keeping A5 =IMPORTRANGE formula intact
-    sheet.getRange("A6:P2000").clearContent();
+    const ss = SpreadsheetApp.openById(CONFIG.MASTER_SHEET_ID);
+    let msg = "";
+
+    // 1) Fix "📥 RAW DATA" sheet
+    const rawSheet = ss.getSheetByName('📥 RAW DATA') || ss.getSheetByName('RAW DATA');
+    if (rawSheet) {
+      rawSheet.getRange("A6:P2000").clearContent();
+      msg += "[📥 RAW DATA] Cleared A6:P2000 successfully. ";
+    }
+
+    // 2) Fix "📌 VIEW" sheet (and any tab containing VIEW)
+    const sheets = ss.getSheets();
+    for (let i = 0; i < sheets.length; i++) {
+      const sName = sheets[i].getName();
+      if (sName.indexOf('VIEW') !== -1) {
+        sheets[i].getRange("A11:P2000").clearContent();
+        msg += `[${sName}] Cleared blocking cell B1310 and range A11:P2000 successfully! `;
+      }
+    }
+
     CacheService.getScriptCache().remove(CACHE_KEY);
-    
-    return "Successfully cleared blocking cell A13 and range A6:P2000! IMPORTRANGE in A5 expanded clean.";
+    return msg || "No sheets found to fix.";
   } catch (err) {
-    return "Error fixing IMPORTRANGE: " + err.message;
+    return "Error fixing sheets: " + err.message;
   }
 }
 
@@ -934,7 +948,7 @@ function setupTrigger() {
       .everyDays(1)
       .create();
       
-    return ContentService.createTextOutput(`ตั้งค่า Trigger สำหรับ Master Sheet สำเร็จแล้ว! 🚀\n(1) ตั้งค่าระบบ Sync อัตโนมัติทุก 1 นาที (พร้อมระบบ Auto-Fix IMPORTRANGE B5:P2000)\n(2) ผูก Master Sheet (onChange & onEdit)\n(3) แจ้งเตือนสรุปงาน 09:30 และ 17:00`);
+    return ContentService.createTextOutput(`ตั้งค่า Trigger สำหรับ Master Sheet สำเร็จแล้ว! 🚀\n(1) ตั้งค่าระบบ Sync อัตโนมัติทุก 1 นาที\n(2) ผูก Master Sheet (onChange & onEdit)\n(3) แจ้งเตือนสรุปงาน 09:30 และ 17:00`);
   } catch (err) {
     return ContentService.createTextOutput('Error: ' + err.message);
   }
