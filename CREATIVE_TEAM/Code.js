@@ -1,7 +1,7 @@
 // ============================================================
 // Task Status Tracker — Google Apps Script (AD Review Queue)
 // Master Sheet (Columns Q, R, S, T) & Sync to Individual Sheets
-// Strict Review Lock: Once reviewed (มีปรับแก้ / อนุมัติแล้ว), block further clicks until new revision
+// Display Graphic Designer Name (Col A) instead of Job Owner (Col N)
 // ============================================================
 
 const CONFIG = {
@@ -26,12 +26,12 @@ const CONFIG = {
   // ตำแหน่งคอลัมน์ใน GEM_Graphic_Master (📥 RAW DATA sheet)
   // Row 4: Header, Row 5+: Data
   // Index 0-based:
-  MASTER_COL_OWNER_A: 0,        // Col A (เจ้าของงาน)
+  MASTER_COL_OWNER_A: 0,        // Col A (คนทำงาน / Graphic Designer)
   MASTER_COL_STATUS: 1,         // Col B (Graphic Status: IMPORTRANGE - READ ONLY)
   MASTER_COL_JOB_NO: 10,        // Col K (Job No.)
   MASTER_COL_BRAND: 11,         // Col L (Brand / Client)
   MASTER_COL_TASK_NAME: 12,     // Col M (ชื่องาน)
-  MASTER_COL_OWNER_N: 13,       // Col N (เจ้าของงาน)
+  MASTER_COL_OWNER_N: 13,       // Col N (เจ้าของงาน / PM)
   MASTER_COL_LINK: 14,          // Col O (Link ไฟล์งาน / Preview)
   MASTER_COL_DEADLINE: 15,      // Col P (Deadline / Date)
   MASTER_COL_REVIEW_STATUS: 16, // Col Q (Review Status: รอรีวิว, มีปรับแก้, อนุมัติแล้ว)
@@ -40,7 +40,7 @@ const CONFIG = {
   MASTER_COL_REVISION_ROUND: 19 // Col T (Revision Round)
 };
 
-const CACHE_KEY = "AD_REVIEW_QUEUE_TASKS_v18";
+const CACHE_KEY = "AD_REVIEW_QUEUE_TASKS_v19";
 
 // ============================================================
 // 1. Web App Endpoint (GET)
@@ -186,7 +186,7 @@ function syncMasterQueueStatus() {
       const currentSentAt = row[CONFIG.MASTER_COL_SENT_AT];
       const currentReviewedAt = parseDateValue(row[CONFIG.MASTER_COL_REVIEWED_AT]);
       const currentRound = parseInt(row[CONFIG.MASTER_COL_REVISION_ROUND]) || 1;
-      const owner = String(row[CONFIG.MASTER_COL_OWNER_N] || row[CONFIG.MASTER_COL_OWNER_A] || 'ไม่ระบุ').trim();
+      const workerName = String(row[CONFIG.MASTER_COL_OWNER_A] || row[CONFIG.MASTER_COL_OWNER_N] || 'ไม่ระบุ').trim();
 
       if (normVal === "sent to p'aof") {
         if (currentReviewStatus !== "รอรีวิว") {
@@ -206,7 +206,7 @@ function syncMasterQueueStatus() {
           sheet.getRange(rowNum, 19).setValue("");         // Col S (Reviewed At cleared)
           sheet.getRange(rowNum, 20).setValue(newRound);   // Col T (Revision Round)
           
-          sendLineReviewAlert(taskName, owner, newRound, rowNum, CONFIG.MASTER_SHEET_ID);
+          sendLineReviewAlert(taskName, workerName, newRound, rowNum, CONFIG.MASTER_SHEET_ID);
           hasChanges = true;
         } else if (!currentSentAt) {
           sheet.getRange(rowNum, 18).setNumberFormat("dd/mm/yyyy hh:mm:ss").setValue(now);
@@ -305,13 +305,16 @@ function getTasksData() {
         isToday = (todayStr === revStr);
       }
 
+      // Worker Name: Preference Col A (Graphic Designer) then Col N
+      const workerName = String(row[CONFIG.MASTER_COL_OWNER_A] || row[CONFIG.MASTER_COL_OWNER_N] || 'ไม่ระบุ').trim();
+
       // Filter: Show "รอรีวิว", "มีปรับแก้", or "อนุมัติแล้ว" of today
       if (reviewStatus === "รอรีวิว" || reviewStatus === "มีปรับแก้" || (reviewStatus === "อนุมัติแล้ว" && isToday)) {
         tasks.push({
           id: String(row[CONFIG.MASTER_COL_JOB_NO] || `master_${i+1}`).trim(),
           uniqueId: `master_${i+1}`,
           name: taskName,
-          owner: String(row[CONFIG.MASTER_COL_OWNER_N] || row[CONFIG.MASTER_COL_OWNER_A] || 'ไม่ระบุ').trim(),
+          owner: workerName, // Display Graphic Designer name (คนทำงาน)
           status: reviewStatus,
           graphicStatus: graphicStatus,
           brand: String(row[CONFIG.MASTER_COL_BRAND] || '').trim(),
@@ -497,7 +500,7 @@ function sendLineReviewAlert(taskName, owner, round, row, spreadsheetId) {
       contents: [
         { type: "text", text: "🚨 งานรอตรวจ", weight: "bold", size: "xl", color: "#1DB446" },
         { type: "text", text: `ชิ้นงาน: ${taskName}`, margin: "md", wrap: true },
-        { type: "text", text: `ผู้รับผิดชอบ: ${owner}`, size: "sm", color: "#666666", wrap: true },
+        { type: "text", text: `คนทำงาน: ${owner}`, size: "sm", color: "#666666", wrap: true },
         { type: "text", text: `รอบการตรวจ: รอบที่ ${round || 1}`, size: "sm", color: "#666666", wrap: true },
         { type: "text", text: `สถานะ: รอรีวิว`, size: "sm", color: "#1DB446", weight: "bold", wrap: true },
         { type: "text", text: `ส่งเมื่อ: ${nowStr}`, size: "xs", color: "#aaaaaa", margin: "sm" }
@@ -636,9 +639,9 @@ function replyTaskStatus(replyToken, taskId) {
     const jobNo = String(data[i][CONFIG.MASTER_COL_JOB_NO] || '').trim();
     if (jobNo === taskId) {
       const taskName = data[i][CONFIG.MASTER_COL_TASK_NAME] || 'ไม่ระบุชื่อ';
-      const owner = data[i][CONFIG.MASTER_COL_OWNER_N] || data[i][CONFIG.MASTER_COL_OWNER_A] || 'ไม่ระบุ';
+      const owner = data[i][CONFIG.MASTER_COL_OWNER_A] || data[i][CONFIG.MASTER_COL_OWNER_N] || 'ไม่ระบุ';
       const status = data[i][CONFIG.MASTER_COL_REVIEW_STATUS] || data[i][CONFIG.MASTER_COL_STATUS] || 'ยังไม่เริ่ม';
-      responseText = `📌 ชิ้นงาน: ${taskName}\n👤 ผู้รับผิดชอบ: ${owner}\n🔄 สถานะรีวิว: ${status}`;
+      responseText = `📌 ชิ้นงาน: ${taskName}\n👤 คนทำงาน: ${owner}\n🔄 สถานะรีวิว: ${status}`;
       found = true;
       break;
     }
@@ -661,7 +664,7 @@ function replySummaryTasks(replyToken) {
     const status = String(data[i][CONFIG.MASTER_COL_STATUS] || '').trim();
     if (revStatus === "รอรีวิว" || status === "Sent to P'Aof") {
       const taskName = data[i][CONFIG.MASTER_COL_TASK_NAME] || 'ไม่ระบุชื่อ';
-      const owner = data[i][CONFIG.MASTER_COL_OWNER_N] || data[i][CONFIG.MASTER_COL_OWNER_A] || 'ไม่ระบุ';
+      const owner = data[i][CONFIG.MASTER_COL_OWNER_A] || data[i][CONFIG.MASTER_COL_OWNER_N] || 'ไม่ระบุ';
       const round = data[i][CONFIG.MASTER_COL_REVISION_ROUND] || 1;
       summary += `• [${owner}] ${taskName} (รอบที่ ${round})\n`;
       count++;
@@ -750,7 +753,7 @@ function setupTrigger() {
       .everyDays(1)
       .create();
       
-    return ContentService.createTextOutput(`ตั้งค่า Trigger สำหรับ Master Sheet สำเร็จแล้ว! 🚀\n(1) ตั้งค่าระบบ Sync อัตโนมัติทุก 1 นาที (พร้อมระบบ Strict Lock ป้องกันการกดเปลี่ยนสถานะซ้ำซ้อนบนการ์ดเดิม)\n(2) ผูก Master Sheet (onChange & onEdit)\n(3) แจ้งเตือนสรุปงาน 09:30 และ 17:00`);
+    return ContentService.createTextOutput(`ตั้งค่า Trigger สำหรับ Master Sheet สำเร็จแล้ว! 🚀\n(1) ตั้งค่าระบบ Sync อัตโนมัติทุก 1 นาที (แสดงชื่อคนทำงาน Col A เป็นหลัก)\n(2) ผูก Master Sheet (onChange & onEdit)\n(3) แจ้งเตือนสรุปงาน 09:30 และ 17:00`);
   } catch (err) {
     return ContentService.createTextOutput('Error: ' + err.message);
   }
@@ -771,7 +774,7 @@ function pushDailySummary() {
     const status = String(data[i][CONFIG.MASTER_COL_STATUS] || '').trim();
     if (revStatus === "รอรีวิว" || status === "Sent to P'Aof") {
       const taskName = data[i][CONFIG.MASTER_COL_TASK_NAME] || 'ไม่ระบุชื่อ';
-      const owner = data[i][CONFIG.MASTER_COL_OWNER_N] || data[i][CONFIG.MASTER_COL_OWNER_A] || 'ไม่ระบุ';
+      const owner = data[i][CONFIG.MASTER_COL_OWNER_A] || data[i][CONFIG.MASTER_COL_OWNER_N] || 'ไม่ระบุ';
       pendingTasks.push(`• [${owner}] ${taskName}`);
     }
   }
