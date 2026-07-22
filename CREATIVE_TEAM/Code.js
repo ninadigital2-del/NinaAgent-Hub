@@ -1,32 +1,15 @@
 // ============================================================
 // Task Status Tracker — Google Apps Script (AD Review Queue)
+// 100% Standalone on GEM_Graphic_Master Sheet
 // ============================================================
 
 const CONFIG = {
-  // ตั้งค่า Google Sheet สำหรับทุกคนในทีม
-  TEAM_SHEETS: {
-    'จ๊ะเอ๋':  '1Q7CvHdG0mXtmIJ_hHsHU1wDHhSO-zYs0SBD6gYU7PTc',
-    'อุ้ม':    '1zG0ZyQN2tT0dV9L7ktyJ-_477Yh_ybwjWLR87eFDbOY',
-    'กิ๊บ':   '1L7arKfntBNEbiLJHMV24L4NGg4pyRTeK2a989VFgam4',
-    'เป้':    '1hgEF_R0DQ8p3_mwcy7qXLl94bR0jF_nQsooFXXTbl88',
-    'โชกุล':  '1L4m3C2zHnirHbyEhgqJilDtQhyorrsrj7xDEP22BF-w',
-    'ท้อป':   '1Lz30YiHpxih0nBABS_Dg2Wm9PvZxX0aVFuwubbZIr2g',
-    'โอม':    '1R4ieki0O1Kj-Hk6k-aUeGSLCAW94oDwHQqX9GdVhgeM',
-  },
-  
-  // Master Sheet สำหรับเก็บข้อมูลคิวงาน (GEM_Graphic_Master)
+  // Master Sheet สำหรับเก็บข้อมูลคิวงานทั้งหมด (GEM_Graphic_Master)
   MASTER_SHEET_ID: '144OB0gy5dJ8MOnc5Te0k1KpltrDoG4ocnxcS3t4MR4g',
   
   // ตั้งค่า LINE
   LINE_CHANNEL_ACCESS_TOKEN: '0LdRnV4LLCmXBG8chf62N4WpIUHFkaEvJ/ljFjqbq6GbaqnLCVRqeiPZrhRJgsweUSvOM8TUbc9r500b+eviYoghG35l6qT+nxU+N6hqqODqCV7SEhCB/PRgMLJ1O0bB3ccg3dYy+XpNHX5RQdv0hwdB04t89/1O/w1cDnyilFU=',
   LINE_GROUP_ID: 'C73656d16402ca46690a9ef39b9382bfd',
-  
-  // ตำแหน่งคอลัมน์ในชีตบุคคล
-  COL_TASK_ID: 9,      // คอลัมน์ J (Job No.)
-  COL_TASK_NAME: 11,   // คอลัมน์ L (ชื่องาน)
-  COL_OWNER: 12,       // คอลัมน์ M (เจ้าของงาน)
-  COL_STATUS: 0,       // คอลัมน์ A (Check / Status)
-  COL_COMMENT: 14,     // คอลัมน์ O (ช่องใส่คอมเมนต์เมื่อมีการปรับแก้)
   
   // ตำแหน่งคอลัมน์ใน GEM_Graphic_Master (📥 RAW DATA sheet)
   // Row 4: Header, Row 5+: Data
@@ -45,7 +28,7 @@ const CONFIG = {
   MASTER_COL_REVISION_ROUND: 19 // Col T (Revision Round)
 };
 
-const CACHE_KEY = "AD_REVIEW_QUEUE_TASKS_v6";
+const CACHE_KEY = "AD_REVIEW_QUEUE_TASKS_v7";
 
 // ============================================================
 // 1. Web App Endpoint (GET)
@@ -60,7 +43,7 @@ function doGet(e) {
   
   if (action === 'syncNow') {
     syncMasterQueueStatus();
-    return ContentService.createTextOutput("Synced successfully! IMPORTRANGE status checked, updated, and LINE alerts sent.");
+    return ContentService.createTextOutput("Synced successfully! GEM_Graphic_Master status checked, updated, and LINE alerts sent.");
   }
   
   if (action === 'testPush') {
@@ -137,7 +120,7 @@ function ensureMasterHeaders() {
 }
 
 // ============================================================
-// 4. Automatic Sync for IMPORTRANGE & Status Changes
+// 4. Automatic Sync for Master Sheet (GEM_Graphic_Master)
 // ============================================================
 function syncMasterQueueStatus() {
   try {
@@ -217,7 +200,7 @@ function handleApiRequest() {
 
 function getTasksData() {
   try {
-    // Run auto sync to catch any IMPORTRANGE status updates before fetching
+    // Run auto sync to catch any status updates before fetching
     syncMasterQueueStatus();
 
     const cache = CacheService.getScriptCache();
@@ -363,9 +346,6 @@ function updateTaskFromWeb(taskId, newStatus, commentText) {
         }
       }
 
-      // Sync to Graphic individual sheet if exists
-      syncToIndividualSheet(taskId, taskName, ownerName, newStatus);
-
       // Invalidate Cache
       CacheService.getScriptCache().remove(CACHE_KEY);
       
@@ -375,31 +355,6 @@ function updateTaskFromWeb(taskId, newStatus, commentText) {
     }
   } catch (err) {
     return JSON.stringify({ success: false, error: err.message });
-  }
-}
-
-function syncToIndividualSheet(taskId, taskName, ownerName, newStatus) {
-  if (!ownerName || !CONFIG.TEAM_SHEETS[ownerName]) return;
-  try {
-    const sheetId = CONFIG.TEAM_SHEETS[ownerName];
-    const sheet = SpreadsheetApp.openById(sheetId).getSheets()[0];
-    const data = sheet.getDataRange().getValues();
-    const targetStr = String(taskId).trim();
-
-    let graphicStatusValue = newStatus;
-    if (newStatus === "อนุมัติแล้ว") graphicStatusValue = "Done";
-    if (newStatus === "รอรีวิว") graphicStatusValue = "Sent to P'Aof";
-
-    for (let i = 1; i < data.length; i++) {
-      const jobNo = String(data[i][CONFIG.COL_TASK_ID] || '').trim();
-      const tName = String(data[i][CONFIG.COL_TASK_NAME] || '').trim();
-      if ((jobNo !== '' && targetStr === jobNo) || tName === taskName) {
-        sheet.getRange(i + 1, CONFIG.COL_STATUS + 1).setValue(graphicStatusValue);
-        break;
-      }
-    }
-  } catch (e) {
-    console.error("syncToIndividualSheet error: " + e.message);
   }
 }
 
