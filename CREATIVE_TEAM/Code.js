@@ -1,7 +1,7 @@
 // ============================================================
 // Task Status Tracker — Google Apps Script (AD Review Queue)
 // Master Sheet (Columns Q, R, S, T) & Sync to Individual Sheets
-// With Bottom-Up Active Row Matching & Double-Click Safeguards
+// With 2-Minute IMPORTRANGE Propagation Buffer & Smart Row Matching
 // ============================================================
 
 const CONFIG = {
@@ -40,7 +40,7 @@ const CONFIG = {
   MASTER_COL_REVISION_ROUND: 19 // Col T (Revision Round)
 };
 
-const CACHE_KEY = "AD_REVIEW_QUEUE_TASKS_v16";
+const CACHE_KEY = "AD_REVIEW_QUEUE_TASKS_v17";
 
 // ============================================================
 // 1. Web App Endpoint (GET)
@@ -158,7 +158,7 @@ function parseDateValue(val) {
 
 // ============================================================
 // 4. Automatic Sync for Master Sheet (GEM_Graphic_Master)
-// Detects Graphic's status changes & sends LINE alerts
+// With 2-Minute IMPORTRANGE propagation delay safeguard
 // ============================================================
 function syncMasterQueueStatus() {
   try {
@@ -184,11 +184,19 @@ function syncMasterQueueStatus() {
       const normVal = graphicStatus.toLowerCase().replace(/’/g, "'");
       const currentReviewStatus = String(row[CONFIG.MASTER_COL_REVIEW_STATUS] || '').trim();
       const currentSentAt = row[CONFIG.MASTER_COL_SENT_AT];
+      const currentReviewedAt = parseDateValue(row[CONFIG.MASTER_COL_REVIEWED_AT]);
       const currentRound = parseInt(row[CONFIG.MASTER_COL_REVISION_ROUND]) || 1;
       const owner = String(row[CONFIG.MASTER_COL_OWNER_N] || row[CONFIG.MASTER_COL_OWNER_A] || 'ไม่ระบุ').trim();
 
       if (normVal === "sent to p'aof") {
         if (currentReviewStatus !== "รอรีวิว") {
+          // Safeguard: If AD reviewed this task less than 2 minutes ago,
+          // wait for IMPORTRANGE formula to catch up from Graphic's personal sheet
+          if (currentReviewedAt && (now.getTime() - currentReviewedAt.getTime()) < 2 * 60 * 1000) {
+            console.log(`Skipping false re-trigger for row ${rowNum} because AD reviewed it ${Math.round((now.getTime() - currentReviewedAt.getTime())/1000)}s ago (waiting for IMPORTRANGE sync)`);
+            continue;
+          }
+
           let newRound = currentRound;
           if (currentReviewStatus !== "") {
             newRound = currentRound + 1;
@@ -743,7 +751,7 @@ function setupTrigger() {
       .everyDays(1)
       .create();
       
-    return ContentService.createTextOutput(`ตั้งค่า Trigger สำหรับ Master Sheet สำเร็จแล้ว! 🚀\n(1) ตั้งค่าระบบ Sync อัตโนมัติทุก 1 นาที (พร้อมระบบ Smart Row-Matching ค้นหาจากล่างขึ้นบน)\n(2) ผูก Master Sheet (onChange & onEdit)\n(3) แจ้งเตือนสรุปงาน 09:30 และ 17:00`);
+    return ContentService.createTextOutput(`ตั้งค่า Trigger สำหรับ Master Sheet สำเร็จแล้ว! 🚀\n(1) ตั้งค่าระบบ Sync อัตโนมัติทุก 1 นาที (พร้อมบัฟเฟอร์ 2 นาทีป้องกัน IMPORTRANGE ล่าช้า)\n(2) ผูก Master Sheet (onChange & onEdit)\n(3) แจ้งเตือนสรุปงาน 09:30 และ 17:00`);
   } catch (err) {
     return ContentService.createTextOutput('Error: ' + err.message);
   }
