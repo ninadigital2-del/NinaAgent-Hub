@@ -1,9 +1,20 @@
 // ============================================================
 // Task Status Tracker — Google Apps Script (AD Review Queue)
-// 100% Standalone on GEM_Graphic_Master Sheet (Columns Q, R, S, T)
+// Master Sheet (Columns Q, R, S, T) & Sync to Individual Sheets
 // ============================================================
 
 const CONFIG = {
+  // ตั้งค่า Google Sheet สำหรับทุกคนในทีม (สำหรับ Sync สถานะกลับชีตส่วนตัว)
+  TEAM_SHEETS: {
+    'จ๊ะเอ๋':  '1Q7CvHdG0mXtmIJ_hHsHU1wDHhSO-zYs0SBD6gYU7PTc',
+    'อุ้ม':    '1zG0ZyQN2tT0dV9L7ktyJ-_477Yh_ybwjWLR87eFDbOY',
+    'กิ๊บ':   '1L7arKfntBNEbiLJHMV24L4NGg4pyRTeK2a989VFgam4',
+    'เป้':    '1hgEF_R0DQ8p3_mwcy7qXLl94bR0jF_nQsooFXXTbl88',
+    'โชกุล':  '1L4m3C2zHnirHbyEhgqJilDtQhyorrsrj7xDEP22BF-w',
+    'ท้อป':   '1Lz30YiHpxih0nBABS_Dg2Wm9PvZxX0aVFuwubbZIr2g',
+    'โอม':    '1R4ieki0O1Kj-Hk6k-aUeGSLCAW94oDwHQqX9GdVhgeM',
+  },
+  
   // Master Sheet สำหรับเก็บข้อมูลคิวงานทั้งหมด (GEM_Graphic_Master)
   MASTER_SHEET_ID: '144OB0gy5dJ8MOnc5Te0k1KpltrDoG4ocnxcS3t4MR4g',
   
@@ -28,7 +39,7 @@ const CONFIG = {
   MASTER_COL_REVISION_ROUND: 19 // Col T (Revision Round)
 };
 
-const CACHE_KEY = "AD_REVIEW_QUEUE_TASKS_v9";
+const CACHE_KEY = "AD_REVIEW_QUEUE_TASKS_v10";
 
 // ============================================================
 // 1. Web App Endpoint (GET)
@@ -43,7 +54,7 @@ function doGet(e) {
   
   if (action === 'syncNow') {
     syncMasterQueueStatus();
-    return ContentService.createTextOutput("Synced successfully! GEM_Graphic_Master status checked, updated on Columns Q-T (IMPORTRANGE protected), and LINE alerts sent.");
+    return ContentService.createTextOutput("Synced successfully! GEM_Graphic_Master status checked, updated, and LINE alerts sent.");
   }
   
   if (action === 'testPush') {
@@ -146,7 +157,7 @@ function parseDateValue(val) {
 
 // ============================================================
 // 4. Automatic Sync for Master Sheet (GEM_Graphic_Master)
-// NOTE: Only writes to Columns Q, R, S, T (Never writes to Col B)
+// NOTE: Only writes to Columns Q, R, S, T (Never writes to Col B in Master)
 // ============================================================
 function syncMasterQueueStatus() {
   try {
@@ -315,7 +326,7 @@ function getTasksData() {
 
 // ============================================================
 // 6. Update Task Status (จาก Dashboard หรือ API)
-// NOTE: Only writes to Columns Q, R, S, T to avoid breaking IMPORTRANGE
+// Updates Master Sheet (Col Q, R, S, T) & Syncs to Graphic's Personal Sheet (Col A)
 // ============================================================
 function updateTaskFromWeb(taskId, newStatus, commentText) {
   try {
@@ -361,6 +372,9 @@ function updateTaskFromWeb(taskId, newStatus, commentText) {
         }
       }
 
+      // Sync status to Graphic designer's personal sheet (Col A)
+      syncToIndividualSheet(taskId, taskName, ownerName, newStatus);
+
       // Invalidate Cache
       CacheService.getScriptCache().remove(CACHE_KEY);
       
@@ -370,6 +384,50 @@ function updateTaskFromWeb(taskId, newStatus, commentText) {
     }
   } catch (err) {
     return JSON.stringify({ success: false, error: err.message });
+  }
+}
+
+// ============================================================
+// Sync Status back to Graphic Designer's Personal Sheet
+// ============================================================
+function syncToIndividualSheet(taskId, taskName, ownerName, newStatus) {
+  if (!ownerName) return;
+
+  let targetSheetId = null;
+  const normOwner = ownerName.trim();
+  for (let key in CONFIG.TEAM_SHEETS) {
+    if (normOwner.indexOf(key) !== -1 || key.indexOf(normOwner) !== -1) {
+      targetSheetId = CONFIG.TEAM_SHEETS[key];
+      break;
+    }
+  }
+
+  if (!targetSheetId) return;
+
+  try {
+    const ss = SpreadsheetApp.openById(targetSheetId);
+    const sheet = ss.getSheets()[0];
+    const data = sheet.getDataRange().getValues();
+    const targetStr = String(taskId).trim();
+    const targetTaskName = String(taskName).trim();
+
+    let graphicStatusValue = newStatus;
+    if (newStatus === "มีปรับแก้") graphicStatusValue = "มีปรับแก้";
+    if (newStatus === "อนุมัติแล้ว" || newStatus === "Done") graphicStatusValue = "Done";
+    if (newStatus === "รอรีวิว" || newStatus === "Sent to P'Aof") graphicStatusValue = "Sent to P'Aof";
+
+    for (let i = 1; i < data.length; i++) {
+      const rowNum = i + 1;
+      const jobNo = String(data[i][9] || '').trim();  // Col J (Job No)
+      const tName = String(data[i][11] || '').trim(); // Col L (Task Name)
+      
+      if ((jobNo !== '' && targetStr === jobNo) || (targetTaskName !== '' && tName === targetTaskName)) {
+        sheet.getRange(rowNum, 1).setValue(graphicStatusValue); // Col A in Graphic's sheet
+        break;
+      }
+    }
+  } catch (e) {
+    console.error("syncToIndividualSheet error: " + e.message);
   }
 }
 
@@ -429,7 +487,7 @@ function sendLineReviewAlert(taskName, owner, round, row, spreadsheetId) {
 
 // ============================================================
 // 8. LINE Webhook Handling
-// NOTE: Only writes to Columns Q, S (Never writes to Col B)
+// Updates Master Sheet (Col Q, S) & Syncs to Graphic's Personal Sheet (Col A)
 // ============================================================
 function handleLineWebhook(events) {
   events.forEach(event => {
@@ -481,6 +539,8 @@ function updateSheetStatusFromPostback(replyToken, row, sheetId, newStatus) {
 
     const r = parseInt(row);
     const taskName = masterSheet.getRange(r, 13).getValue() || 'ไม่ระบุชื่อ';
+    const ownerName = masterSheet.getRange(r, 14).getValue() || masterSheet.getRange(r, 1).getValue() || '';
+    const jobId = masterSheet.getRange(r, 11).getValue() || `master_${r}`;
     const now = new Date();
 
     if (newStatus === "มีปรับแก้") {
@@ -490,6 +550,9 @@ function updateSheetStatusFromPostback(replyToken, row, sheetId, newStatus) {
       masterSheet.getRange(r, 17).setValue("อนุมัติแล้ว");    // Col Q (Review Status)
       masterSheet.getRange(r, 19).setNumberFormat("dd/mm/yyyy hh:mm:ss").setValue(now); // Col S (Reviewed At)
     }
+
+    // Sync status back to Graphic designer's personal sheet
+    syncToIndividualSheet(jobId, taskName, ownerName, newStatus);
 
     CacheService.getScriptCache().remove(CACHE_KEY);
     const nowStr = Utilities.formatDate(now, "Asia/Bangkok", "dd/MM/yyyy HH:mm:ss");
@@ -626,7 +689,7 @@ function setupTrigger() {
       .everyDays(1)
       .create();
       
-    return ContentService.createTextOutput(`ตั้งค่า Trigger สำหรับ Master Sheet สำเร็จแล้ว! 🚀\n(1) ตั้งค่าระบบ Sync อัตโนมัติทุก 1 นาที (ปกป้องสูตร IMPORTRANGE)\n(2) ผูก Master Sheet (onChange & onEdit)\n(3) แจ้งเตือนสรุปงาน 09:30 และ 17:00`);
+    return ContentService.createTextOutput(`ตั้งค่า Trigger สำหรับ Master Sheet สำเร็จแล้ว! 🚀\n(1) ตั้งค่าระบบ Sync อัตโนมัติทุก 1 นาที (Sync ข้อมูลกลับชีตส่วนตัวอัตโนมัติ)\n(2) ผูก Master Sheet (onChange & onEdit)\n(3) แจ้งเตือนสรุปงาน 09:30 และ 17:00`);
   } catch (err) {
     return ContentService.createTextOutput('Error: ' + err.message);
   }
