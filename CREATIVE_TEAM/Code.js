@@ -1,7 +1,7 @@
 // ============================================================
 // Task Status Tracker — Google Apps Script (AD Review Queue)
 // Master Sheet (Columns Q, R, S, T) & Sync to Individual Sheets
-// Complete Auto-Fix for IMPORTRANGE and FILTER Overwrite Errors
+// With Auto-Fix for 📌 FORMULA Sheet Reference Errors
 // ============================================================
 
 const CONFIG = {
@@ -40,7 +40,7 @@ const CONFIG = {
   MASTER_COL_REVISION_ROUND: 19 // Col T (Revision Round)
 };
 
-const CACHE_KEY = "AD_REVIEW_QUEUE_TASKS_v27";
+const CACHE_KEY = "AD_REVIEW_QUEUE_TASKS_v29";
 
 // Helper to parse date string like "22Jul26" or "22/07/2026" into "yyyy-MM-dd"
 function parseTaskDateString(dateVal) {
@@ -89,6 +89,11 @@ function doGet(e) {
     return ContentService.createTextOutput(resultMsg);
   }
 
+  if (action === 'fixFormulaSheet') {
+    const resultMsg = fixFormulaSheet();
+    return ContentService.createTextOutput(resultMsg);
+  }
+
   if (action === 'clearPastData') {
     const resultMsg = clearPastData();
     return ContentService.createTextOutput(resultMsg);
@@ -125,6 +130,44 @@ function doGet(e) {
     .setTitle('คิวงานรอรีวิว - AD Review Queue')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+}
+
+// Fix 📌 FORMULA sheet so formulas show as clean copyable text without #REF! errors
+function fixFormulaSheet() {
+  try {
+    const ss = SpreadsheetApp.openById(CONFIG.MASTER_SHEET_ID);
+    const sheets = ss.getSheets();
+    let formulaSheet = null;
+
+    for (let i = 0; i < sheets.length; i++) {
+      if (sheets[i].getName().indexOf('FORMULA') !== -1) {
+        formulaSheet = sheets[i];
+        break;
+      }
+    }
+
+    if (!formulaSheet) return "Sheet 📌 FORMULA not found.";
+
+    const importrangeFormulaText = `={
+  {"จ๊ะเอ๋",  IMPORTRANGE("1Q7CvHdG0mXtmIJ_hHsHU1wDHhSO-zys0SBD6gYU7PTc", "Sheet1!A5:N5000")};
+  {"อุ้ม",    IMPORTRANGE("1zG0ZyQN2tT0dV9L7ktyJ-_477Yh_ybwjWLR87eFDbOY", "Sheet1!A5:N5000")};
+  {"กิ๊บ",   IMPORTRANGE("1L7arKfntBNEbiLJHMV24L4NGg4pyRTeK2a989VFgam4", "Sheet1!A5:N5000")};
+  {"เป้",    IMPORTRANGE("1hgEF_R0DQ8p3_mwcy7qXLl94bR0jF_nQsooFXXTbl88", "Sheet1!A5:N5000")};
+  {"โชกุล",  IMPORTRANGE("1L4m3C2zHnirHbyEhgqJilDtQhyorrsrj7xDEP22BF-w", "Sheet1!A5:N5000")};
+  {"ท้อป",   IMPORTRANGE("1Lz30YiHpxih0nBABS_Dg2Wm9PvZxX0aVFuwubbZIr2g", "Sheet1!A5:N5000")};
+  {"โอม",    IMPORTRANGE("1R4ieki0O1Kj-Hk6k-aUeGSLCAW94oDwHQqX9GdVhgeM", "Sheet1!A5:N5000")}
+}`;
+
+    const filterFormulaText = `=FILTER('📥 RAW DATA'!A5:O, '📥 RAW DATA'!A5:A="จ๊ะเอ๋")`;
+
+    // Prefix with single quote so Google Sheets renders them as copyable text templates
+    formulaSheet.getRange("A11").setValue("'" + importrangeFormulaText);
+    formulaSheet.getRange("A16").setValue("'" + filterFormulaText);
+
+    return "Successfully updated 📌 FORMULA sheet! A11 and A16 are now clean copyable templates without errors.";
+  } catch (err) {
+    return "Error updating 📌 FORMULA: " + err.message;
+  }
 }
 
 // Clears blocking values in both 📥 RAW DATA and 📌 VIEW sheets so formulas expand cleanly
@@ -634,7 +677,7 @@ function sendLineReviewAlert(taskName, owner, round, row, spreadsheetId) {
           action: {
             type: "postback",
             label: "อนุมัติ",
-            data: `action=updateStatus&row=${row}&sheetId=${spreadsheetId}&status=Done`
+            data: `action=updateStatus&row=${row}&sheetId=${spreadsheetId}&status=${encodeURIComponent("Done")}`
           }
         }
       ]
