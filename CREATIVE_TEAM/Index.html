@@ -1057,13 +1057,13 @@ html>body{padding:0}</style>
       let rawTasks = [];
       let currentTab = 'waiting';
 
-      const announce = (message) => {
-        toast.textContent = message;
+      const announce = (htmlMessage, duration = 4000) => {
+        toast.innerHTML = htmlMessage;
         toast.classList.add('show');
-        setTimeout(() => toast.classList.remove('show'), 3000);
+        setTimeout(() => toast.classList.remove('show'), duration);
       };
 
-      // คำนวณช่วงเวลาทำงาน 09:00 - 18:00 น.
+      // คำนวณช่วงเวลาทำงาน 09:00 - 18:00 น. (จันทร์-ศุกร์)
       const calculateWorkingHoursDiff = (sentToReviewAt) => {
         if (!sentToReviewAt) return 0;
         let start = new Date(sentToReviewAt);
@@ -1073,7 +1073,6 @@ html>body{padding:0}</style>
         let totalMinutes = 0;
         let cur = new Date(start);
 
-        // คำนวณทีละนาทีในช่วงเวลา 09:00 - 18:00 น.
         while (cur < end) {
           const day = cur.getDay(); // 0 = Sun, 6 = Sat
           if (day !== 0 && day !== 6) { // จันทร์ - ศุกร์
@@ -1084,7 +1083,7 @@ html>body{padding:0}</style>
           }
           cur.setMinutes(cur.getMinutes() + 1);
         }
-        return totalMinutes / 60; // ชั่วโมงสะสมในเวลาทำการ
+        return totalMinutes / 60;
       };
 
       const calculateAgeHours = (sentToReviewAt) => {
@@ -1113,6 +1112,19 @@ html>body{padding:0}</style>
         if (ageHours > 4) return 'stale';
         if (ageHours >= 2) return 'watch';
         return 'fresh';
+      };
+
+      const formatDateTimeStr = (isoStr, prefix = '') => {
+        if (!isoStr) return '-';
+        const d = new Date(isoStr);
+        if (isNaN(d.getTime())) return '-';
+        const thMonths = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+        const day = d.getDate();
+        const month = thMonths[d.getMonth()];
+        const year = d.getFullYear();
+        const hh = d.getHours().toString().padStart(2, '0');
+        const mins = d.getMinutes().toString().padStart(2, '0');
+        return `${prefix}${day} ${month} ${year} · ${hh}:${mins}`;
       };
 
       const renderList = () => {
@@ -1158,7 +1170,7 @@ html>body{padding:0}</style>
         else if (currentTab === 'approved') tasksToRender = approvedTasks;
 
         const sortSelect = root.querySelector('#queue-sort');
-        const sortKey = sortSelect ? sortSelect.value : 'oldest';
+        const sortKey = sortSelect ? sortSelect.value : 'priority';
 
         tasksToRender.sort((a, b) => {
            const aUrgent = a.name.includes("ด่วน") || a.name.includes("เร่ง");
@@ -1166,40 +1178,25 @@ html>body{padding:0}</style>
            if (sortKey === 'priority') {
              if (aUrgent && !bUrgent) return -1;
              if (!aUrgent && bUrgent) return 1;
-           }
-           
-           const ageA = calculateAgeHours(a.sentToReviewAt);
-           const ageB = calculateAgeHours(b.sentToReviewAt);
-           if (sortKey === 'oldest') {
+             const ageA = calculateAgeHours(a.sentToReviewAt);
+             const ageB = calculateAgeHours(b.sentToReviewAt);
              return ageB - ageA;
            }
-           // Fallback to deadline (we don't have it explicitly so we use date)
-           return new Date(a.date) - new Date(b.date);
+           if (sortKey === 'oldest') {
+             return calculateAgeHours(b.sentToReviewAt) - calculateAgeHours(a.sentToReviewAt);
+           }
+           return new Date(a.deadline || a.date) - new Date(b.deadline || b.date);
         });
 
         list.innerHTML = '';
         if (tasksToRender.length === 0) {
-           list.innerHTML = '<div class="empty">ไม่มีคิวงานในหมวดหมู่นี้</div>';
+           list.innerHTML = '<div class="empty">ไม่มีรายการในหมวดหมู่นี้</div>';
            return;
         }
 
         tasksToRender.forEach(task => {
           const ageHours = calculateAgeHours(task.sentToReviewAt);
-          const ageClass = getAgeClass(ageHours);
-          
-          let timeStr = '-';
-          if (task.sentToReviewAt) {
-             const d = new Date(task.sentToReviewAt);
-             if (!isNaN(d.getTime())) {
-               const thMonths = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
-               const day = d.getDate();
-               const month = thMonths[d.getMonth()];
-               const year = d.getFullYear();
-               const hh = d.getHours().toString().padStart(2, '0');
-               const mins = d.getMinutes().toString().padStart(2, '0');
-               timeStr = `ส่งเมื่อ ${day} ${month} ${year} · ${hh}:${mins}`;
-             }
-          }
+          const ageClass = currentTab === 'waiting' ? getAgeClass(ageHours) : 'fresh';
           
           let actionButtons = '';
           if (currentTab === 'waiting' || currentTab === 'revision') {
@@ -1212,7 +1209,19 @@ html>body{padding:0}</style>
           const isUrgent = task.name.includes("ด่วน") || task.name.includes("เร่ง");
           const priorityBadge = isUrgent ? `<span class="viz-badge" style="background:#ef4444;color:white;">ด่วน</span>` : '';
           
-          let ageStr = getAgeString(task.sentToReviewAt);
+          let ageBadgeStr = '';
+          let timeMetaStr = '';
+          if (currentTab === 'waiting') {
+            ageBadgeStr = `<span class="viz-badge age-badge">${getAgeString(task.sentToReviewAt)}</span>`;
+            timeMetaStr = formatDateTimeStr(task.sentToReviewAt, 'ส่งเมื่อ ');
+          } else if (currentTab === 'revision') {
+            ageBadgeStr = `<span class="viz-badge" style="background:#FFF6DF;color:#E58A00;border:1px solid #E58A00;">มีปรับแก้</span>`;
+            timeMetaStr = formatDateTimeStr(task.reviewedAt, 'ส่งกลับแก้เมื่อ ') + (task.reviewedAt ? ` · รอทีมแก้ ${getAgeString(task.reviewedAt)}` : '');
+          } else if (currentTab === 'approved') {
+            ageBadgeStr = `<span class="viz-badge" style="background:#EAF8F1;color:#22A06B;border:1px solid #22A06B;">อนุมัติแล้ว</span>`;
+            timeMetaStr = formatDateTimeStr(task.reviewedAt, 'อนุมัติเมื่อ ');
+          }
+
           let roundStr = task.revisionRound > 0 ? `<span><i data-lucide="rotate-ccw" aria-hidden="true"></i> รอบที่ ${task.revisionRound}</span>` : '';
           const linkHtml = task.link ? `<a class="btn" href="${task.link}" target="_blank"><i data-lucide="external-link" aria-hidden="true"></i> เปิดไฟล์งาน</a>` : '';
 
@@ -1228,17 +1237,17 @@ html>body{padding:0}</style>
                     <h3>${task.name}</h3>
                     <div class="badges">
                       ${priorityBadge}
-                      <span class="viz-badge age-badge">${ageStr}</span>
+                      ${ageBadgeStr}
                     </div>
                   </div>
                 </div>
                 <div class="meta text-small">
                   ${task.brand ? `<span><i data-lucide="building-2" aria-hidden="true"></i> ${task.brand}</span>` : ''}
                   ${roundStr}
-                  <span><i data-lucide="clock-3" aria-hidden="true"></i> ${timeStr}</span>
+                  <span><i data-lucide="clock-3" aria-hidden="true"></i> ${timeMetaStr}</span>
                 </div>
                 <div class="item-bottom">
-                  <span class="person"><span class="avatar">${task.owner.charAt(0)}</span> ${task.owner}</span>
+                  <span class="person"><span class="avatar">${task.owner ? task.owner.charAt(0) : '?'}</span> ${task.owner || 'ไม่ระบุ'}</span>
                   <div class="actions">
                     ${linkHtml}
                     ${actionButtons}
@@ -1250,7 +1259,6 @@ html>body{padding:0}</style>
           list.insertAdjacentHTML('beforeend', cardHTML);
         });
 
-        // re-init lucide icons for dynamic content
         if (globalThis.lucide) {
            globalThis.lucide.createIcons({ attrs: { width: 16, height: 16 } });
         }
@@ -1281,8 +1289,11 @@ html>body{padding:0}</style>
       };
 
       window.handleAction = (taskId, newStatus) => {
-        if (!confirm('ยืนยันเปลี่ยนสถานะงาน?')) return;
+        if (newStatus === "มีปรับแก้" && !confirm('ยืนยันส่งกลับแก้ไขงานชิ้นนี้?')) return;
         
+        const prevTask = rawTasks.find(t => t.id === taskId);
+        const prevStatus = prevTask ? prevTask.status : 'รอรีวิว';
+
         announce('กำลังอัปเดต...');
         
         google.script.run
@@ -1290,7 +1301,11 @@ html>body{padding:0}</style>
              try {
                const res = JSON.parse(resStr);
                if (res.success) {
-                 announce('อัปเดตงาน ' + res.taskName + ' สำเร็จแล้ว');
+                 if (newStatus === "อนุมัติแล้ว") {
+                   announce(`✅ อนุมัติงาน "${res.taskName}" แล้ว <button class="btn" style="margin-left:8px;padding:2px 6px;" onclick="undoAction('${taskId}', '${prevStatus}')">Undo (ยกเลิก)</button>`, 6000);
+                 } else {
+                   announce(`📝 เปลี่ยนสถานะงาน "${res.taskName}" เป็นมีปรับแก้แล้ว`);
+                 }
                } else {
                  alert('Error: ' + res.error);
                }
@@ -1304,12 +1319,22 @@ html>body{padding:0}</style>
           .updateTaskFromWeb(taskId, newStatus, "");
       };
 
-      root.querySelectorAll('.tab-btn').forEach((button) => {
+      window.undoAction = (taskId, previousStatus) => {
+        announce('กำลังยกเลิกรายการ...');
+        google.script.run
+          .withSuccessHandler(() => {
+             announce('ยกเลิกรายการเรียบร้อยแล้ว');
+             loadData();
+          })
+          .updateTaskFromWeb(taskId, previousStatus, "");
+      };
+
+      root.querySelectorAll('.tab-button').forEach((button) => {
         button.addEventListener('click', () => {
-          root.querySelectorAll('.tab-btn').forEach((peer) => {
+          root.querySelectorAll('.tab-button').forEach((peer) => {
             const active = peer === button;
             peer.setAttribute('aria-pressed', String(active));
-            peer.classList.toggle('active', active);
+            peer.classList.toggle('btn-primary', active);
           });
           currentTab = button.dataset.tab;
           renderList();

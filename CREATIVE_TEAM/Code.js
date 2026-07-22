@@ -1,8 +1,5 @@
 // ============================================================
-// Task Status Tracker — Google Apps Script
-// ============================================================
-// การตั้งค่าเบื้องต้น:
-// 1. กด Deploy > New deployment (เลือก Web app, Execute as: Me, Who has access: Anyone)
+// Task Status Tracker — Google Apps Script (AD Review Queue)
 // ============================================================
 
 const CONFIG = {
@@ -17,45 +14,48 @@ const CONFIG = {
     'โอม':    '1R4ieki0O1Kj-Hk6k-aUeGSLCAW94oDwHQqX9GdVhgeM',
   },
   
-  // Master Sheet สำหรับเก็บข้อมูลคิวงาน
+  // Master Sheet สำหรับเก็บข้อมูลคิวงาน (GEM_Graphic_Master)
   MASTER_SHEET_ID: '144OB0gy5dJ8MOnc5Te0k1KpltrDoG4ocnxcS3t4MR4g',
   
   // ตั้งค่า LINE
   LINE_CHANNEL_ACCESS_TOKEN: '0LdRnV4LLCmXBG8chf62N4WpIUHFkaEvJ/ljFjqbq6GbaqnLCVRqeiPZrhRJgsweUSvOM8TUbc9r500b+eviYoghG35l6qT+nxU+N6hqqODqCV7SEhCB/PRgMLJ1O0bB3ccg3dYy+XpNHX5RQdv0hwdB04t89/1O/w1cDnyilFU=',
   LINE_GROUP_ID: 'C73656d16402ca46690a9ef39b9382bfd',
   
-  // ตำแหน่งคอลัมน์ (เริ่มนับ 0 = A, 1 = B, 2 = C)
+  // ตำแหน่งคอลัมน์ในชีตบุคคล
   COL_TASK_ID: 9,      // คอลัมน์ J (Job No.)
   COL_TASK_NAME: 11,   // คอลัมน์ L (ชื่องาน)
   COL_OWNER: 12,       // คอลัมน์ M (เจ้าของงาน)
-  COL_STATUS: 0,       // คอลัมน์ A (Check)
+  COL_STATUS: 0,       // คอลัมน์ A (Check / Status)
   COL_COMMENT: 14,     // คอลัมน์ O (ช่องใส่คอมเมนต์เมื่อมีการปรับแก้)
   
-  // คอลัมน์ใหม่สำหรับระบบ AD Review Queue
-  COL_REVIEW_STATUS: 15,     // คอลัมน์ P (รอรีวิว, มีปรับแก้, อนุมัติแล้ว)
-  COL_SENT_TO_REVIEW_AT: 16, // คอลัมน์ Q (เวลาที่ส่งรีวิวล่าสุด)
-  COL_REVIEWED_AT: 17,       // คอลัมน์ R (เวลาที่ AD ตรวจ)
-  COL_REVISION_ROUND: 18,    // คอลัมน์ S (จำนวนรอบการปรับแก้)
-  
-  // ตำแหน่งคอลัมน์ใน GEM_Graphic_Master (RAW DATA)
-  MASTER_COL_JOB_NO: 10,         // คอลัมน์ K (Job No.)
-  MASTER_COL_TASK_NAME: 12,      // คอลัมน์ M (ชื่องาน)
-  MASTER_COL_OWNER: 13,          // คอลัมน์ N (เจ้าของงาน)
-  MASTER_COL_REVIEW_STATUS: 16, // คอลัมน์ Q (Review Status)
-  MASTER_COL_SENT_AT: 17,       // คอลัมน์ R (Sent to Review At)
-  MASTER_COL_REVIEWED_AT: 18,   // คอลัมน์ S (Reviewed At)
-  MASTER_COL_REVISION_ROUND: 19 // คอลัมน์ T (Revision Round)
+  // ตำแหน่งคอลัมน์ใน GEM_Graphic_Master (📥 RAW DATA sheet)
+  // Row 4: Header, Row 5+: Data
+  // Index 0-based:
+  MASTER_COL_OWNER_A: 0,        // Col A (เจ้าของงาน)
+  MASTER_COL_STATUS: 1,         // Col B (Graphic Status: Sent to P'Aof, มีปรับแก้, Done ฯลฯ)
+  MASTER_COL_JOB_NO: 10,        // Col K (Job No.)
+  MASTER_COL_BRAND: 11,         // Col L (Brand / Client)
+  MASTER_COL_TASK_NAME: 12,     // Col M (ชื่องาน)
+  MASTER_COL_OWNER_N: 13,       // Col N (เจ้าของงาน)
+  MASTER_COL_LINK: 14,          // Col O (Link ไฟล์งาน / Preview)
+  MASTER_COL_DEADLINE: 15,      // Col P (Deadline / Date)
+  MASTER_COL_REVIEW_STATUS: 16, // Col Q (Review Status: รอรีวิว, มีปรับแก้, อนุมัติแล้ว)
+  MASTER_COL_SENT_AT: 17,       // Col R (Sent to Review At)
+  MASTER_COL_REVIEWED_AT: 18,   // Col S (Reviewed At)
+  MASTER_COL_REVISION_ROUND: 19 // Col T (Revision Round)
 };
 
+const CACHE_KEY = "AD_REVIEW_QUEUE_TASKS_v5";
+
 // ============================================================
-// 1. Web App Endpoint (GET) - สำหรับเปิดหน้าเว็บ Dashboard
+// 1. Web App Endpoint (GET)
 // ============================================================
 function doGet(e) {
   const action = e && e.parameter && e.parameter.action;
   
-  // หากเรียก API แบบ GET เพื่อขอดึงข้อมูล (AJAX)
   if (action === 'getTasks') {
-    return handleApiRequest();
+    return ContentService.createTextOutput(getTasksData())
+      .setMimeType(ContentService.MimeType.JSON);
   }
   
   if (action === 'testPush') {
@@ -85,9 +85,8 @@ function doGet(e) {
     return getDebugData();
   }
   
-  // หากเปิด URL ปกติ ให้แสดงหน้าเว็บ Index.html
   return HtmlService.createHtmlOutputFromFile('Index')
-    .setTitle('CREATIVE TEAM')
+    .setTitle('คิวงานรอรีวิว - AD Review Queue')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
@@ -98,110 +97,19 @@ function doGet(e) {
 function doPost(e) {
   try {
     const postData = JSON.parse(e.postData.contents);
-    
-    // ตรวจสอบว่าเป็น Request จาก LINE หรือไม่ (LINE จะมี 'events')
     if (postData.events) {
       return handleLineWebhook(postData.events);
     }
-    
     return ContentService.createTextOutput(JSON.stringify({ status: 'unknown_source' }))
       .setMimeType(ContentService.MimeType.JSON);
-
   } catch (error) {
     return ContentService.createTextOutput(JSON.stringify({ error: error.message }))
       .setMimeType(ContentService.MimeType.JSON);
   }
 }
 
-const CACHE_KEY = 'TASKS_DATA_CACHE_V1';
-
 // ============================================================
-// 3. API Data Fetching (ดึงข้อมูลงานจาก Sheet ส่งให้หน้าเว็บ)
-// ============================================================
-function handleApiRequest() {
-  try {
-    const cache = CacheService.getScriptCache();
-    const cached = cache.get(CACHE_KEY);
-    if (cached) {
-      return ContentService.createTextOutput(cached)
-        .setMimeType(ContentService.MimeType.JSON);
-    }
-
-    const tasks = [];
-    for (const [ownerName, sheetId] of Object.entries(CONFIG.TEAM_SHEETS)) {
-      try {
-        const sheet = SpreadsheetApp.openById(sheetId).getSheets()[0];
-        const lastRow = sheet.getLastRow();
-        if (lastRow < 2) continue;
-        
-        const data = sheet.getRange(1, 1, lastRow, 19).getValues();
-        for (let i = 1; i < data.length; i++) {
-          const row = data[i];
-          if (row[CONFIG.COL_TASK_NAME]) { 
-            const status = String(row[CONFIG.COL_STATUS] || '').trim();
-            const reviewStatus = String(row[CONFIG.COL_REVIEW_STATUS] || '').trim();
-            const reviewedAt = row[CONFIG.COL_REVIEWED_AT] || '';
-            const sentToReviewAt = row[CONFIG.COL_SENT_TO_REVIEW_AT] || '';
-            
-            // For legacy tasks
-            const displayReviewStatus = reviewStatus || (status === "Sent to P'Aof" ? "รอรีวิว" : (status === "มีปรับแก้" ? "มีปรับแก้" : ""));
-            
-            let isToday = false;
-            if (reviewedAt && reviewedAt instanceof Date) {
-               const todayStr = Utilities.formatDate(new Date(), "Asia/Bangkok", "yyyy-MM-dd");
-               const revStr = Utilities.formatDate(reviewedAt, "Asia/Bangkok", "yyyy-MM-dd");
-               isToday = (todayStr === revStr);
-            }
-            
-            if (displayReviewStatus === "รอรีวิว" || displayReviewStatus === "มีปรับแก้" || (displayReviewStatus === "อนุมัติแล้ว" && isToday)) {
-              tasks.push({
-                id: row[CONFIG.COL_TASK_ID] || '-',
-                uniqueId: `${ownerName}_${i+1}`,
-                name: row[CONFIG.COL_TASK_NAME],
-                owner: ownerName,
-                status: displayReviewStatus,
-                graphicStatus: status,
-                date: (row[2] instanceof Date) ? Utilities.formatDate(row[2], "Asia/Bangkok", "yyyy-MM-dd'T'HH:mm:ss") : (row[2] || ''),
-                time: (row[4] instanceof Date) ? Utilities.formatDate(row[4], "Asia/Bangkok", "HH:mm") : (row[4] || ''),
-                brand: row[10] || '',
-                comment: row[14] || '',
-                sentToReviewAt: (sentToReviewAt instanceof Date) ? sentToReviewAt.toISOString() : 
-                                (sentToReviewAt || (row[14] && String(row[14]).match(/\[(\d{2})\/(\d{2})\/(\d{4}) (\d{2}):(\d{2}):(\d{2})\]/) ? (() => {
-                                   const m = String(row[14]).match(/\[(\d{2})\/(\d{2})\/(\d{4}) (\d{2}):(\d{2}):(\d{2})\]/);
-                                   if (m) {
-                                      const d = new Date(`${m[3]}-${m[2]}-${m[1]}T${m[4]}:${m[5]}:${m[6]}+07:00`);
-                                      return isNaN(d.getTime()) ? '' : d.toISOString();
-                                   }
-                                   return '';
-                                })() : '')),
-                reviewedAt: (reviewedAt instanceof Date) ? reviewedAt.toISOString() : (reviewedAt || ''),
-                revisionRound: parseInt(row[CONFIG.COL_REVISION_ROUND]) || 1
-              });
-            }
-          }
-        }
-      } catch (e) {
-        console.error("Error reading sheet for " + ownerName, e);
-      }
-    }
-    
-    const resStr = JSON.stringify({ success: true, tasks: tasks });
-    try {
-      cache.put(CACHE_KEY, resStr, 15);
-    } catch (cacheErr) {
-      // Ignore cache limit errors
-    }
-    return ContentService.createTextOutput(resStr)
-      .setMimeType(ContentService.MimeType.JSON);
-      
-  } catch (err) {
-    return ContentService.createTextOutput(JSON.stringify({ success: false, error: err.message }))
-      .setMimeType(ContentService.MimeType.JSON);
-  }
-}
-
-// ============================================================
-// 2.2 Helper for Centralized Review Database (RAW DATA)
+// 3. Helper for Master Sheet (GEM_Graphic_Master)
 // ============================================================
 function getMasterRawDataSheet() {
   const ss = SpreadsheetApp.openById(CONFIG.MASTER_SHEET_ID);
@@ -212,10 +120,10 @@ function ensureMasterHeaders() {
   const sheet = getMasterRawDataSheet();
   if (!sheet) return;
   
-  const hQ = sheet.getRange(4, 17);
-  const hR = sheet.getRange(4, 18);
-  const hS = sheet.getRange(4, 19);
-  const hT = sheet.getRange(4, 20);
+  const hQ = sheet.getRange(4, 17); // Col Q
+  const hR = sheet.getRange(4, 18); // Col R
+  const hS = sheet.getRange(4, 19); // Col S
+  const hT = sheet.getRange(4, 20); // Col T
   
   if (hQ.getValue() !== "Review Status") hQ.setValue("Review Status");
   if (hR.getValue() !== "Sent to Review At") hR.setValue("Sent to Review At");
@@ -224,10 +132,14 @@ function ensureMasterHeaders() {
 }
 
 // ============================================================
-// 3.1. API Data Fetching for google.script.run (ใช้สำหรับ Iframe)
+// 4. API Data Fetching (ดึงข้อมูลงานจาก Master Sheet ส่งให้ Dashboard)
 // ============================================================
+function handleApiRequest() {
+  return ContentService.createTextOutput(getTasksData())
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
 function getTasksData() {
-  const CACHE_KEY = "AD_REVIEW_QUEUE_TASKS_v4";
   try {
     const cache = CacheService.getScriptCache();
     const cached = cache.get(CACHE_KEY);
@@ -235,66 +147,88 @@ function getTasksData() {
       return cached;
     }
 
-    const tasks = [];
+    ensureMasterHeaders();
     const sheet = getMasterRawDataSheet();
     if (!sheet) return JSON.stringify({ success: true, tasks: [] });
     
     const lastRow = sheet.getLastRow();
     if (lastRow < 5) return JSON.stringify({ success: true, tasks: [] });
     
-    const data = sheet.getRange(1, 1, lastRow, 19).getValues();
-    
-    // Headers are at row 4 (index 3), Data starts at row 5 (index 4)
+    const data = sheet.getRange(1, 1, lastRow, 20).getValues();
+    const tasks = [];
+    const todayStr = Utilities.formatDate(new Date(), "Asia/Bangkok", "yyyy-MM-dd");
+
+    // Header at row 4 (index 3), Data starts at row 5 (index 4)
     for (let i = 4; i < data.length; i++) {
       const row = data[i];
-      const taskName = String(row[12] || '').trim(); // Col M
-      if (taskName) {
-        const status = String(row[1] || '').trim(); // Col B
-        const ownerName = String(row[13] || row[0] || '').trim(); // Col N or Col A
-        const logs = String(row[16] || ''); // Col Q
-        const sentCount = parseInt(row[17]) || 0; // Col R
-        const editCount = parseInt(row[18]) || 0; // Col S
-        
-        let sentToReviewAt = parseTimeFromLogs(logs, "Sent to P'Aof") || (row[5] instanceof Date ? row[5] : '');
-        let reviewedAt = parseTimeFromLogs(logs, "Done") || '';
-        let revisionRound = editCount > 0 ? editCount : 1;
-        
-        // Derive displayReviewStatus
-        let displayReviewStatus = "";
-        const normStatus = status.toLowerCase().replace(/’/g, "'");
-        if (normStatus === "sent to p'aof") displayReviewStatus = "รอรีวิว";
-        else if (status === "มีปรับแก้") displayReviewStatus = "มีปรับแก้";
-        else if (status === "Done" || status === "OK") displayReviewStatus = "อนุมัติแล้ว";
-        
-        let isToday = false;
-        if (reviewedAt && reviewedAt instanceof Date) {
-           const todayStr = Utilities.formatDate(new Date(), "Asia/Bangkok", "yyyy-MM-dd");
-           const revStr = Utilities.formatDate(reviewedAt, "Asia/Bangkok", "yyyy-MM-dd");
-           isToday = (todayStr === revStr);
-        }
-        
-        if (displayReviewStatus === "รอรีวิว" || displayReviewStatus === "มีปรับแก้" || (displayReviewStatus === "อนุมัติแล้ว" && isToday)) {
-          tasks.push({
-            id: row[10] || '-', // Col K (Job No)
-            uniqueId: `master_${i+1}`,
-            name: taskName,
-            owner: ownerName,
-            status: displayReviewStatus,
-            graphicStatus: status,
-            date: (row[5] instanceof Date) ? Utilities.formatDate(row[5], "Asia/Bangkok", "yyyy-MM-dd'T'HH:mm:ss") : (row[5] || ''),
-            time: (row[7] instanceof Date) ? Utilities.formatDate(row[7], "Asia/Bangkok", "HH:mm") : (row[7] || ''),
-            brand: row[11] || '', // Col L
-            comment: logs,
-            sentToReviewAt: (sentToReviewAt instanceof Date) ? sentToReviewAt.toISOString() : (sentToReviewAt || ''),
-            reviewedAt: (reviewedAt instanceof Date) ? reviewedAt.toISOString() : (reviewedAt || ''),
-            revisionRound: revisionRound
-          });
+      const taskName = String(row[CONFIG.MASTER_COL_TASK_NAME] || '').trim();
+      if (!taskName) continue;
+
+      const graphicStatus = String(row[CONFIG.MASTER_COL_STATUS] || '').trim();
+      let reviewStatus = String(row[CONFIG.MASTER_COL_REVIEW_STATUS] || '').trim();
+      
+      // Auto mapping if Review Status is empty
+      if (!reviewStatus) {
+        const norm = graphicStatus.toLowerCase().replace(/’/g, "'");
+        if (norm === "sent to p'aof") reviewStatus = "รอรีวิว";
+        else if (graphicStatus === "มีปรับแก้") reviewStatus = "มีปรับแก้";
+        else if (graphicStatus === "Done" || graphicStatus === "OK") reviewStatus = "อนุมัติแล้ว";
+      }
+
+      let sentToReviewAtRaw = row[CONFIG.MASTER_COL_SENT_AT];
+      let reviewedAtRaw = row[CONFIG.MASTER_COL_REVIEWED_AT];
+      let revisionRound = parseInt(row[CONFIG.MASTER_COL_REVISION_ROUND]) || 1;
+
+      // Fallback for sentToReviewAt if empty but status is "รอรีวิว"
+      if (!sentToReviewAtRaw && reviewStatus === "รอรีวิว") {
+        if (row[5] instanceof Date) {
+          sentToReviewAtRaw = row[5];
         }
       }
+
+      let sentToReviewAt = "";
+      if (sentToReviewAtRaw instanceof Date) {
+        sentToReviewAt = sentToReviewAtRaw.toISOString();
+      } else if (sentToReviewAtRaw) {
+        sentToReviewAt = String(sentToReviewAtRaw).trim();
+      }
+
+      let reviewedAt = "";
+      let isToday = false;
+      if (reviewedAtRaw instanceof Date) {
+        reviewedAt = reviewedAtRaw.toISOString();
+        const revStr = Utilities.formatDate(reviewedAtRaw, "Asia/Bangkok", "yyyy-MM-dd");
+        isToday = (todayStr === revStr);
+      } else if (reviewedAtRaw) {
+        reviewedAt = String(reviewedAtRaw).trim();
+        const parsed = new Date(reviewedAt);
+        if (!isNaN(parsed.getTime())) {
+          const revStr = Utilities.formatDate(parsed, "Asia/Bangkok", "yyyy-MM-dd");
+          isToday = (todayStr === revStr);
+        }
+      }
+
+      // Filter: Show "รอรีวิว", "มีปรับแก้", or "อนุมัติแล้ว" of today
+      if (reviewStatus === "รอรีวิว" || reviewStatus === "มีปรับแก้" || (reviewStatus === "อนุมัติแล้ว" && isToday)) {
+        tasks.push({
+          id: String(row[CONFIG.MASTER_COL_JOB_NO] || `master_${i+1}`).trim(),
+          uniqueId: `master_${i+1}`,
+          name: taskName,
+          owner: String(row[CONFIG.MASTER_COL_OWNER_N] || row[CONFIG.MASTER_COL_OWNER_A] || 'ไม่ระบุ').trim(),
+          status: reviewStatus,
+          graphicStatus: graphicStatus,
+          brand: String(row[CONFIG.MASTER_COL_BRAND] || '').trim(),
+          link: String(row[CONFIG.MASTER_COL_LINK] || '').trim(),
+          deadline: (row[CONFIG.MASTER_COL_DEADLINE] instanceof Date) ? row[CONFIG.MASTER_COL_DEADLINE].toISOString() : String(row[CONFIG.MASTER_COL_DEADLINE] || ''),
+          sentToReviewAt: sentToReviewAt,
+          reviewedAt: reviewedAt,
+          revisionRound: revisionRound
+        });
+      }
     }
-    
+
     const result = JSON.stringify({ success: true, tasks: tasks });
-    cache.put(CACHE_KEY, result, 600); // Cache for 10 minutes
+    try { cache.put(CACHE_KEY, result, 15); } catch(e) {}
     return result;
   } catch (err) {
     return JSON.stringify({ success: false, error: err.message });
@@ -302,90 +236,61 @@ function getTasksData() {
 }
 
 // ============================================================
-// DEBUG
-// ============================================================
-function getDebugData() {
-  try {
-    const debugRows = [];
-    let sheetHeaders = [];
-    for (const [ownerName, sheetId] of Object.entries(CONFIG.TEAM_SHEETS)) {
-      try {
-        const sheet = SpreadsheetApp.openById(sheetId).getSheets()[0];
-        const data = sheet.getDataRange().getValues();
-        if (sheetHeaders.length === 0) sheetHeaders = data[0];
-        
-        for (let i = 1; i < data.length; i++) {
-          const row = data[i];
-          const status = String(row[CONFIG.COL_STATUS] || '').trim();
-          if (status === "Sent to P'Aof") {
-            debugRows.push({
-              sheet: ownerName,
-              rowNumber: i + 1,
-              rowData: row
-            });
-          }
-        }
-      } catch (e) {
-        // ignore
-      }
-    }
-    return ContentService.createTextOutput(JSON.stringify({ headers: sheetHeaders, tasks: debugRows }, null, 2))
-      .setMimeType(ContentService.MimeType.JSON);
-  } catch (err) {
-    return ContentService.createTextOutput(err.message);
-  }
-}
-
-// ============================================================
-// 3.2. Web App Actions (อัปเดตสถานะและคอมเมนต์จากหน้าเว็บ)
+// 5. Update Task Status (จาก Dashboard หรือ API)
 // ============================================================
 function updateTaskFromWeb(taskId, newStatus, commentText) {
   try {
     const sheet = getMasterRawDataSheet();
     if (!sheet) return JSON.stringify({ success: false, error: "ไม่พบแผ่นงานตารางหลัก" });
     
+    ensureMasterHeaders();
     const data = sheet.getDataRange().getValues();
     let foundRow = -1;
     let taskName = '';
-    
+    let ownerName = '';
+
+    const targetStr = String(taskId).trim();
     for (let i = 4; i < data.length; i++) {
       const uId = `master_${i+1}`;
-      const jobNo = String(data[i][10] || '').trim(); // Col K
-      const targetStr = String(taskId).trim();
+      const jobNo = String(data[i][CONFIG.MASTER_COL_JOB_NO] || '').trim();
       
       if (targetStr === uId || (jobNo !== '' && targetStr === jobNo)) {
         foundRow = i + 1;
-        taskName = data[i][12] || 'ไม่ระบุชื่อ';
+        taskName = data[i][CONFIG.MASTER_COL_TASK_NAME] || 'ไม่ระบุชื่อ';
+        ownerName = data[i][CONFIG.MASTER_COL_OWNER_N] || data[i][CONFIG.MASTER_COL_OWNER_A] || '';
         break;
       }
     }
     
     if (foundRow > -1) {
-      // อัปเดตสถานะที่ Col B (Index 1 -> Col 2)
-      sheet.getRange(foundRow, 2).setValue(newStatus);
-      
-      // อัปเดต Log & Counts ที่ Col Q, R, S
-      const nowStr = Utilities.formatDate(new Date(), "Asia/Bangkok", "dd/MM/yyyy HH:mm:ss");
-      const timestampLog = `[${nowStr}] ${commentText ? `(AD) ${commentText}` : `เปลี่ยนสถานะเป็น "${newStatus}"`}`;
-      
-      // Column Q (Index 16 -> Col 17)
-      const logCell = sheet.getRange(foundRow, 17);
-      const currentLog = String(logCell.getValue() || '').trim();
-      const combinedLog = currentLog ? `${timestampLog}\n${currentLog}` : timestampLog;
-      logCell.setValue(combinedLog);
-      
+      const now = new Date();
+      const currentReviewStatus = String(sheet.getRange(foundRow, 17).getValue() || '').trim();
+      const currentRound = parseInt(sheet.getRange(foundRow, 20).getValue()) || 1;
+
       if (newStatus === "มีปรับแก้") {
-        const sCell = sheet.getRange(foundRow, 19); // Col S
-        const countS = parseInt(sCell.getValue()) || 0;
-        sCell.setValue(countS + 1);
-      } else if (newStatus === "Sent to P'Aof") {
-        const rCell = sheet.getRange(foundRow, 18); // Col R
-        const countR = parseInt(rCell.getValue()) || 0;
-        rCell.setValue(countR + 1);
+        sheet.getRange(foundRow, 2).setValue("มีปรับแก้");       // Col B
+        sheet.getRange(foundRow, 17).setValue("มีปรับแก้");      // Col Q
+        sheet.getRange(foundRow, 19).setValue(now);              // Col S (Reviewed At)
+        // Col R (Sent to Review At) and Col T (Revision Round) remain unchanged
+      } else if (newStatus === "อนุมัติแล้ว" || newStatus === "Done") {
+        sheet.getRange(foundRow, 2).setValue("Done");            // Col B
+        sheet.getRange(foundRow, 17).setValue("อนุมัติแล้ว");    // Col Q
+        sheet.getRange(foundRow, 19).setValue(now);              // Col S (Reviewed At)
+      } else if (newStatus === "รอรีวิว" || newStatus === "Sent to P'Aof") {
+        sheet.getRange(foundRow, 2).setValue("Sent to P'Aof");   // Col B
+        sheet.getRange(foundRow, 17).setValue("รอรีวิว");        // Col Q
+        sheet.getRange(foundRow, 18).setValue(now);              // Col R (Sent to Review At)
+        sheet.getRange(foundRow, 19).setValue("");               // Col S (Reviewed At) cleared
+        if (currentReviewStatus !== "รอรีวิว") {
+          sheet.getRange(foundRow, 20).setValue(currentRound + 1); // Col T (Revision Round) + 1
+        }
       }
-      
-      // เคลียร์ Cache เพื่อให้เรียกดูใหม่ได้ทันที
-      CacheService.getScriptCache().remove("AD_REVIEW_QUEUE_TASKS_v4");
+
+      // Sync to Graphic individual sheet if exists
+      syncToIndividualSheet(taskId, taskName, ownerName, newStatus);
+
+      // Invalidate Cache
+      CacheService.getScriptCache().remove(CACHE_KEY);
       
       return JSON.stringify({ success: true, taskName: taskName });
     } else {
@@ -396,101 +301,170 @@ function updateTaskFromWeb(taskId, newStatus, commentText) {
   }
 }
 
+function syncToIndividualSheet(taskId, taskName, ownerName, newStatus) {
+  if (!ownerName || !CONFIG.TEAM_SHEETS[ownerName]) return;
+  try {
+    const sheetId = CONFIG.TEAM_SHEETS[ownerName];
+    const sheet = SpreadsheetApp.openById(sheetId).getSheets()[0];
+    const data = sheet.getDataRange().getValues();
+    const targetStr = String(taskId).trim();
+
+    let graphicStatusValue = newStatus;
+    if (newStatus === "อนุมัติแล้ว") graphicStatusValue = "Done";
+    if (newStatus === "รอรีวิว") graphicStatusValue = "Sent to P'Aof";
+
+    for (let i = 1; i < data.length; i++) {
+      const jobNo = String(data[i][CONFIG.COL_TASK_ID] || '').trim();
+      const tName = String(data[i][CONFIG.COL_TASK_NAME] || '').trim();
+      if ((jobNo !== '' && targetStr === jobNo) || tName === taskName) {
+        sheet.getRange(i + 1, CONFIG.COL_STATUS + 1).setValue(graphicStatusValue);
+        break;
+      }
+    }
+  } catch (e) {
+    console.error("syncToIndividualSheet error: " + e.message);
+  }
+}
+
 // ============================================================
-// 4. จัดการ LINE Webhook
+// 6. Master Sheet Edit Trigger (onTaskStatusChange)
+// ============================================================
+function onTaskStatusChange(e) {
+  try { CacheService.getScriptCache().remove(CACHE_KEY); } catch(err) {}
+  if (!e || !e.range) return;
+  
+  const sheet = e.range.getSheet();
+  const spreadsheetId = e.source.getId();
+  
+  if (spreadsheetId !== CONFIG.MASTER_SHEET_ID || sheet.getName() !== '📥 RAW DATA') return;
+  
+  const row = e.range.getRow();
+  const col = e.range.getColumn();
+  if (row <= 4) return; // Skip headers
+
+  ensureMasterHeaders();
+  const now = new Date();
+  const taskName = sheet.getRange(row, 13).getValue() || 'ไม่ระบุชื่อ';
+  const owner = sheet.getRange(row, 14).getValue() || sheet.getRange(row, 1).getValue() || 'ไม่ระบุ';
+
+  // If Col B (Graphic Status) was edited
+  if (col === 2) {
+    const newValue = String(sheet.getRange(row, col).getValue() || '').trim();
+    const normVal = newValue.toLowerCase().replace(/’/g, "'");
+    const currentReviewStatus = String(sheet.getRange(row, 17).getValue() || '').trim();
+    const currentRound = parseInt(sheet.getRange(row, 20).getValue()) || 1;
+
+    if (normVal === "sent to p'aof") {
+      sheet.getRange(row, 17).setValue("รอรีวิว");
+      sheet.getRange(row, 18).setValue(now);
+      sheet.getRange(row, 19).setValue("");
+      let newRound = currentRound;
+      if (currentReviewStatus !== "รอรีวิว") {
+        newRound = currentRound + 1;
+        sheet.getRange(row, 20).setValue(newRound);
+      }
+      sendLineReviewAlert(taskName, owner, newRound, row, spreadsheetId);
+    } else if (normVal === "มีปรับแก้") {
+      sheet.getRange(row, 17).setValue("มีปรับแก้");
+      sheet.getRange(row, 19).setValue(now);
+    } else if (normVal === "done" || normVal === "ok" || normVal === "อนุมัติแล้ว") {
+      sheet.getRange(row, 17).setValue("อนุมัติแล้ว");
+      sheet.getRange(row, 19).setValue(now);
+    }
+  }
+  
+  // If Col Q (Review Status) was edited directly
+  if (col === 17) {
+    const newValue = String(sheet.getRange(row, col).getValue() || '').trim();
+    const currentRound = parseInt(sheet.getRange(row, 20).getValue()) || 1;
+
+    if (newValue === "รอรีวิว") {
+      sheet.getRange(row, 2).setValue("Sent to P'Aof");
+      sheet.getRange(row, 18).setValue(now);
+      sheet.getRange(row, 19).setValue("");
+      const newRound = currentRound + 1;
+      sheet.getRange(row, 20).setValue(newRound);
+      sendLineReviewAlert(taskName, owner, newRound, row, spreadsheetId);
+    } else if (newValue === "มีปรับแก้") {
+      sheet.getRange(row, 2).setValue("มีปรับแก้");
+      sheet.getRange(row, 19).setValue(now);
+    } else if (newValue === "อนุมัติแล้ว") {
+      sheet.getRange(row, 2).setValue("Done");
+      sheet.getRange(row, 19).setValue(now);
+    }
+  }
+}
+
+function sendLineReviewAlert(taskName, owner, round, row, spreadsheetId) {
+  const nowStr = Utilities.formatDate(new Date(), "Asia/Bangkok", "dd/MM/yyyy HH:mm:ss");
+  const flexContents = {
+    type: "bubble",
+    body: {
+      type: "box",
+      layout: "vertical",
+      contents: [
+        { type: "text", text: "🚨 งานรอตรวจ", weight: "bold", size: "xl", color: "#1DB446" },
+        { type: "text", text: `ชิ้นงาน: ${taskName}`, margin: "md", wrap: true },
+        { type: "text", text: `ผู้รับผิดชอบ: ${owner}`, size: "sm", color: "#666666", wrap: true },
+        { type: "text", text: `รอบการตรวจ: รอบที่ ${round || 1}`, size: "sm", color: "#666666", wrap: true },
+        { type: "text", text: `สถานะ: รอรีวิว`, size: "sm", color: "#1DB446", weight: "bold", wrap: true },
+        { type: "text", text: `ส่งเมื่อ: ${nowStr}`, size: "xs", color: "#aaaaaa", margin: "sm" }
+      ]
+    },
+    footer: {
+      type: "box",
+      layout: "horizontal",
+      spacing: "sm",
+      contents: [
+        {
+          type: "button",
+          action: {
+            type: "postback",
+            label: "มีปรับแก้",
+            data: `action=updateStatus&row=${row}&sheetId=${spreadsheetId}&status=${encodeURIComponent("มีปรับแก้")}`
+          },
+          style: "primary",
+          color: "#ff4757"
+        },
+        {
+          type: "button",
+          style: "primary",
+          color: "#1DB446",
+          action: {
+            type: "postback",
+            label: "อนุมัติ",
+            data: `action=updateStatus&row=${row}&sheetId=${spreadsheetId}&status=Done`
+          }
+        }
+      ]
+    }
+  };
+  pushLineFlexMessage(`อัปเดตงาน "${taskName}" เป็น รอรีวิว`, flexContents);
+}
+
+// ============================================================
+// 7. LINE Webhook Handling
 // ============================================================
 function handleLineWebhook(events) {
   events.forEach(event => {
-    // ป้องกันวิญญาณหลอน (Ghost Message): ข้าม event ที่เป็น Redelivery (ข้อความซ้ำจากคิวที่ส่งไม่สำเร็จ)
-    if (event.deliveryContext && event.deliveryContext.isRedelivery) {
-      return;
-    }
-    
+    if (event.deliveryContext && event.deliveryContext.isRedelivery) return;
     if (event.type === 'message' && event.message.type === 'text') {
       handleTextMessage(event);
     } else if (event.type === 'postback') {
       handlePostback(event);
     }
   });
-  
   return ContentService.createTextOutput('OK');
 }
 
 function handleTextMessage(event) {
   const replyToken = event.replyToken;
   const userMessage = event.message.text.trim();
-  const userId = event.source.userId;
   
-  // 1. เช็คว่ามี State รอรับคอมเมนต์อยู่หรือไม่
-  const props = PropertiesService.getScriptProperties();
-  const stateStr = props.getProperty('awaitingComment_' + userId);
-  
-  if (stateStr) {
-    // ผู้ใช้อยู่ในโหมดกำลังพิมพ์คอมเมนต์
-    const state = JSON.parse(stateStr);
-    
-    // ดักจับกรณีใช้ LINE PC (กดปุ่มแล้วมันส่งคำว่า "มีปรับแก้" มาเฉยๆ โดยไม่เปิดคีย์บอร์ด)
-    if (userMessage === "มีปรับแก้") {
-      return;
-    }
-    
-    // ถ้าเป็นการพิมพ์คอมเมนต์ปกติ
-    try {
-      const sheet = SpreadsheetApp.openById(state.sheetId).getSheets()[0];
-      
-      // ลบคำว่า @Agent Paof ออก (ถ้ามี) และลบเครื่องหมายคำพูด (เผื่อผู้ใช้พิมพ์ "จบ")
-      const cleanMessage = userMessage.replace(/@Agent Paof/g, '').replace(/["']/g, '').trim();
-      if (!cleanMessage) return;
-      
-      // ดักจับคำสั่ง จบ หรือ ยกเลิก (กรณีผู้ใช้พิมพ์มาแทนการกดปุ่ม)
-      if (cleanMessage === "ยกเลิก") {
-        props.deleteProperty('awaitingComment_' + userId);
-        replyText(replyToken, `❌ ยกเลิกการคอมเมนต์งาน "${state.taskName}" แล้วครับ`);
-        return;
-      }
-      if (cleanMessage === "จบ" || cleanMessage === "พอแล้ว" || cleanMessage === "เสร็จแล้ว") {
-        sheet.getRange(state.row, CONFIG.COL_STATUS + 1).setValue("มีปรับแก้");
-        replyText(replyToken, `✅ บันทึกคอมเมนต์สำหรับงาน "${state.taskName}" ทั้งหมดเรียบร้อยครับ\nสถานะถูกเปลี่ยนเป็น "มีปรับแก้" แล้ว!`);
-        props.deleteProperty('awaitingComment_' + userId);
-        return;
-      }
-      
-      // ดึงข้อความเดิมมา
-      const existingText = String(sheet.getRange(state.row, CONFIG.COL_COMMENT + 1).getValue() || "");
-      
-      let prefix = "";
-      if (state.isFirstComment) {
-        const timestamp = Utilities.formatDate(new Date(), "Asia/Bangkok", "dd/MM/yyyy HH:mm");
-        prefix = existingText ? `\n\n[รอบแก้: ${timestamp}]\n` : `[รอบแก้: ${timestamp}]\n`;
-        
-        // อัปเดต state ว่าไม่ใช่คอมเมนต์แรกแล้ว
-        state.isFirstComment = false;
-        props.setProperty('awaitingComment_' + userId, JSON.stringify(state));
-      } else {
-        prefix = existingText ? "\n" : "";
-      }
-      
-      const newComment = existingText + prefix + "- " + cleanMessage;
-      
-      // เขียนคอมเมนต์ลงชีต
-      sheet.getRange(state.row, CONFIG.COL_COMMENT + 1).setValue(newComment);
-      
-      // ให้บอทแอบจดเงียบๆ ไม่ต้องตอบกลับแล้ว เพื่อไม่ให้แชทรก
-    } catch (e) {
-      replyText(replyToken, `❌ เกิดข้อผิดพลาดในการบันทึกคอมเมนต์: ${e.message}`);
-      props.deleteProperty('awaitingComment_' + userId);
-    }
-    return;
-  }
-  
-  // 2. ถ้าไม่ใช่การคอมเมนต์ ให้เช็คคำสั่งทั่วไป
   if (userMessage.startsWith('!status')) {
     const taskId = userMessage.replace('!status', '').trim();
-    if (taskId) {
-      replyTaskStatus(replyToken, taskId);
-    } else {
-      replyText(replyToken, 'กรุณาพิมพ์รหัสงานต่อท้าย เช่น !status 1024');
-    }
+    if (taskId) replyTaskStatus(replyToken, taskId);
+    else replyText(replyToken, 'กรุณาพิมพ์รหัสงานต่อท้าย เช่น !status 1024');
   } else if (userMessage === '!summary') {
     replySummaryTasks(replyToken);
   }
@@ -499,9 +473,7 @@ function handleTextMessage(event) {
 function handlePostback(event) {
   const replyToken = event.replyToken;
   const data = event.postback.data;
-  const userId = event.source.userId;
   
-  // แปลง Query String เป็น Object
   const params = data.split('&').reduce((acc, curr) => {
     const [key, val] = curr.split('=');
     acc[key] = decodeURIComponent(val);
@@ -510,312 +482,138 @@ function handlePostback(event) {
   
   if (params.action === 'updateStatus') {
     updateSheetStatusFromPostback(replyToken, params.row, params.sheetId, params.status);
-  } else if (params.action === 'requestRevision') {
-    // ผู้ใช้กดปุ่ม "มีปรับแก้" -> เปลี่ยนสถานะทันทีโดยไม่ต้องรอคอมเมนต์
-    updateSheetStatusFromPostback(replyToken, params.row, params.sheetId, "มีปรับแก้");
   }
 }
 
-
 function updateSheetStatusFromPostback(replyToken, row, sheetId, newStatus) {
   try {
-    // รองรับปุ่มเก่าที่กดมาจากแชทก่อนหน้านี้ (ตอนที่ยังไม่มี sheetId ฝังมาด้วย)
-    if (!sheetId || sheetId === 'undefined') {
-      sheetId = CONFIG.TEAM_SHEETS['กิ๊บ'];
-    }
-    
-    const sheet = SpreadsheetApp.openById(sheetId).getSheets()[0];
-    
-    const taskName = sheet.getRange(parseInt(row), CONFIG.COL_TASK_NAME + 1).getValue() || 'ไม่ระบุชื่อ';
-    const currentStatus = String(sheet.getRange(parseInt(row), CONFIG.COL_STATUS + 1).getValue() || '').trim();
-    
-    // ป้องกันการกดซ้ำ: เช็คว่าสถานะปัจจุบันยังเป็น "Sent to P'Aof" อยู่ไหม
-    const normStatus = currentStatus.toLowerCase().replace(/’/g, "'");
-    if (normStatus !== "sent to p'aof") {
-      replyText(replyToken, `⚠️ ปุ่มนี้ถูกกดไปแล้วครับ!\n(งาน "${taskName}" ถูกเปลี่ยนสถานะเป็น "${currentStatus}" ไปแล้ว)`);
+    const masterSheet = getMasterRawDataSheet();
+    if (!masterSheet) {
+      replyText(replyToken, "❌ ไม่พบ Master Sheet");
       return;
     }
-    
-    // อัปเดตคอลัมน์ Status
-    sheet.getRange(parseInt(row), CONFIG.COL_STATUS + 1).setValue(newStatus);
-    
-    // Comment updating is removed as per user request
-    
-    // เคลียร์ Cache เพื่อให้หน้าเว็บเรียกดูข้อมูลใหม่ได้ทันที
+
+    const r = parseInt(row);
+    const taskName = masterSheet.getRange(r, 13).getValue() || 'ไม่ระบุชื่อ';
+    const now = new Date();
+
+    if (newStatus === "มีปรับแก้") {
+      masterSheet.getRange(r, 2).setValue("มีปรับแก้");
+      masterSheet.getRange(r, 17).setValue("มีปรับแก้");
+      masterSheet.getRange(r, 19).setValue(now);
+    } else if (newStatus === "Done" || newStatus === "อนุมัติแล้ว") {
+      masterSheet.getRange(r, 2).setValue("Done");
+      masterSheet.getRange(r, 17).setValue("อนุมัติแล้ว");
+      masterSheet.getRange(r, 19).setValue(now);
+    }
+
     CacheService.getScriptCache().remove(CACHE_KEY);
-    
-    const nowStr = new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' });
-    replyText(replyToken, `🕒 ${nowStr}\n✅ อัปเดตงาน "${taskName}" เป็นสถานะ "${newStatus}"`);
+    const nowStr = Utilities.formatDate(now, "Asia/Bangkok", "dd/MM/yyyy HH:mm:ss");
+    const displayStatusStr = (newStatus === "Done" || newStatus === "อนุมัติแล้ว") ? "อนุมัติแล้ว" : "มีปรับแก้";
+    replyText(replyToken, `🕒 ${nowStr}\n✅ อัปเดตงาน "${taskName}" เป็นสถานะ "${displayStatusStr}" เรียบร้อยแล้ว!`);
   } catch (err) {
     replyText(replyToken, `❌ เกิดข้อผิดพลาดในการอัปเดต: ${err.message}`);
   }
 }
 
 function replyTaskStatus(replyToken, taskId) {
+  const sheet = getMasterRawDataSheet();
+  if (!sheet) { replyText(replyToken, "❌ ไม่พบ Master Sheet"); return; }
+  
+  const data = sheet.getDataRange().getValues();
   let found = false;
   let responseText = "";
-  
-  for (const [owner, sheetId] of Object.entries(CONFIG.TEAM_SHEETS)) {
-    try {
-      const sheet = SpreadsheetApp.openById(sheetId).getSheets()[0];
-      const data = sheet.getDataRange().getValues();
-      
-      for (let i = 1; i < data.length; i++) {
-        if (String(data[i][CONFIG.COL_TASK_ID]).trim() === taskId) {
-          const taskName = data[i][CONFIG.COL_TASK_NAME] || 'ไม่ระบุชื่อ';
-          const status = data[i][CONFIG.COL_STATUS] || 'ยังไม่เริ่ม';
-          responseText = `📌 ชิ้นงาน: ${taskName}\n👤 ผู้รับผิดชอบ: ${owner}\n🔄 สถานะ: ${status}`;
-          found = true;
-          break;
-        }
-      }
-    } catch (e) {
-      console.error(`Error reading sheet for ${owner}: ${e.message}`);
+
+  for (let i = 4; i < data.length; i++) {
+    const jobNo = String(data[i][CONFIG.MASTER_COL_JOB_NO] || '').trim();
+    if (jobNo === taskId) {
+      const taskName = data[i][CONFIG.MASTER_COL_TASK_NAME] || 'ไม่ระบุชื่อ';
+      const owner = data[i][CONFIG.MASTER_COL_OWNER_N] || data[i][CONFIG.MASTER_COL_OWNER_A] || 'ไม่ระบุ';
+      const status = data[i][CONFIG.MASTER_COL_REVIEW_STATUS] || data[i][CONFIG.MASTER_COL_STATUS] || 'ยังไม่เริ่ม';
+      responseText = `📌 ชิ้นงาน: ${taskName}\n👤 ผู้รับผิดชอบ: ${owner}\n🔄 สถานะรีวิว: ${status}`;
+      found = true;
+      break;
     }
-    if (found) break;
   }
-  
-  if (!found) {
-    responseText = `❌ ไม่พบรหัสงาน "${taskId}" ในระบบครับ`;
-  }
-  
+
+  if (!found) responseText = `❌ ไม่พบรหัสงาน "${taskId}" ในระบบครับ`;
   replyText(replyToken, responseText);
 }
 
 function replySummaryTasks(replyToken) {
-  let summary = "📋 สรุปงานค้างทั้งหมด:\n";
-  let totalTasks = 0;
+  const sheet = getMasterRawDataSheet();
+  if (!sheet) { replyText(replyToken, "❌ ไม่พบ Master Sheet"); return; }
   
-  for (const [owner, sheetId] of Object.entries(CONFIG.TEAM_SHEETS)) {
-    try {
-      const sheet = SpreadsheetApp.openById(sheetId).getSheets()[0];
-      const data = sheet.getDataRange().getValues();
-      
-      let ownerTasks = 0;
-      let ownerSummary = `\n👤 ${owner}:\n`;
-      
-      for (let i = 1; i < data.length; i++) {
-        const status = String(data[i][CONFIG.COL_STATUS] || '').trim();
-        if (status === "Sent to P'Aof" || status === "มีปรับแก้") {
-          const taskName = data[i][CONFIG.COL_TASK_NAME] || 'ไม่ระบุชื่อ';
-          ownerSummary += `- ${taskName} (${status})\n`;
-          ownerTasks++;
-        }
-      }
-      
-      if (ownerTasks > 0) {
-        summary += ownerSummary;
-        totalTasks += ownerTasks;
-      }
-    } catch (e) {
-      console.error(`Error reading sheet for ${owner}: ${e.message}`);
+  const data = sheet.getDataRange().getValues();
+  let summary = "📋 สรุปงานรอรีวิวทั้งหมด:\n";
+  let count = 0;
+
+  for (let i = 4; i < data.length; i++) {
+    const revStatus = String(data[i][CONFIG.MASTER_COL_REVIEW_STATUS] || '').trim();
+    const status = String(data[i][CONFIG.MASTER_COL_STATUS] || '').trim();
+    if (revStatus === "รอรีวิว" || status === "Sent to P'Aof") {
+      const taskName = data[i][CONFIG.MASTER_COL_TASK_NAME] || 'ไม่ระบุชื่อ';
+      const owner = data[i][CONFIG.MASTER_COL_OWNER_N] || data[i][CONFIG.MASTER_COL_OWNER_A] || 'ไม่ระบุ';
+      const round = data[i][CONFIG.MASTER_COL_REVISION_ROUND] || 1;
+      summary += `• [${owner}] ${taskName} (รอบที่ ${round})\n`;
+      count++;
     }
   }
-  
-  if (totalTasks === 0) {
-    summary = "🎉 ตอนนี้ไม่มีงานค้างเลยครับ เยี่ยมมาก!";
-  }
-  
+
+  if (count === 0) summary = "🎉 ตอนนี้ไม่มีงานรอรีวิวเลยครับ!";
   replyText(replyToken, summary);
 }
 
 function replyText(replyToken, text) {
   const url = 'https://api.line.me/v2/bot/message/reply';
-  const payload = {
-    replyToken: replyToken,
-    messages: [{ type: 'text', text: text }]
-  };
-  
+  const payload = { replyToken: replyToken, messages: [{ type: 'text', text: text }] };
   const options = {
     method: 'post',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer ' + CONFIG.LINE_CHANNEL_ACCESS_TOKEN
-    },
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + CONFIG.LINE_CHANNEL_ACCESS_TOKEN },
     payload: JSON.stringify(payload)
   };
-  
-  UrlFetchApp.fetch(url, options);
-}
-
-// ============================================================
-// 6. Push Message API (ส่งข้อความแจ้งเตือนอัตโนมัติ)
-// ============================================================
-function pushLineMessage(message) {
-  if (!CONFIG.LINE_GROUP_ID) return; // ถ้ายังไม่ตั้งค่า ID กลุ่ม ให้ข้ามไป
-  
-  const url = 'https://api.line.me/v2/bot/message/push';
-  const headers = {
-    'Content-Type': 'application/json',
-    'Authorization': 'Bearer ' + CONFIG.LINE_CHANNEL_ACCESS_TOKEN
-  };
-  const payload = {
-    to: CONFIG.LINE_GROUP_ID,
-    messages: [{ type: 'text', text: message }]
-  };
-  
-  const options = {
-    method: 'post',
-    headers: headers,
-    payload: JSON.stringify(payload)
-  };
-  
-  try {
-    UrlFetchApp.fetch(url, options);
-  } catch(e) {
-    console.error("Push Error: " + e.message);
-  }
+  try { UrlFetchApp.fetch(url, options); } catch(e) {}
 }
 
 function pushLineFlexMessage(altText, contents) {
   if (!CONFIG.LINE_GROUP_ID) return;
-  
   const url = 'https://api.line.me/v2/bot/message/push';
-  const payload = {
-    to: CONFIG.LINE_GROUP_ID,
-    messages: [{
-      type: 'flex',
-      altText: altText,
-      contents: contents
-    }]
-  };
-  
+  const payload = { to: CONFIG.LINE_GROUP_ID, messages: [{ type: 'flex', altText: altText, contents: contents }] };
   const options = {
     method: 'post',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer ' + CONFIG.LINE_CHANNEL_ACCESS_TOKEN
-    },
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + CONFIG.LINE_CHANNEL_ACCESS_TOKEN },
     payload: JSON.stringify(payload)
   };
-  
+  try { UrlFetchApp.fetch(url, options); } catch(e) {}
+}
+
+function getDebugData() {
   try {
-    UrlFetchApp.fetch(url, options);
-  } catch(e) {
-    console.error("Push Flex Error: " + e.message);
+    const sheet = getMasterRawDataSheet();
+    const data = sheet.getDataRange().getValues();
+    return ContentService.createTextOutput(JSON.stringify({ rowCount: data.length, headers: data[3] }, null, 2))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(err.message);
   }
 }
 
 // ============================================================
-// 8. Cleanup Triggers
-// ============================================================
-function cleanupAllOldTriggers() {
-  const triggers = ScriptApp.getProjectTriggers();
-  let count = 0;
-  for (let i = 0; i < triggers.length; i++) {
-    ScriptApp.deleteTrigger(triggers[i]);
-    count++;
-  }
-  return "Deleted " + count + " triggers";
-}
-function onTaskStatusChange(e) {
-  try { CacheService.getScriptCache().remove("AD_REVIEW_QUEUE_TASKS_v4"); } catch(err) {}
-  if (!e || !e.range) return;
-  
-  const sheet = e.range.getSheet();
-  const spreadsheetId = e.source.getId();
-  
-  // ตรวจสอบว่าเป็นไฟล์ GEM_Graphic_Master หรือไม่
-  if (spreadsheetId !== CONFIG.MASTER_SHEET_ID) return;
-  if (sheet.getName() !== '📥 RAW DATA') return;
-  
-  const row = e.range.getRow();
-  const col = e.range.getColumn();
-  
-  if (row <= 4) return; // ข้ามหัวตาราง
-  
-  // ตรวจสอบว่าคอลัมน์ที่แก้ คือคอลัมน์ B (Status)
-  if (col === 2) {
-    const newValue = String(sheet.getRange(row, col).getValue() || '').trim();
-    const normVal = newValue.toLowerCase().replace(/’/g, "'");
-    
-    if (normVal !== "sent to p'aof") return;
-    
-    const nowStr = Utilities.formatDate(new Date(), "Asia/Bangkok", "dd/MM/yyyy HH:mm:ss");
-    const taskName = sheet.getRange(row, 13).getValue() || 'ไม่ระบุชื่อ';
-    const owner = sheet.getRange(row, 14).getValue() || sheet.getRange(row, 1).getValue() || 'ไม่ระบุ';
-    
-    // Log to Col Q (17)
-    const logCell = sheet.getRange(row, 17);
-    const currentLog = String(logCell.getValue() || '').trim();
-    const timestampLog = `[${nowStr}] เปลี่ยนสถานะเป็น "Sent to P'Aof"`;
-    logCell.setValue(currentLog ? `${timestampLog}\n${currentLog}` : timestampLog);
-    
-    // Count Col R (18)
-    const rCell = sheet.getRange(row, 18);
-    const countR = parseInt(rCell.getValue()) || 0;
-    rCell.setValue(countR + 1);
-    
-    // Send LINE Flex Message
-    let headerText = "🚨 งานรอตรวจ";
-    let headerColor = "#1DB446";
-    
-    const flexContents = {
-      type: "bubble",
-      body: {
-        type: "box",
-        layout: "vertical",
-        contents: [
-          { type: "text", text: headerText, weight: "bold", size: "xl", color: headerColor },
-          { type: "text", text: `ชิ้นงาน: ${taskName}`, margin: "md", wrap: true },
-          { type: "text", text: `ผู้รับผิดชอบ: ${owner}`, size: "sm", color: "#666666", wrap: true },
-          { type: "text", text: `สถานะ: ${newValue}`, size: "sm", color: headerColor, weight: "bold", wrap: true },
-          { type: "text", text: `ส่งเมื่อ: ${nowStr}`, size: "xs", color: "#aaaaaa", margin: "sm" }
-        ]
-      },
-      footer: {
-        type: "box",
-        layout: "horizontal",
-        spacing: "sm",
-        contents: [
-          {
-            type: "button",
-            action: {
-              type: "postback",
-              label: "มีปรับแก้",
-              data: `action=updateStatus&row=${row}&sheetId=${spreadsheetId}&status=${encodeURIComponent("มีปรับแก้")}`
-            },
-            style: "primary",
-            color: "#ff4757"
-          },
-          {
-            type: "button",
-            style: "primary",
-            color: "#1DB446",
-            action: {
-              type: "postback",
-              label: "Done",
-              data: `action=updateStatus&row=${row}&sheetId=${spreadsheetId}&status=Done`
-            }
-          }
-        ]
-      }
-    };
-    
-    pushLineFlexMessage(`อัปเดตงาน "${taskName}" เป็น ${newValue}`, flexContents);
-  }
-}
-
-// ============================================================
-// 8. Auto-Setup Trigger (สำหรับให้ติดตั้ง Trigger อัตโนมัติผ่านคลิกลิงก์)
+// 8. Triggers Setup
 // ============================================================
 function setupTrigger() {
   try {
     const triggers = ScriptApp.getProjectTriggers();
-    
-    // ลบ trigger เก่าทั้งหมดก่อนสร้างใหม่
     for (let i = 0; i < triggers.length; i++) {
       ScriptApp.deleteTrigger(triggers[i]);
     }
     
-    // สร้าง Trigger สำหรับ Master Sheet (GEM_Graphic_Master)
     const masterSheet = SpreadsheetApp.openById(CONFIG.MASTER_SHEET_ID);
     ScriptApp.newTrigger('onTaskStatusChange')
       .forSpreadsheet(masterSheet)
       .onEdit()
       .create();
     
-    // สร้าง Trigger แจ้งเตือนตอน 9:30 โมงเช้า
     ScriptApp.newTrigger('pushDailySummary')
       .timeBased()
       .atHour(9)
@@ -823,60 +621,43 @@ function setupTrigger() {
       .everyDays(1)
       .create();
 
-    // สร้าง Trigger แจ้งเตือนตอน 17:00 (5 โมงเย็น)
     ScriptApp.newTrigger('pushDailySummary')
       .timeBased()
       .atHour(17)
       .everyDays(1)
       .create();
       
-    return ContentService.createTextOutput(`ตั้งค่า Trigger สำหรับ Master Sheet สำเร็จแล้ว! 🚀\n(1) ผูกตาราง Master Sheet เรียบร้อย\n(2) แจ้งเตือนงานตอน 09:30 และ 17:00`);
+    return ContentService.createTextOutput(`ตั้งค่า Trigger สำหรับ Master Sheet สำเร็จแล้ว! 🚀\n(1) ผูก Master Sheet (onEdit)\n(2) แจ้งเตือนงานตอน 09:30 และ 17:00`);
   } catch (err) {
     return ContentService.createTextOutput('Error: ' + err.message);
   }
 }
 
-// ============================================================
-// 9. Daily Summary (แจ้งเตือนสรุปงานตอนเช้าและเย็น)
-// ============================================================
 function pushDailySummary() {
   const day = new Date().getDay();
-  if (day === 0 || day === 6) {
-    return; // ไม่ทำงานวันหยุด (0=Sunday, 6=Saturday)
+  if (day === 0 || day === 6) return;
+
+  const sheet = getMasterRawDataSheet();
+  if (!sheet) return;
+
+  const data = sheet.getDataRange().getValues();
+  let pendingTasks = [];
+
+  for (let i = 4; i < data.length; i++) {
+    const revStatus = String(data[i][CONFIG.MASTER_COL_REVIEW_STATUS] || '').trim();
+    const status = String(data[i][CONFIG.MASTER_COL_STATUS] || '').trim();
+    if (revStatus === "รอรีวิว" || status === "Sent to P'Aof") {
+      const taskName = data[i][CONFIG.MASTER_COL_TASK_NAME] || 'ไม่ระบุชื่อ';
+      const owner = data[i][CONFIG.MASTER_COL_OWNER_N] || data[i][CONFIG.MASTER_COL_OWNER_A] || 'ไม่ระบุ';
+      pendingTasks.push(`• [${owner}] ${taskName}`);
+    }
   }
 
-  let pAofCount = 0;
-  let pendingTasks = [];
-  
-  // ลูปเช็คตารางของทุกคน
-  Object.keys(CONFIG.TEAM_SHEETS).forEach(owner => {
-    try {
-      const sheetId = CONFIG.TEAM_SHEETS[owner];
-      const sheet = SpreadsheetApp.openById(sheetId).getSheets()[0];
-      const data = sheet.getDataRange().getValues();
-      
-      for (let i = 1; i < data.length; i++) {
-        const status = String(data[i][CONFIG.COL_STATUS] || '').trim();
-        if (status === "Sent to P'Aof") {
-          pAofCount++;
-          pendingTasks.push(`• [${owner}] ${data[i][CONFIG.COL_TASK_NAME] || 'ไม่ระบุชื่อ'}`);
-        }
-      }
-    } catch (e) {
-      console.error(`Error reading sheet for ${owner}: ${e.message}`);
-    }
-  });
-  
-  // ถ้าไม่มีงานสเตตัส Sent to P'Aof ให้หยุดการทำงานทันที (ไม่ต้องแจ้งเตือน)
-  if (pAofCount === 0) {
-    return;
-  }
-  
-  let taskListContents = [];
-  const displayTasks = pendingTasks.slice(0, 5);
-  displayTasks.forEach(t => {
-    taskListContents.push({ type: "text", text: t, size: "sm", color: "#555555", wrap: true });
-  });
+  if (pendingTasks.length === 0) return;
+
+  let taskListContents = pendingTasks.slice(0, 5).map(t => ({
+    type: "text", text: t, size: "sm", color: "#555555", wrap: true
+  }));
   if (pendingTasks.length > 5) {
     taskListContents.push({ type: "text", text: `...และอีก ${pendingTasks.length - 5} งาน`, size: "sm", color: "#aaaaaa", style: "italic", margin: "sm" });
   }
@@ -887,24 +668,17 @@ function pushDailySummary() {
   const flexContents = {
     type: "bubble",
     header: {
-      type: "box",
-      layout: "vertical",
-      backgroundColor: "#378ADD",
-      contents: [
-        { type: "text", text: titleText, weight: "bold", color: "#ffffff", size: "lg" }
-      ]
+      type: "box", layout: "vertical", backgroundColor: "#378ADD",
+      contents: [{ type: "text", text: titleText, weight: "bold", color: "#ffffff", size: "lg" }]
     },
     body: {
-      type: "box",
-      layout: "vertical",
-      spacing: "md",
+      type: "box", layout: "vertical", spacing: "md",
       contents: [
         {
-          type: "box",
-          layout: "horizontal",
+          type: "box", layout: "horizontal",
           contents: [
             { type: "text", text: "📤 งานที่ต้องตรวจ:", color: "#aaaaaa", size: "sm", flex: 2 },
-            { type: "text", text: `${pAofCount} งาน`, weight: "bold", size: "sm", color: "#333333", align: "end", flex: 1 }
+            { type: "text", text: `${pendingTasks.length} งาน`, weight: "bold", size: "sm", color: "#333333", align: "end", flex: 1 }
           ]
         },
         { type: "separator", margin: "md" },
@@ -913,6 +687,5 @@ function pushDailySummary() {
       ]
     }
   };
-  
   pushLineFlexMessage(titleText, flexContents);
 }
