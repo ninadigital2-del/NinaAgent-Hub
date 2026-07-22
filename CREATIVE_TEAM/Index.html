@@ -1063,24 +1063,50 @@ html>body{padding:0}</style>
         setTimeout(() => toast.classList.remove('show'), 3000);
       };
 
-      const calculateAgeHours = (sentToReviewAt) => {
+      // คำนวณช่วงเวลาทำงาน 09:00 - 18:00 น.
+      const calculateWorkingHoursDiff = (sentToReviewAt) => {
         if (!sentToReviewAt) return 0;
-        const sent = new Date(sentToReviewAt);
-        const now = new Date();
-        return Math.max(0, Math.floor((now - sent) / (1000 * 60 * 60)));
+        let start = new Date(sentToReviewAt);
+        let end = new Date();
+        if (isNaN(start.getTime()) || start >= end) return 0;
+
+        let totalMinutes = 0;
+        let cur = new Date(start);
+
+        // คำนวณทีละนาทีในช่วงเวลา 09:00 - 18:00 น.
+        while (cur < end) {
+          const day = cur.getDay(); // 0 = Sun, 6 = Sat
+          if (day !== 0 && day !== 6) { // จันทร์ - ศุกร์
+            const hour = cur.getHours();
+            if (hour >= 9 && hour < 18) {
+              totalMinutes++;
+            }
+          }
+          cur.setMinutes(cur.getMinutes() + 1);
+        }
+        return totalMinutes / 60; // ชั่วโมงสะสมในเวลาทำการ
+      };
+
+      const calculateAgeHours = (sentToReviewAt) => {
+        return calculateWorkingHoursDiff(sentToReviewAt);
       };
 
       const getAgeString = (sentToReviewAt) => {
-        if (!sentToReviewAt) return 'เพิ่งส่ง';
-        const sent = new Date(sentToReviewAt);
-        const now = new Date();
-        const diffMs = Math.max(0, now - sent);
-        const diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
-        const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-        if (diffHrs > 0 && diffMins > 0) return `${diffHrs} ชม. ${diffMins} นาที`;
-        if (diffHrs > 0) return `${diffHrs} ชม.`;
-        if (diffMins > 0) return `${diffMins} นาที`;
-        return 'เพิ่งส่ง';
+        if (!sentToReviewAt) return 'คิวใหม่';
+        const totalMins = Math.floor(calculateWorkingHoursDiff(sentToReviewAt) * 60);
+        if (totalMins <= 0) return 'คิวใหม่';
+        
+        const diffHrs = Math.floor(totalMins / 60);
+        const diffMins = totalMins % 60;
+        
+        if (diffHrs >= 4) {
+          if (diffHrs > 0 && diffMins > 0) return `ค้าง ${diffHrs} ชม. ${diffMins} นาที`;
+          return `ค้าง ${diffHrs} ชม.`;
+        }
+        
+        if (diffHrs > 0 && diffMins > 0) return `รอ ${diffHrs} ชม. ${diffMins} นาที`;
+        if (diffHrs > 0) return `รอ ${diffHrs} ชม.`;
+        return `รอ ${diffMins} นาที`;
       };
 
       const getAgeClass = (ageHours) => {
@@ -1160,19 +1186,18 @@ html>body{padding:0}</style>
         tasksToRender.forEach(task => {
           const ageHours = calculateAgeHours(task.sentToReviewAt);
           const ageClass = getAgeClass(ageHours);
+          
           let timeStr = '-';
           if (task.sentToReviewAt) {
              const d = new Date(task.sentToReviewAt);
-             const yyyy = d.getFullYear();
-             const mm = (d.getMonth() + 1).toString().padStart(2, '0');
-             const dd = d.getDate().toString().padStart(2, '0');
-             const hh = d.getHours().toString().padStart(2, '0');
-             const mins = d.getMinutes().toString().padStart(2, '0');
-             timeStr = `${dd}/${mm}/${yyyy} ${hh}:${mins} น.`;
-          } else if (task.date) {
-             const parts = task.date.split('T')[0].split('-');
-             if (parts.length === 3) {
-                timeStr = `${parts[2]}/${parts[1]}/${parts[0]} ${task.time || ''}`.trim() + ' น.';
+             if (!isNaN(d.getTime())) {
+               const thMonths = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+               const day = d.getDate();
+               const month = thMonths[d.getMonth()];
+               const year = d.getFullYear();
+               const hh = d.getHours().toString().padStart(2, '0');
+               const mins = d.getMinutes().toString().padStart(2, '0');
+               timeStr = `ส่งเมื่อ ${day} ${month} ${year} · ${hh}:${mins}`;
              }
           }
           
@@ -1180,7 +1205,7 @@ html>body{padding:0}</style>
           if (currentTab === 'waiting' || currentTab === 'revision') {
             actionButtons = `
               <button class="btn action-revise" type="button" onclick="handleAction('${task.id}', 'มีปรับแก้')"><i data-lucide="undo-2" aria-hidden="true"></i> ส่งกลับแก้</button>
-              <button class="btn btn-primary action-approve" type="button" onclick="handleAction('${task.id}', 'Done')"><i data-lucide="check" aria-hidden="true"></i> อนุมัติ</button>
+              <button class="btn btn-primary action-approve" type="button" onclick="handleAction('${task.id}', 'อนุมัติแล้ว')"><i data-lucide="check" aria-hidden="true"></i> อนุมัติ</button>
             `;
           }
 
@@ -1188,9 +1213,7 @@ html>body{padding:0}</style>
           const priorityBadge = isUrgent ? `<span class="viz-badge" style="background:#ef4444;color:white;">ด่วน</span>` : '';
           
           let ageStr = getAgeString(task.sentToReviewAt);
-          
-          let roundStr = task.revisionRound > 1 ? `<span><i data-lucide="rotate-ccw" aria-hidden="true"></i> รอบรีวิว ${task.revisionRound}</span>` : '';
-
+          let roundStr = task.revisionRound > 0 ? `<span><i data-lucide="rotate-ccw" aria-hidden="true"></i> รอบที่ ${task.revisionRound}</span>` : '';
           const linkHtml = task.link ? `<a class="btn" href="${task.link}" target="_blank"><i data-lucide="external-link" aria-hidden="true"></i> เปิดไฟล์งาน</a>` : '';
 
           const cardHTML = `
@@ -1212,9 +1235,8 @@ html>body{padding:0}</style>
                 <div class="meta text-small">
                   ${task.brand ? `<span><i data-lucide="building-2" aria-hidden="true"></i> ${task.brand}</span>` : ''}
                   ${roundStr}
-                  <span><i data-lucide="clock-3" aria-hidden="true"></i> ส่งเมื่อ ${timeStr}</span>
+                  <span><i data-lucide="clock-3" aria-hidden="true"></i> ${timeStr}</span>
                 </div>
-                ${task.comment ? `<div class="task-comment text-small" style="margin-top: 12px; padding: 10px; background: color-mix(in srgb, var(--foreground) 4%, transparent); border-radius: 6px; border-left: 3px solid var(--primary); white-space: pre-wrap; color: var(--muted-foreground);"><strong style="color: var(--foreground); display: block; margin-bottom: 4px;"><i data-lucide="message-square-text" aria-hidden="true" style="width: 14px; height: 14px; display: inline-block; vertical-align: text-bottom; margin-right: 4px;"></i>รายละเอียด / คอมเมนต์:</strong>${task.comment}</div>` : ''}
                 <div class="item-bottom">
                   <span class="person"><span class="avatar">${task.owner.charAt(0)}</span> ${task.owner}</span>
                   <div class="actions">
