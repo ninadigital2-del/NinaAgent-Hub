@@ -1,6 +1,7 @@
 // ============================================================
 // Task Status Tracker — Google Apps Script (AD Review Queue)
 // Master Sheet (Columns Q, R, S, T) & Sync to Individual Sheets
+// With Double-Click / Duplicate Action Prevention
 // ============================================================
 
 const CONFIG = {
@@ -39,7 +40,7 @@ const CONFIG = {
   MASTER_COL_REVISION_ROUND: 19 // Col T (Revision Round)
 };
 
-const CACHE_KEY = "AD_REVIEW_QUEUE_TASKS_v12";
+const CACHE_KEY = "AD_REVIEW_QUEUE_TASKS_v13";
 
 // ============================================================
 // 1. Web App Endpoint (GET)
@@ -333,7 +334,7 @@ function getTasksData() {
 
 // ============================================================
 // 6. Update Task Status (จาก Dashboard หรือ API)
-// Updates Master Sheet (Col Q, R, S, T) & Syncs to Graphic's Personal Sheet (Col A)
+// With Double-Click Protection
 // ============================================================
 function updateTaskFromWeb(taskId, newStatus, commentText) {
   try {
@@ -365,6 +366,14 @@ function updateTaskFromWeb(taskId, newStatus, commentText) {
       const now = new Date();
       const currentReviewStatus = String(sheet.getRange(foundRow, 17).getValue() || '').trim();
       const currentRound = parseInt(sheet.getRange(foundRow, 20).getValue()) || 1;
+
+      let targetStatusStr = newStatus;
+      if (newStatus === "Done") targetStatusStr = "อนุมัติแล้ว";
+
+      // Double-Click Safeguard: If task is already at requested status, skip duplicate update
+      if (currentReviewStatus === targetStatusStr && newStatus !== "รอรีวิว") {
+        return JSON.stringify({ success: true, taskName: taskName, alreadyUpdated: true });
+      }
 
       if (newStatus === "มีปรับแก้") {
         sheet.getRange(foundRow, 17).setValue("มีปรับแก้");      // Col Q (Review Status)
@@ -506,7 +515,7 @@ function sendLineReviewAlert(taskName, owner, round, row, spreadsheetId) {
 
 // ============================================================
 // 8. LINE Webhook Handling
-// Updates Master Sheet (Col Q, S) & Syncs to Graphic's Personal Sheet (Col A)
+// With Double-Click Protection
 // ============================================================
 function handleLineWebhook(events) {
   events.forEach(event => {
@@ -561,6 +570,20 @@ function updateSheetStatusFromPostback(replyToken, row, sheetId, newStatus) {
     const ownerA = masterSheet.getRange(r, 1).getValue() || '';
     const ownerN = masterSheet.getRange(r, 14).getValue() || '';
     const jobId = masterSheet.getRange(r, 11).getValue() || `master_${r}`;
+    
+    // Check current status in Col Q (17) to prevent double clicks
+    const currentReviewStatus = String(masterSheet.getRange(r, 17).getValue() || '').trim();
+    
+    let targetReviewStatus = newStatus;
+    if (newStatus === "Done" || newStatus === "อนุมัติแล้ว") targetReviewStatus = "อนุมัติแล้ว";
+    if (newStatus === "มีปรับแก้") targetReviewStatus = "มีปรับแก้";
+
+    // Double-Click Safeguard: If task is already at requested status, send polite warning and skip re-triggering
+    if (currentReviewStatus === targetReviewStatus) {
+      replyText(replyToken, `⚠️ งาน "${taskName}" มีสถานะเป็น "${targetReviewStatus}" เรียบร้อยแล้วครับ ไม่จำเป็นต้องกดซ้ำ`);
+      return;
+    }
+
     const now = new Date();
 
     if (newStatus === "มีปรับแก้") {
@@ -709,7 +732,7 @@ function setupTrigger() {
       .everyDays(1)
       .create();
       
-    return ContentService.createTextOutput(`ตั้งค่า Trigger สำหรับ Master Sheet สำเร็จแล้ว! 🚀\n(1) ตั้งค่าระบบ Sync อัตโนมัติทุก 1 นาที (พร้อมระบบค้นหาบรรทัดงานแบบยืดหยุ่นในชีตส่วนตัว)\n(2) ผูก Master Sheet (onChange & onEdit)\n(3) แจ้งเตือนสรุปงาน 09:30 และ 17:00`);
+    return ContentService.createTextOutput(`ตั้งค่า Trigger สำหรับ Master Sheet สำเร็จแล้ว! 🚀\n(1) ตั้งค่าระบบ Sync อัตโนมัติทุก 1 นาที (ป้องกันการกดปุ่มซ้ำซ้อนทั้งใน LINE และ Web Dashboard)\n(2) ผูก Master Sheet (onChange & onEdit)\n(3) แจ้งเตือนสรุปงาน 09:30 และ 17:00`);
   } catch (err) {
     return ContentService.createTextOutput('Error: ' + err.message);
   }
