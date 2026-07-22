@@ -17,6 +17,9 @@ const CONFIG = {
     'โอม':    '1R4ieki0O1Kj-Hk6k-aUeGSLCAW94oDwHQqX9GdVhgeM',
   },
   
+  // Master Sheet สำหรับเก็บข้อมูลคิวงาน
+  MASTER_SHEET_ID: '144OB0gy5dJ8MOnc5Te0k1KpltrDoG4ocnxcS3t4MR4g',
+  
   // ตั้งค่า LINE
   LINE_CHANNEL_ACCESS_TOKEN: '0LdRnV4LLCmXBG8chf62N4WpIUHFkaEvJ/ljFjqbq6GbaqnLCVRqeiPZrhRJgsweUSvOM8TUbc9r500b+eviYoghG35l6qT+nxU+N6hqqODqCV7SEhCB/PRgMLJ1O0bB3ccg3dYy+XpNHX5RQdv0hwdB04t89/1O/w1cDnyilFU=',
   LINE_GROUP_ID: 'C73656d16402ca46690a9ef39b9382bfd',
@@ -189,6 +192,70 @@ function handleApiRequest() {
 }
 
 // ============================================================
+// 2.2 Helper for Centralized Review Database
+// ============================================================
+function getOrCreateReviewQueueSheet() {
+  const ss = SpreadsheetApp.openById(CONFIG.MASTER_SHEET_ID);
+  let sheet = ss.getSheetByName('AD_REVIEW_QUEUE');
+  if (!sheet) {
+    sheet = ss.insertSheet('AD_REVIEW_QUEUE');
+    sheet.appendRow(['uId', 'Job No', 'Task Name', 'Owner', 'Review Status', 'Sent To Review At', 'Reviewed At', 'Revision Round']);
+    sheet.getRange("A1:H1").setFontWeight("bold").setBackground("#f3f3f3");
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+function getReviewQueueData() {
+  const sheet = getOrCreateReviewQueueSheet();
+  const data = sheet.getDataRange().getValues();
+  const reviewMap = {};
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    const uId = String(row[0] || '').trim();
+    if (uId) {
+      reviewMap[uId] = {
+        reviewStatus: row[4] || '',
+        sentToReviewAt: row[5] || '',
+        reviewedAt: row[6] || '',
+        revisionRound: Number(row[7]) || 0,
+        rowIndex: i + 1
+      };
+    }
+  }
+  return reviewMap;
+}
+
+function updateReviewQueueData(uId, jobNo, taskName, owner, reviewStatus, sentToReviewAt, reviewedAt, revisionRound) {
+  const sheet = getOrCreateReviewQueueSheet();
+  const data = sheet.getDataRange().getValues();
+  let foundRow = -1;
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0] || '').trim() === uId) {
+      foundRow = i + 1;
+      break;
+    }
+  }
+  
+  if (foundRow > -1) {
+    const range = sheet.getRange(foundRow, 2, 1, 7); // B to H
+    const currentValues = range.getValues()[0];
+    const newValues = [
+      jobNo || currentValues[0],
+      taskName || currentValues[1],
+      owner || currentValues[2],
+      reviewStatus !== undefined ? reviewStatus : currentValues[3],
+      sentToReviewAt !== undefined ? sentToReviewAt : currentValues[4],
+      reviewedAt !== undefined ? reviewedAt : currentValues[5],
+      revisionRound !== undefined ? revisionRound : currentValues[6]
+    ];
+    range.setValues([newValues]);
+  } else {
+    sheet.appendRow([uId, jobNo || '', taskName || '', owner || '', reviewStatus || '', sentToReviewAt || '', reviewedAt || '', revisionRound || 0]);
+  }
+}
+
+// ============================================================
 // 3.1. API Data Fetching for google.script.run (ใช้สำหรับ Iframe)
 // ============================================================
 function getTasksData() {
@@ -201,6 +268,8 @@ function getTasksData() {
     }
 
     const tasks = [];
+    const reviewMap = getReviewQueueData();
+    
     for (const [ownerName, sheetId] of Object.entries(CONFIG.TEAM_SHEETS)) {
       try {
         const sheet = SpreadsheetApp.openById(sheetId).getSheets()[0];
@@ -212,9 +281,14 @@ function getTasksData() {
           const row = data[i];
           if (row[CONFIG.COL_TASK_NAME]) {
             const status = String(row[CONFIG.COL_STATUS] || '').trim();
-            const reviewStatus = String(row[CONFIG.COL_REVIEW_STATUS] || '').trim();
-            const reviewedAt = row[CONFIG.COL_REVIEWED_AT] || '';
-            const sentToReviewAt = row[CONFIG.COL_SENT_TO_REVIEW_AT] || '';
+            const uId = `${ownerName}_${i+1}`;
+            const reviewData = reviewMap[uId] || {};
+            
+            // Fallback to legacy columns if not found in new DB
+            let reviewStatus = reviewData.reviewStatus || String(row[CONFIG.COL_REVIEW_STATUS] || '').trim();
+            let reviewedAt = reviewData.reviewedAt || row[CONFIG.COL_REVIEWED_AT] || '';
+            let sentToReviewAt = reviewData.sentToReviewAt || row[CONFIG.COL_SENT_TO_REVIEW_AT] || '';
+            let revisionRound = reviewData.revisionRound || Number(row[CONFIG.COL_REVISION_ROUND]) || 1;
             
             // For legacy tasks
             const displayReviewStatus = reviewStatus || (status === "Sent to P'Aof" ? "รอรีวิว" : (status === "มีปรับแก้" ? "มีปรับแก้" : ""));
@@ -229,7 +303,7 @@ function getTasksData() {
             if (displayReviewStatus === "รอรีวิว" || displayReviewStatus === "มีปรับแก้" || (displayReviewStatus === "อนุมัติแล้ว" && isToday)) {
               tasks.push({
                 id: row[CONFIG.COL_TASK_ID] || '-',
-                uniqueId: `${ownerName}_${i+1}`,
+                uniqueId: uId,
                 name: row[CONFIG.COL_TASK_NAME],
                 owner: ownerName,
                 status: displayReviewStatus,
@@ -248,7 +322,7 @@ function getTasksData() {
                                    return '';
                                 })() : '')),
                 reviewedAt: (reviewedAt instanceof Date) ? reviewedAt.toISOString() : (reviewedAt || ''),
-                revisionRound: parseInt(row[CONFIG.COL_REVISION_ROUND]) || 1
+                revisionRound: revisionRound
               });
             }
           }
@@ -335,16 +409,11 @@ function updateTaskFromWeb(taskId, newStatus, commentText) {
           // อัปเดตสถานะ
           sheet.getRange(row, CONFIG.COL_STATUS + 1).setValue(newStatus);
           
-          // --- New Columns Logic ---
-          const reviewStatusCell = sheet.getRange(row, CONFIG.COL_REVIEW_STATUS + 1);
-          const reviewedAtCell = sheet.getRange(row, CONFIG.COL_REVIEWED_AT + 1);
-          
+          // --- New Columns Logic (Centralized DB) ---
           if (newStatus === "มีปรับแก้") {
-            reviewStatusCell.setValue("มีปรับแก้");
-            reviewedAtCell.setValue(new Date());
+            updateReviewQueueData(uId, taskIdVal, taskName, owner, "มีปรับแก้", undefined, new Date(), undefined);
           } else if (newStatus === "Done") {
-            reviewStatusCell.setValue("อนุมัติแล้ว");
-            reviewedAtCell.setValue(new Date());
+            updateReviewQueueData(uId, taskIdVal, taskName, owner, "อนุมัติแล้ว", undefined, new Date(), undefined);
           }
           
           if (commentText) {
@@ -712,22 +781,26 @@ function onTaskStatusChange(e) {
     
     const now = new Date();
     
-    // --- New Columns Logic ---
-    const reviewStatusCell = sheet.getRange(row, CONFIG.COL_REVIEW_STATUS + 1);
-    const sentToReviewAtCell = sheet.getRange(row, CONFIG.COL_SENT_TO_REVIEW_AT + 1);
-    const reviewedAtCell = sheet.getRange(row, CONFIG.COL_REVIEWED_AT + 1);
-    const revisionRoundCell = sheet.getRange(row, CONFIG.COL_REVISION_ROUND + 1);
-
-    const currentReviewStatus = String(reviewStatusCell.getValue() || '').trim();
+    // ดึงชื่องานมาแสดง
+    const taskName = sheet.getRange(row, CONFIG.COL_TASK_NAME + 1).getValue() || 'ไม่ระบุชื่อ';
+    
+    // --- New Columns Logic (Centralized DB) ---
+    const uId = `${owner}_${row}`;
+    const jobNo = String(sheet.getRange(row, CONFIG.COL_TASK_ID + 1).getValue() || '').trim();
+    
+    const reviewMap = getReviewQueueData();
+    const reviewData = reviewMap[uId] || {};
+    
+    // fallback to legacy column if not in DB yet
+    let currentReviewStatus = reviewData.reviewStatus || String(sheet.getRange(row, CONFIG.COL_REVIEW_STATUS + 1).getValue() || '').trim();
+    let currentRound = reviewData.revisionRound || parseInt(sheet.getRange(row, CONFIG.COL_REVISION_ROUND + 1).getValue()) || 0;
     
     // Update fields every time it is changed to Sent to P'Aof
     if (currentReviewStatus !== "รอรีวิว") {
-      let currentRound = parseInt(revisionRoundCell.getValue()) || 0;
-      revisionRoundCell.setValue(currentRound + 1);
+      currentRound += 1;
     }
-    reviewStatusCell.setValue("รอรีวิว");
-    sentToReviewAtCell.setValue(now);
-    reviewedAtCell.setValue(""); // clear
+    
+    updateReviewQueueData(uId, jobNo, taskName, owner, "รอรีวิว", now, "", currentRound);
     
     // Comment updating is removed as per user request
     
@@ -743,9 +816,6 @@ function onTaskStatusChange(e) {
     
     // เคลียร์ Cache เพื่อให้หน้าเว็บดึงข้อมูลสดทันที
     CacheService.getScriptCache().remove(CACHE_KEY);
-    
-    // ดึงชื่องานมาแสดง
-    const taskName = sheet.getRange(row, CONFIG.COL_TASK_NAME + 1).getValue() || 'ไม่ระบุชื่อ';
     
     // ตั้งค่าสีและข้อความของ Header ตามสถานะ
     let headerText = "🚨 งานรอตรวจ";
