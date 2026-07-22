@@ -36,6 +36,11 @@ const CONFIG = {
   COL_SENT_TO_REVIEW_AT: 16, // คอลัมน์ Q (เวลาที่ส่งรีวิวล่าสุด)
   COL_REVIEWED_AT: 17,       // คอลัมน์ R (เวลาที่ AD ตรวจ)
   COL_REVISION_ROUND: 18,    // คอลัมน์ S (จำนวนรอบการปรับแก้)
+  
+  // ตำแหน่งคอลัมน์ใน GEM_Graphic_Master (RAW DATA)
+  MASTER_COL_JOB_NO: 10,     // คอลัมน์ K (Job No.)
+  MASTER_COL_TASK_NAME: 12,  // คอลัมน์ M (ชื่องาน)
+  MASTER_COL_OWNER: 13,      // คอลัมน์ N (เจ้าของงาน)
 };
 
 // ============================================================
@@ -205,11 +210,11 @@ function getMasterLogData() {
   
   const data = sheet.getDataRange().getValues();
   const logMap = {};
-  for (let i = 1; i < data.length; i++) {
+  for (let i = 4; i < data.length; i++) {
     const row = data[i];
-    const jobNo = String(row[CONFIG.COL_TASK_ID] || '').trim();
-    const taskName = String(row[CONFIG.COL_TASK_NAME] || '').trim();
-    const owner = String(row[CONFIG.COL_OWNER] || '').trim();
+    const jobNo = String(row[CONFIG.MASTER_COL_JOB_NO] || '').trim();
+    const taskName = String(row[CONFIG.MASTER_COL_TASK_NAME] || '').trim();
+    const owner = String(row[CONFIG.MASTER_COL_OWNER] || '').trim();
     
     // Create compound keys for safe lookup
     const logs = String(row[16] || '');
@@ -254,10 +259,10 @@ function updateMasterSheetLog(jobNo, taskName, ownerName, action, commentText) {
     const sheet = getMasterRawDataSheet();
     if (!sheet) return;
     
-    // Ensure Headers for Q, R, S
-    const headerQ = sheet.getRange(1, 17);
-    const headerR = sheet.getRange(1, 18);
-    const headerS = sheet.getRange(1, 19);
+    // Ensure Headers for Q, R, S at Row 4
+    const headerQ = sheet.getRange(4, 17);
+    const headerR = sheet.getRange(4, 18);
+    const headerS = sheet.getRange(4, 19);
     if (!headerQ.getValue()) headerQ.setValue("Timestamp / Log");
     if (!headerR.getValue()) headerR.setValue("Sent to P'Aof");
     if (!headerS.getValue()) headerS.setValue("มีปรับแก้");
@@ -265,14 +270,14 @@ function updateMasterSheetLog(jobNo, taskName, ownerName, action, commentText) {
     const data = sheet.getDataRange().getValues();
     let foundRow = -1;
     
-    for (let i = 1; i < data.length; i++) {
-      const rowJobNo = String(data[i][CONFIG.COL_TASK_ID] || '').trim();
-      const rowTaskName = String(data[i][CONFIG.COL_TASK_NAME] || '').trim();
-      const rowOwner = String(data[i][CONFIG.COL_OWNER] || '').trim();
+    for (let i = 4; i < data.length; i++) {
+      const rowJobNo = String(data[i][CONFIG.MASTER_COL_JOB_NO] || '').trim();
+      const rowTaskName = String(data[i][CONFIG.MASTER_COL_TASK_NAME] || '').trim();
+      const rowOwner = String(data[i][CONFIG.MASTER_COL_OWNER] || '').trim();
       
       if (jobNo && rowJobNo === jobNo) {
          foundRow = i + 1; break;
-      } else if (taskName && rowTaskName === taskName && rowOwner === ownerName) {
+      } else if (taskName && rowTaskName === taskName && (rowOwner === ownerName || rowOwner.includes(ownerName))) {
          foundRow = i + 1; break;
       }
     }
@@ -281,7 +286,7 @@ function updateMasterSheetLog(jobNo, taskName, ownerName, action, commentText) {
       const nowStr = Utilities.formatDate(new Date(), "Asia/Bangkok", "dd/MM/yyyy HH:mm:ss");
       const timestampLog = `[${nowStr}] ${commentText || `เปลี่ยนสถานะเป็น "${action}"`}`;
       
-      // Column Q (Index 16)
+      // Column Q (Index 16 -> Col 17)
       const logCell = sheet.getRange(foundRow, 17);
       const currentLog = String(logCell.getValue() || '').trim();
       const combinedLog = currentLog ? `${timestampLog}\n${currentLog}` : timestampLog;
