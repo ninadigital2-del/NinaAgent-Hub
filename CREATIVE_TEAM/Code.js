@@ -1,7 +1,7 @@
 // ============================================================
 // Task Status Tracker — Google Apps Script (AD Review Queue)
 // Master Sheet (Columns Q, R, S, T) & Sync to Individual Sheets
-// With 2-Minute IMPORTRANGE Propagation Buffer & Smart Row Matching
+// Strict Review Lock: Once reviewed (มีปรับแก้ / อนุมัติแล้ว), block further clicks until new revision
 // ============================================================
 
 const CONFIG = {
@@ -40,7 +40,7 @@ const CONFIG = {
   MASTER_COL_REVISION_ROUND: 19 // Col T (Revision Round)
 };
 
-const CACHE_KEY = "AD_REVIEW_QUEUE_TASKS_v17";
+const CACHE_KEY = "AD_REVIEW_QUEUE_TASKS_v18";
 
 // ============================================================
 // 1. Web App Endpoint (GET)
@@ -193,7 +193,6 @@ function syncMasterQueueStatus() {
           // Safeguard: If AD reviewed this task less than 2 minutes ago,
           // wait for IMPORTRANGE formula to catch up from Graphic's personal sheet
           if (currentReviewedAt && (now.getTime() - currentReviewedAt.getTime()) < 2 * 60 * 1000) {
-            console.log(`Skipping false re-trigger for row ${rowNum} because AD reviewed it ${Math.round((now.getTime() - currentReviewedAt.getTime())/1000)}s ago (waiting for IMPORTRANGE sync)`);
             continue;
           }
 
@@ -335,7 +334,7 @@ function getTasksData() {
 
 // ============================================================
 // 6. Update Task Status (จาก Dashboard หรือ API)
-// Updates Master Sheet (Col Q, R, S, T) & Syncs to Graphic's Personal Sheet (Col A)
+// Strict Lock: Once reviewed (มีปรับแก้ / อนุมัติแล้ว), block further changes
 // ============================================================
 function updateTaskFromWeb(taskId, newStatus, commentText) {
   try {
@@ -368,12 +367,14 @@ function updateTaskFromWeb(taskId, newStatus, commentText) {
       const currentReviewStatus = String(sheet.getRange(foundRow, 17).getValue() || '').trim();
       const currentRound = parseInt(sheet.getRange(foundRow, 20).getValue()) || 1;
 
-      let targetStatusStr = newStatus;
-      if (newStatus === "Done") targetStatusStr = "อนุมัติแล้ว";
-
-      // Double-Click Safeguard
-      if (currentReviewStatus === targetStatusStr && newStatus !== "รอรีวิว") {
-        return JSON.stringify({ success: true, taskName: taskName, alreadyUpdated: true });
+      // Strict Lock: If task is ALREADY reviewed (มีปรับแก้ or อนุมัติแล้ว), block further updates from old cards
+      if ((currentReviewStatus === "มีปรับแก้" || currentReviewStatus === "อนุมัติแล้ว") && newStatus !== "รอรีวิว") {
+        return JSON.stringify({ 
+          success: true, 
+          taskName: taskName, 
+          alreadyUpdated: true, 
+          message: `ได้รับการตรวจรีวิวแล้ว (สถานะปัจจุบัน: "${currentReviewStatus}")` 
+        });
       }
 
       if (newStatus === "มีปรับแก้") {
@@ -535,6 +536,7 @@ function sendLineReviewAlert(taskName, owner, round, row, spreadsheetId) {
 
 // ============================================================
 // 8. LINE Webhook Handling
+// Strict Lock: Once reviewed, block ANY button press on old cards
 // ============================================================
 function handleLineWebhook(events) {
   events.forEach(event => {
@@ -590,16 +592,13 @@ function updateSheetStatusFromPostback(replyToken, row, sheetId, newStatus) {
     const ownerN = masterSheet.getRange(r, 14).getValue() || '';
     const jobId = masterSheet.getRange(r, 11).getValue() || `master_${r}`;
     
-    // Check current status in Col Q (17) to prevent double clicks
+    // Check current status in Col Q (17)
     const currentReviewStatus = String(masterSheet.getRange(r, 17).getValue() || '').trim();
-    
-    let targetReviewStatus = newStatus;
-    if (newStatus === "Done" || newStatus === "อนุมัติแล้ว") targetReviewStatus = "อนุมัติแล้ว";
-    if (newStatus === "มีปรับแก้") targetReviewStatus = "มีปรับแก้";
 
-    // Double-Click Safeguard
-    if (currentReviewStatus === targetReviewStatus) {
-      replyText(replyToken, `⚠️ งาน "${taskName}" มีสถานะเป็น "${targetReviewStatus}" เรียบร้อยแล้วครับ ไม่จำเป็นต้องกดซ้ำ`);
+    // Strict Lock: Once a task has been reviewed ("มีปรับแก้" or "อนุมัติแล้ว"), 
+    // block ALL buttons on old cards until Graphic sends a new revision ("รอรีวิว")
+    if (currentReviewStatus === "มีปรับแก้" || currentReviewStatus === "อนุมัติแล้ว") {
+      replyText(replyToken, `⚠️ งาน "${taskName}" ได้รับการตรวจรีวิวแล้ว (สถานะปัจจุบัน: "${currentReviewStatus}")\nกรุณารอทีม Graphic สลับสถานะส่งงานรอบใหม่ก่อนครับ`);
       return;
     }
 
@@ -751,7 +750,7 @@ function setupTrigger() {
       .everyDays(1)
       .create();
       
-    return ContentService.createTextOutput(`ตั้งค่า Trigger สำหรับ Master Sheet สำเร็จแล้ว! 🚀\n(1) ตั้งค่าระบบ Sync อัตโนมัติทุก 1 นาที (พร้อมบัฟเฟอร์ 2 นาทีป้องกัน IMPORTRANGE ล่าช้า)\n(2) ผูก Master Sheet (onChange & onEdit)\n(3) แจ้งเตือนสรุปงาน 09:30 และ 17:00`);
+    return ContentService.createTextOutput(`ตั้งค่า Trigger สำหรับ Master Sheet สำเร็จแล้ว! 🚀\n(1) ตั้งค่าระบบ Sync อัตโนมัติทุก 1 นาที (พร้อมระบบ Strict Lock ป้องกันการกดเปลี่ยนสถานะซ้ำซ้อนบนการ์ดเดิม)\n(2) ผูก Master Sheet (onChange & onEdit)\n(3) แจ้งเตือนสรุปงาน 09:30 และ 17:00`);
   } catch (err) {
     return ContentService.createTextOutput('Error: ' + err.message);
   }
