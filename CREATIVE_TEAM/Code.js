@@ -1,7 +1,7 @@
 // ============================================================
 // Task Status Tracker — Google Apps Script (AD Review Queue)
 // Master Sheet (Columns Q, R, S, T) & Sync to Individual Sheets
-// With Instant IMPORTRANGE Sync & LINE Notifications
+// With Bottom-Up Active Row Matching & Double-Click Safeguards
 // ============================================================
 
 const CONFIG = {
@@ -40,7 +40,7 @@ const CONFIG = {
   MASTER_COL_REVISION_ROUND: 19 // Col T (Revision Round)
 };
 
-const CACHE_KEY = "AD_REVIEW_QUEUE_TASKS_v15";
+const CACHE_KEY = "AD_REVIEW_QUEUE_TASKS_v16";
 
 // ============================================================
 // 1. Web App Endpoint (GET)
@@ -400,7 +400,7 @@ function updateTaskFromWeb(taskId, newStatus, commentText) {
 
 // ============================================================
 // Sync Status back to Graphic Designer's Personal Sheet
-// Robust row matching by searching targetTaskName across all cells in row
+// Intelligent Bottom-Up Search prioritizing active 'Sent to P'Aof' rows
 // ============================================================
 function findTeamSheetId(ownerA, ownerN) {
   const strA = String(ownerA || '').trim();
@@ -436,16 +436,35 @@ function syncToIndividualSheet(taskId, taskName, ownerA, ownerN, newStatus) {
     if (newStatus === "อนุมัติแล้ว" || newStatus === "Done") graphicStatusValue = "Done";
     if (newStatus === "รอรีวิว" || newStatus === "Sent to P'Aof") graphicStatusValue = "Sent to P'Aof";
 
-    for (let i = 1; i < data.length; i++) {
+    let bestMatchRow = -1;
+
+    // Search from bottom to top (most recent task rows first)
+    for (let i = data.length - 1; i >= 1; i--) {
       const rowNum = i + 1;
-      const rowText = data[i].join(' '); // Search full row text
+      const currentColA = String(data[i][0] || '').trim();
+      const rowText = data[i].join(' ');
       const jobNo = String(data[i][9] || '').trim();
       
-      if ((jobNo !== '' && targetIdStr === jobNo) || (targetTaskNameStr !== '' && rowText.indexOf(targetTaskNameStr) !== -1)) {
-        sheet.getRange(rowNum, 1).setValue(graphicStatusValue); // Col A in Graphic's sheet
-        console.log("Successfully updated individual sheet (" + sheetId + ") row " + rowNum + " (Col A) to " + graphicStatusValue);
-        break;
+      const isNameMatch = (jobNo !== '' && targetIdStr === jobNo) || 
+                          (targetTaskNameStr !== '' && rowText.indexOf(targetTaskNameStr) !== -1);
+                          
+      if (isNameMatch) {
+        const normColA = currentColA.toLowerCase().replace(/’/g, "'");
+        // Prioritize active row currently at "Sent to P'Aof" or "รอรีวิว" or "มีปรับแก้"
+        if (normColA === "sent to p'aof" || normColA === "รอรีวิว" || normColA === "มีปรับแก้") {
+          bestMatchRow = rowNum;
+          break; // Found the active pending row!
+        } else if (bestMatchRow === -1) {
+          bestMatchRow = rowNum; // Backup match
+        }
       }
+    }
+
+    if (bestMatchRow > -1) {
+      sheet.getRange(bestMatchRow, 1).setValue(graphicStatusValue); // Col A in Graphic's sheet
+      console.log("Successfully updated individual sheet (" + sheetId + ") row " + bestMatchRow + " (Col A) to " + graphicStatusValue);
+    } else {
+      console.error("syncToIndividualSheet: No matching row found in sheet " + sheetId + " for task: " + taskName);
     }
   } catch (e) {
     console.error("syncToIndividualSheet error: " + e.message);
@@ -724,7 +743,7 @@ function setupTrigger() {
       .everyDays(1)
       .create();
       
-    return ContentService.createTextOutput(`ตั้งค่า Trigger สำหรับ Master Sheet สำเร็จแล้ว! 🚀\n(1) ตั้งค่าระบบ Sync อัตโนมัติทุก 1 นาที\n(2) ผูก Master Sheet (onChange & onEdit)\n(3) แจ้งเตือนสรุปงาน 09:30 และ 17:00`);
+    return ContentService.createTextOutput(`ตั้งค่า Trigger สำหรับ Master Sheet สำเร็จแล้ว! 🚀\n(1) ตั้งค่าระบบ Sync อัตโนมัติทุก 1 นาที (พร้อมระบบ Smart Row-Matching ค้นหาจากล่างขึ้นบน)\n(2) ผูก Master Sheet (onChange & onEdit)\n(3) แจ้งเตือนสรุปงาน 09:30 และ 17:00`);
   } catch (err) {
     return ContentService.createTextOutput('Error: ' + err.message);
   }
