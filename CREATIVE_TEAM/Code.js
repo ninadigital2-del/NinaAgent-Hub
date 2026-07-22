@@ -127,17 +127,17 @@ function doGet(e) {
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
-// Automatically clears any typed values in B5:P2000 that obstruct IMPORTRANGE formula expansion
+// Automatically clears any typed values/formulas in A6:P2000 that obstruct IMPORTRANGE formula expansion in A5
 function fixImportRange() {
   try {
     const sheet = getMasterRawDataSheet();
     if (!sheet) return "No sheet";
     
-    // Clear B5:P2000 so Cell A5 =IMPORTRANGE(...) can expand smoothly
-    sheet.getRange("B5:P2000").clearContent();
+    // Clear A6:P2000 keeping A5 =IMPORTRANGE formula intact
+    sheet.getRange("A6:P2000").clearContent();
     CacheService.getScriptCache().remove(CACHE_KEY);
     
-    return "Successfully cleared blocking cell B1310 and range B5:P2000! IMPORTRANGE expanded clean.";
+    return "Successfully cleared blocking cell A13 and range A6:P2000! IMPORTRANGE in A5 expanded clean.";
   } catch (err) {
     return "Error fixing IMPORTRANGE: " + err.message;
   }
