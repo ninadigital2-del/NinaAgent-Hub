@@ -598,44 +598,50 @@ function replyReviewResultFlex(replyToken, taskName, workerName, brand, isApprov
   const headerText = isApproved ? "✅ Approved" : "🔄 ส่งกลับแก้ไข";
   const headerColor = isApproved ? "#22A06B" : "#378ADD";
 
+  const bodyContents = [
+    {
+      type: "text",
+      text: headerText,
+      weight: "bold",
+      size: "md",
+      color: headerColor
+    },
+    {
+      type: "separator"
+    },
+    {
+      type: "text",
+      text: "📌 " + taskName,
+      weight: "bold",
+      size: "sm",
+      wrap: true
+    },
+    {
+      type: "text",
+      text: "👤 " + workerName + (brand ? "  |  🏷️ " + brand : ""),
+      size: "xs",
+      color: "#555555",
+      wrap: true
+    }
+  ];
+
+  // ONLY include duration line when task is approved
+  if (isApproved && durationStr) {
+    bodyContents.push({
+      type: "text",
+      text: "⏱️ " + durationStr,
+      size: "xs",
+      color: "#777777"
+    });
+  }
+
   const contents = {
     type: "bubble",
     body: {
       type: "box",
       layout: "vertical",
       spacing: "md",
-      contents: [
-        {
-          type: "text",
-          text: headerText,
-          weight: "bold",
-          size: "md",
-          color: headerColor
-        },
-        {
-          type: "separator"
-        },
-        {
-          type: "text",
-          text: "📌 " + taskName,
-          weight: "bold",
-          size: "sm",
-          wrap: true
-        },
-        {
-          type: "text",
-          text: "👤 " + workerName + (brand ? "  |  🏷️ " + brand : ""),
-          size: "xs",
-          color: "#555555",
-          wrap: true
-        },
-        {
-          type: "text",
-          text: "⏱️ " + durationStr,
-          size: "xs",
-          color: "#777777"
-        }
-      ]
+      contents: bodyContents
     }
   };
   
