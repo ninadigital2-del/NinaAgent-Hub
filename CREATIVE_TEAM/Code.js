@@ -28,7 +28,7 @@ const CONFIG = {
   MASTER_COL_REVISION_ROUND: 19 // Col T (Revision Round)
 };
 
-const CACHE_KEY = "AD_REVIEW_QUEUE_TASKS_v7";
+const CACHE_KEY = "AD_REVIEW_QUEUE_TASKS_v8";
 
 // ============================================================
 // 1. Web App Endpoint (GET)
@@ -43,7 +43,7 @@ function doGet(e) {
   
   if (action === 'syncNow') {
     syncMasterQueueStatus();
-    return ContentService.createTextOutput("Synced successfully! GEM_Graphic_Master status checked, updated, and LINE alerts sent.");
+    return ContentService.createTextOutput("Synced successfully! GEM_Graphic_Master status checked, updated with Date & Time formatting, and LINE alerts sent.");
   }
   
   if (action === 'testPush') {
@@ -117,6 +117,32 @@ function ensureMasterHeaders() {
   if (hR.getValue() !== "Sent to Review At") hR.setValue("Sent to Review At");
   if (hS.getValue() !== "Reviewed At") hS.setValue("Reviewed At");
   if (hT.getValue() !== "Revision Round") hT.setValue("Revision Round");
+
+  // Format Col R & S to show Date & Time in Master Sheet (e.g. 22/07/2026 14:30:00)
+  sheet.getRange("R5:S2000").setNumberFormat("dd/mm/yyyy hh:mm:ss");
+}
+
+function parseDateValue(val) {
+  if (!val) return null;
+  if (val instanceof Date) return val;
+  const str = String(val).trim();
+  if (!str) return null;
+
+  const parsed = new Date(str);
+  if (!isNaN(parsed.getTime())) return parsed;
+
+  const m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?$/);
+  if (m) {
+    const day = m[1].padStart(2, '0');
+    const month = m[2].padStart(2, '0');
+    const year = m[3];
+    const hh = m[4] ? m[4].padStart(2, '0') : '00';
+    const mm = m[5] ? m[5].padStart(2, '0') : '00';
+    const ss = m[6] ? m[6].padStart(2, '0') : '00';
+    const d = new Date(`${year}-${month}-${day}T${hh}:${mm}:${ss}+07:00`);
+    if (!isNaN(d.getTime())) return d;
+  }
+  return null;
 }
 
 // ============================================================
@@ -157,26 +183,26 @@ function syncMasterQueueStatus() {
           }
           
           sheet.getRange(rowNum, 17).setValue("รอรีวิว"); // Col Q
-          sheet.getRange(rowNum, 18).setValue(now);        // Col R (Sent to Review At)
+          sheet.getRange(rowNum, 18).setNumberFormat("dd/mm/yyyy hh:mm:ss").setValue(now); // Col R (Sent to Review At)
           sheet.getRange(rowNum, 19).setValue("");         // Col S (Reviewed At cleared)
           sheet.getRange(rowNum, 20).setValue(newRound);   // Col T (Revision Round)
           
           sendLineReviewAlert(taskName, owner, newRound, rowNum, CONFIG.MASTER_SHEET_ID);
           hasChanges = true;
         } else if (!currentSentAt) {
-          sheet.getRange(rowNum, 18).setValue(now);
+          sheet.getRange(rowNum, 18).setNumberFormat("dd/mm/yyyy hh:mm:ss").setValue(now);
           hasChanges = true;
         }
       } else if (normVal === "มีปรับแก้") {
         if (currentReviewStatus !== "มีปรับแก้") {
           sheet.getRange(rowNum, 17).setValue("มีปรับแก้"); // Col Q
-          sheet.getRange(rowNum, 19).setValue(now);        // Col S
+          sheet.getRange(rowNum, 19).setNumberFormat("dd/mm/yyyy hh:mm:ss").setValue(now); // Col S
           hasChanges = true;
         }
       } else if (normVal === "done" || normVal === "ok" || normVal === "อนุมัติแล้ว") {
         if (currentReviewStatus !== "อนุมัติแล้ว") {
           sheet.getRange(rowNum, 17).setValue("อนุมัติแล้ว"); // Col Q
-          sheet.getRange(rowNum, 19).setValue(now);         // Col S
+          sheet.getRange(rowNum, 19).setNumberFormat("dd/mm/yyyy hh:mm:ss").setValue(now); // Col S
           hasChanges = true;
         }
       }
@@ -248,25 +274,18 @@ function getTasksData() {
       }
 
       let sentToReviewAt = "";
-      if (sentToReviewAtRaw instanceof Date) {
-        sentToReviewAt = sentToReviewAtRaw.toISOString();
-      } else if (sentToReviewAtRaw) {
-        sentToReviewAt = String(sentToReviewAtRaw).trim();
+      const parsedSent = parseDateValue(sentToReviewAtRaw);
+      if (parsedSent) {
+        sentToReviewAt = parsedSent.toISOString();
       }
 
       let reviewedAt = "";
       let isToday = false;
-      if (reviewedAtRaw instanceof Date) {
-        reviewedAt = reviewedAtRaw.toISOString();
-        const revStr = Utilities.formatDate(reviewedAtRaw, "Asia/Bangkok", "yyyy-MM-dd");
+      const parsedRev = parseDateValue(reviewedAtRaw);
+      if (parsedRev) {
+        reviewedAt = parsedRev.toISOString();
+        const revStr = Utilities.formatDate(parsedRev, "Asia/Bangkok", "yyyy-MM-dd");
         isToday = (todayStr === revStr);
-      } else if (reviewedAtRaw) {
-        reviewedAt = String(reviewedAtRaw).trim();
-        const parsed = new Date(reviewedAt);
-        if (!isNaN(parsed.getTime())) {
-          const revStr = Utilities.formatDate(parsed, "Asia/Bangkok", "yyyy-MM-dd");
-          isToday = (todayStr === revStr);
-        }
       }
 
       // Filter: Show "รอรีวิว", "มีปรับแก้", or "อนุมัติแล้ว" of today
@@ -331,15 +350,15 @@ function updateTaskFromWeb(taskId, newStatus, commentText) {
       if (newStatus === "มีปรับแก้") {
         sheet.getRange(foundRow, 2).setValue("มีปรับแก้");       // Col B
         sheet.getRange(foundRow, 17).setValue("มีปรับแก้");      // Col Q
-        sheet.getRange(foundRow, 19).setValue(now);              // Col S (Reviewed At)
+        sheet.getRange(foundRow, 19).setNumberFormat("dd/mm/yyyy hh:mm:ss").setValue(now); // Col S (Reviewed At)
       } else if (newStatus === "อนุมัติแล้ว" || newStatus === "Done") {
         sheet.getRange(foundRow, 2).setValue("Done");            // Col B
         sheet.getRange(foundRow, 17).setValue("อนุมัติแล้ว");    // Col Q
-        sheet.getRange(foundRow, 19).setValue(now);              // Col S (Reviewed At)
+        sheet.getRange(foundRow, 19).setNumberFormat("dd/mm/yyyy hh:mm:ss").setValue(now); // Col S (Reviewed At)
       } else if (newStatus === "รอรีวิว" || newStatus === "Sent to P'Aof") {
         sheet.getRange(foundRow, 2).setValue("Sent to P'Aof");   // Col B
         sheet.getRange(foundRow, 17).setValue("รอรีวิว");        // Col Q
-        sheet.getRange(foundRow, 18).setValue(now);              // Col R (Sent to Review At)
+        sheet.getRange(foundRow, 18).setNumberFormat("dd/mm/yyyy hh:mm:ss").setValue(now); // Col R (Sent to Review At)
         sheet.getRange(foundRow, 19).setValue("");               // Col S (Reviewed At cleared)
         if (currentReviewStatus !== "รอรีวิว") {
           sheet.getRange(foundRow, 20).setValue(currentRound + 1); // Col T (Revision Round) + 1
@@ -470,11 +489,11 @@ function updateSheetStatusFromPostback(replyToken, row, sheetId, newStatus) {
     if (newStatus === "มีปรับแก้") {
       masterSheet.getRange(r, 2).setValue("มีปรับแก้");
       masterSheet.getRange(r, 17).setValue("มีปรับแก้");
-      masterSheet.getRange(r, 19).setValue(now);
+      masterSheet.getRange(r, 19).setNumberFormat("dd/mm/yyyy hh:mm:ss").setValue(now);
     } else if (newStatus === "Done" || newStatus === "อนุมัติแล้ว") {
       masterSheet.getRange(r, 2).setValue("Done");
       masterSheet.getRange(r, 17).setValue("อนุมัติแล้ว");
-      masterSheet.getRange(r, 19).setValue(now);
+      masterSheet.getRange(r, 19).setNumberFormat("dd/mm/yyyy hh:mm:ss").setValue(now);
     }
 
     CacheService.getScriptCache().remove(CACHE_KEY);
@@ -612,7 +631,7 @@ function setupTrigger() {
       .everyDays(1)
       .create();
       
-    return ContentService.createTextOutput(`ตั้งค่า Trigger สำหรับ Master Sheet สำเร็จแล้ว! 🚀\n(1) ตั้งค่าระบบ Sync อัตโนมัติทุก 1 นาที (รองรับ IMPORTRANGE)\n(2) ผูก Master Sheet (onChange & onEdit)\n(3) แจ้งเตือนสรุปงาน 09:30 และ 17:00`);
+    return ContentService.createTextOutput(`ตั้งค่า Trigger สำหรับ Master Sheet สำเร็จแล้ว! 🚀\n(1) ตั้งค่าระบบ Sync อัตโนมัติทุก 1 นาที (ฟอร์แมต วัน/เดือน/ปี ชั่วโมง:นาที:วินาที)\n(2) ผูก Master Sheet (onChange & onEdit)\n(3) แจ้งเตือนสรุปงาน 09:30 และ 17:00`);
   } catch (err) {
     return ContentService.createTextOutput('Error: ' + err.message);
   }
