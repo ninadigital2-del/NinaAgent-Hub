@@ -1,7 +1,7 @@
 // ============================================================
 // Task Status Tracker — Google Apps Script (AD Review Queue)
 // Master Sheet (Columns Q, R, S, T) & Sync to Individual Sheets
-// With Auto-Fix for 📌 FORMULA Sheet Reference Errors
+// Never Skip Active Tasks (Sent to P'Aof / มีปรับแก้) Regardless of Date
 // ============================================================
 
 const CONFIG = {
@@ -40,7 +40,7 @@ const CONFIG = {
   MASTER_COL_REVISION_ROUND: 19 // Col T (Revision Round)
 };
 
-const CACHE_KEY = "AD_REVIEW_QUEUE_TASKS_v29";
+const CACHE_KEY = "AD_REVIEW_QUEUE_TASKS_v30";
 
 // Helper to parse date string like "22Jul26" or "22/07/2026" into "yyyy-MM-dd"
 function parseTaskDateString(dateVal) {
@@ -160,7 +160,6 @@ function fixFormulaSheet() {
 
     const filterFormulaText = `=FILTER('📥 RAW DATA'!A5:O, '📥 RAW DATA'!A5:A="จ๊ะเอ๋")`;
 
-    // Prefix with single quote so Google Sheets renders them as copyable text templates
     formulaSheet.getRange("A11").setValue("'" + importrangeFormulaText);
     formulaSheet.getRange("A16").setValue("'" + filterFormulaText);
 
@@ -176,14 +175,12 @@ function fixImportRange() {
     const ss = SpreadsheetApp.openById(CONFIG.MASTER_SHEET_ID);
     let msg = "";
 
-    // 1) Fix "📥 RAW DATA" sheet
     const rawSheet = ss.getSheetByName('📥 RAW DATA') || ss.getSheetByName('RAW DATA');
     if (rawSheet) {
       rawSheet.getRange("A6:P2000").clearContent();
       msg += "[📥 RAW DATA] Cleared A6:P2000 successfully. ";
     }
 
-    // 2) Fix "📌 VIEW" sheet (and any tab containing VIEW)
     const sheets = ss.getSheets();
     for (let i = 0; i < sheets.length; i++) {
       const sName = sheets[i].getName();
@@ -200,7 +197,7 @@ function fixImportRange() {
   }
 }
 
-// Function to clear retroactive past data in Columns Q, R, S, T for rows before today
+// Function to clear retroactive past data in Columns Q, R, S, T for inactive rows before today
 function clearPastData() {
   try {
     const sheet = getMasterRawDataSheet();
@@ -216,8 +213,14 @@ function clearPastData() {
       const rowNum = i + 1;
       const dateVal = data[i][5]; // Col F (วันที่ส่งงาน)
       const taskDateStr = parseTaskDateString(dateVal);
+      const graphicStatus = String(data[i][CONFIG.MASTER_COL_STATUS] || '').trim();
+      const normVal = graphicStatus.toLowerCase().replace(/’/g, "'");
+      const currentReviewStatus = String(data[i][CONFIG.MASTER_COL_REVIEW_STATUS] || '').trim();
 
-      if (taskDateStr && taskDateStr < todayStr) {
+      const isActiveTask = (normVal === "sent to p'aof" || normVal === "มีปรับแก้" || currentReviewStatus === "รอรีวิว" || currentReviewStatus === "มีปรับแก้");
+
+      // If past task and NOT active, clear Col Q, R, S, T
+      if (taskDateStr && taskDateStr < todayStr && !isActiveTask) {
         const currentQ = data[i][16];
         const currentR = data[i][17];
         const currentS = data[i][18];
@@ -229,7 +232,7 @@ function clearPastData() {
       }
     }
     CacheService.getScriptCache().remove(CACHE_KEY);
-    return `Cleared ${clearedCount} past retroactive rows before ${todayStr}`;
+    return `Cleared ${clearedCount} past inactive rows before ${todayStr}`;
   } catch (err) {
     return "Error clearing past data: " + err.message;
   }
@@ -302,7 +305,7 @@ function parseDateValue(val) {
 
 // ============================================================
 // 4. Automatic Sync for Master Sheet (GEM_Graphic_Master)
-// Hyper-Targeted: Strictly checks ONLY 'Sent to P'Aof' and 'มีปรับแก้'
+// Always process active tasks (Sent to P'Aof / มีปรับแก้ / รอรีวิว) regardless of date
 // ============================================================
 function syncMasterQueueStatus() {
   try {
@@ -325,13 +328,6 @@ function syncMasterQueueStatus() {
       const taskName = String(row[CONFIG.MASTER_COL_TASK_NAME] || '').trim();
       if (!taskName) continue;
 
-      // Filter: Only process tasks from TODAY onwards
-      const dateVal = row[5]; // Col F (วันที่ส่งงาน)
-      const taskDateStr = parseTaskDateString(dateVal);
-      if (taskDateStr && taskDateStr < todayStr) {
-        continue; // Skip past dates before today
-      }
-
       const graphicStatus = String(row[CONFIG.MASTER_COL_STATUS] || '').trim();
       const normVal = graphicStatus.toLowerCase().replace(/’/g, "'");
       const currentReviewStatus = String(row[CONFIG.MASTER_COL_REVIEW_STATUS] || '').trim();
@@ -340,11 +336,20 @@ function syncMasterQueueStatus() {
       const currentRound = parseInt(row[CONFIG.MASTER_COL_REVISION_ROUND]) || 1;
       const workerName = String(row[CONFIG.MASTER_COL_OWNER_A] || row[CONFIG.MASTER_COL_OWNER_N] || 'ไม่ระบุ').trim();
 
-      // HYPER-TARGETED: Only process "Sent to P'Aof" and "มีปรับแก้"
+      // Check if this task is actively in review / revision loop
+      const isActiveTask = (normVal === "sent to p'aof" || normVal === "มีปรับแก้" || currentReviewStatus === "รอรีวิว" || currentReviewStatus === "มีปรับแก้");
+
+      // Skip past dates BEFORE today ONLY IF the task is NOT actively "Sent to P'Aof" or "มีปรับแก้"
+      const dateVal = row[5]; // Col F (วันที่ส่งงาน)
+      const taskDateStr = parseTaskDateString(dateVal);
+      if (taskDateStr && taskDateStr < todayStr && !isActiveTask) {
+        continue; // Skip past inactive tasks
+      }
+
       if (normVal === "sent to p'aof") {
         if (currentReviewStatus !== "รอรีวิว") {
-          // Safeguard: If AD reviewed this task less than 2 minutes ago, wait for IMPORTRANGE
-          if (currentReviewedAt && (now.getTime() - currentReviewedAt.getTime()) < 2 * 60 * 1000) {
+          // Safeguard: Wait 30 seconds after AD review for IMPORTRANGE catchup
+          if (currentReviewedAt && (now.getTime() - currentReviewedAt.getTime()) < 30 * 1000) {
             continue;
           }
 
@@ -371,7 +376,6 @@ function syncMasterQueueStatus() {
           hasChanges = true;
         }
       }
-      // Ignore all other statuses (Done, Not Start, In Progress, etc.)
     }
 
     if (hasChanges) {
@@ -416,20 +420,22 @@ function getTasksData() {
       const taskName = String(row[CONFIG.MASTER_COL_TASK_NAME] || '').trim();
       if (!taskName) continue;
 
-      // Filter: Only return tasks from TODAY onwards
-      const dateVal = row[5]; // Col F (วันที่ส่งงาน)
-      const taskDateStr = parseTaskDateString(dateVal);
-      if (taskDateStr && taskDateStr < todayStr) {
-        continue; // Skip past dates before today
-      }
-
       const graphicStatus = String(row[CONFIG.MASTER_COL_STATUS] || '').trim();
+      const normVal = graphicStatus.toLowerCase().replace(/’/g, "'");
       let reviewStatus = String(row[CONFIG.MASTER_COL_REVIEW_STATUS] || '').trim();
       
+      const isActiveTask = (normVal === "sent to p'aof" || normVal === "มีปรับแก้" || reviewStatus === "รอรีวิว" || reviewStatus === "มีปรับแก้");
+
+      // Filter: Skip past inactive tasks
+      const dateVal = row[5]; // Col F (วันที่ส่งงาน)
+      const taskDateStr = parseTaskDateString(dateVal);
+      if (taskDateStr && taskDateStr < todayStr && !isActiveTask) {
+        continue;
+      }
+
       // Auto mapping if Review Status is empty
       if (!reviewStatus) {
-        const norm = graphicStatus.toLowerCase().replace(/’/g, "'");
-        if (norm === "sent to p'aof") reviewStatus = "รอรีวิว";
+        if (normVal === "sent to p'aof") reviewStatus = "รอรีวิว";
         else if (graphicStatus === "มีปรับแก้") reviewStatus = "มีปรับแก้";
         else if (graphicStatus === "Done" || graphicStatus === "OK") reviewStatus = "อนุมัติแล้ว";
       }
@@ -461,7 +467,7 @@ function getTasksData() {
 
       const workerName = String(row[CONFIG.MASTER_COL_OWNER_A] || row[CONFIG.MASTER_COL_OWNER_N] || 'ไม่ระบุ').trim();
 
-      // Filter: Show "รอรีวิว", "มีปรับแก้", or "อนุมัติแล้ว" of today
+      // Show "รอรีวิว", "มีปรับแก้", or "อนุมัติแล้ว" of today
       if (reviewStatus === "รอรีวิว" || reviewStatus === "มีปรับแก้" || (reviewStatus === "อนุมัติแล้ว" && isToday)) {
         tasks.push({
           id: String(row[CONFIG.MASTER_COL_JOB_NO] || `master_${i+1}`).trim(),
@@ -991,7 +997,7 @@ function setupTrigger() {
       .everyDays(1)
       .create();
       
-    return ContentService.createTextOutput(`ตั้งค่า Trigger สำหรับ Master Sheet สำเร็จแล้ว! 🚀\n(1) ตั้งค่าระบบ Sync อัตโนมัติทุก 1 นาที\n(2) ผูก Master Sheet (onChange & onEdit)\n(3) แจ้งเตือนสรุปงาน 09:30 และ 17:00`);
+    return ContentService.createTextOutput(`ตั้งค่า Trigger สำหรับ Master Sheet สำเร็จแล้ว! 🚀\n(1) ตั้งค่าระบบ Sync อัตโนมัติทุก 1 นาที (ไม่ข้ามงานที่เป็น Sent to P'Aof / มีปรับแก้)\n(2) ผูก Master Sheet (onChange & onEdit)\n(3) แจ้งเตือนสรุปงาน 09:30 และ 17:00`);
   } catch (err) {
     return ContentService.createTextOutput('Error: ' + err.message);
   }
@@ -1011,11 +1017,14 @@ function pushDailySummary() {
   for (let i = 4; i < data.length; i++) {
     const dateVal = data[i][5];
     const taskDateStr = parseTaskDateString(dateVal);
-    if (taskDateStr && taskDateStr < todayStr) continue;
-
+    const graphicStatus = String(data[i][CONFIG.MASTER_COL_STATUS] || '').trim();
+    const normVal = graphicStatus.toLowerCase().replace(/’/g, "'");
     const revStatus = String(data[i][CONFIG.MASTER_COL_REVIEW_STATUS] || '').trim();
-    const status = String(data[i][CONFIG.MASTER_COL_STATUS] || '').trim();
-    if (revStatus === "รอรีวิว" || status === "Sent to P'Aof") {
+    const isActiveTask = (normVal === "sent to p'aof" || normVal === "มีปรับแก้" || revStatus === "รอรีวิว" || revStatus === "มีปรับแก้");
+
+    if (taskDateStr && taskDateStr < todayStr && !isActiveTask) continue;
+
+    if (revStatus === "รอรีวิว" || normVal === "sent to p'aof") {
       const taskName = data[i][CONFIG.MASTER_COL_TASK_NAME] || 'ไม่ระบุชื่อ';
       const owner = data[i][CONFIG.MASTER_COL_OWNER_A] || data[i][CONFIG.MASTER_COL_OWNER_N] || 'ไม่ระบุ';
       pendingTasks.push(`• [${owner}] ${taskName}`);
