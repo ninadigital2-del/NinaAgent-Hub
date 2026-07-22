@@ -39,7 +39,7 @@ const CONFIG = {
   MASTER_COL_REVISION_ROUND: 19 // Col T (Revision Round)
 };
 
-const CACHE_KEY = "AD_REVIEW_QUEUE_TASKS_v11";
+const CACHE_KEY = "AD_REVIEW_QUEUE_TASKS_v12";
 
 // ============================================================
 // 1. Web App Endpoint (GET)
@@ -398,7 +398,7 @@ function updateTaskFromWeb(taskId, newStatus, commentText) {
 
 // ============================================================
 // Sync Status back to Graphic Designer's Personal Sheet
-// Matching ownerA (Col A e.g. 'โอม') or ownerN (Col N)
+// Robust row matching by searching targetTaskName across all cells in row
 // ============================================================
 function findTeamSheetId(ownerA, ownerN) {
   const strA = String(ownerA || '').trim();
@@ -426,8 +426,8 @@ function syncToIndividualSheet(taskId, taskName, ownerA, ownerN, newStatus) {
     const ss = SpreadsheetApp.openById(sheetId);
     const sheet = ss.getSheets()[0];
     const data = sheet.getDataRange().getValues();
-    const targetStr = String(taskId || '').trim();
-    const targetTaskName = String(taskName || '').trim();
+    const targetIdStr = String(taskId || '').trim();
+    const targetTaskNameStr = String(taskName || '').trim();
 
     let graphicStatusValue = newStatus;
     if (newStatus === "มีปรับแก้") graphicStatusValue = "มีปรับแก้";
@@ -436,12 +436,12 @@ function syncToIndividualSheet(taskId, taskName, ownerA, ownerN, newStatus) {
 
     for (let i = 1; i < data.length; i++) {
       const rowNum = i + 1;
-      const jobNo = String(data[i][9] || '').trim();  // Col J (Job No)
-      const tName = String(data[i][11] || '').trim(); // Col L (Task Name)
+      const rowText = data[i].join(' '); // Search full row text
+      const jobNo = String(data[i][9] || '').trim();
       
-      if ((jobNo !== '' && targetStr === jobNo) || (targetTaskName !== '' && tName === targetTaskName)) {
+      if ((jobNo !== '' && targetIdStr === jobNo) || (targetTaskNameStr !== '' && rowText.indexOf(targetTaskNameStr) !== -1)) {
         sheet.getRange(rowNum, 1).setValue(graphicStatusValue); // Col A in Graphic's sheet
-        console.log("Successfully updated individual sheet (" + sheetId + ") row " + rowNum + " to " + graphicStatusValue);
+        console.log("Successfully updated individual sheet (" + sheetId + ") row " + rowNum + " (Col A) to " + graphicStatusValue);
         break;
       }
     }
@@ -709,7 +709,7 @@ function setupTrigger() {
       .everyDays(1)
       .create();
       
-    return ContentService.createTextOutput(`ตั้งค่า Trigger สำหรับ Master Sheet สำเร็จแล้ว! 🚀\n(1) ตั้งค่าระบบ Sync อัตโนมัติทุก 1 นาที (พร้อมระบบป้องกัน Re-trigger ซ้ำซ้อน)\n(2) ผูก Master Sheet (onChange & onEdit)\n(3) แจ้งเตือนสรุปงาน 09:30 และ 17:00`);
+    return ContentService.createTextOutput(`ตั้งค่า Trigger สำหรับ Master Sheet สำเร็จแล้ว! 🚀\n(1) ตั้งค่าระบบ Sync อัตโนมัติทุก 1 นาที (พร้อมระบบค้นหาบรรทัดงานแบบยืดหยุ่นในชีตส่วนตัว)\n(2) ผูก Master Sheet (onChange & onEdit)\n(3) แจ้งเตือนสรุปงาน 09:30 และ 17:00`);
   } catch (err) {
     return ContentService.createTextOutput('Error: ' + err.message);
   }
