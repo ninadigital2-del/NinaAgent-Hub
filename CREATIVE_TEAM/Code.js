@@ -1,7 +1,7 @@
 // ============================================================
 // Task Status Tracker — Google Apps Script (AD Review Queue)
 // Master Sheet (Columns Q, R, S, T) & Sync to Individual Sheets
-// Flex Result Card (No buttons) & Short Duplicate Warning "⚠️ งานไม่สามารถกดซ้ำ"
+// Filter Today Onwards & Clear Past Retroactive Data
 // ============================================================
 
 const CONFIG = {
@@ -40,7 +40,33 @@ const CONFIG = {
   MASTER_COL_REVISION_ROUND: 19 // Col T (Revision Round)
 };
 
-const CACHE_KEY = "AD_REVIEW_QUEUE_TASKS_v20";
+const CACHE_KEY = "AD_REVIEW_QUEUE_TASKS_v21";
+
+// Helper to parse date string like "22Jul26" or "22/07/2026" into "yyyy-MM-dd"
+function parseTaskDateString(dateVal) {
+  if (!dateVal) return "";
+  if (dateVal instanceof Date) {
+    return Utilities.formatDate(dateVal, "Asia/Bangkok", "yyyy-MM-dd");
+  }
+  const str = String(dateVal).trim();
+  const m = str.match(/^(\d{1,2})([A-Za-z]{3})(\d{2,4})$/);
+  if (m) {
+    const day = m[1].padStart(2, '0');
+    const monthMap = { 'jan': '01', 'feb': '02', 'mar': '03', 'apr': '04', 'may': '05', 'jun': '06', 'jul': '07', 'aug': '08', 'sep': '09', 'oct': '10', 'nov': '11', 'dec': '12' };
+    const month = monthMap[m[2].toLowerCase()] || '07';
+    let year = m[3];
+    if (year.length === 2) year = '20' + year;
+    return `${year}-${month}-${day}`;
+  }
+  const m2 = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (m2) {
+    const day = m2[1].padStart(2, '0');
+    const month = m2[2].padStart(2, '0');
+    const year = m2[3];
+    return `${year}-${month}-${day}`;
+  }
+  return "";
+}
 
 // ============================================================
 // 1. Web App Endpoint (GET)
@@ -56,6 +82,11 @@ function doGet(e) {
   if (action === 'syncNow') {
     syncMasterQueueStatus();
     return ContentService.createTextOutput("Synced successfully! GEM_Graphic_Master status checked, updated, and LINE alerts sent.");
+  }
+  
+  if (action === 'clearPastData') {
+    const resultMsg = clearPastData();
+    return ContentService.createTextOutput(resultMsg);
   }
   
   if (action === 'testPush') {
@@ -89,6 +120,42 @@ function doGet(e) {
     .setTitle('คิวงานรอรีวิว - AD Review Queue')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+}
+
+// Function to clear retroactive past data in Columns Q, R, S, T for rows before today
+function clearPastData() {
+  try {
+    const sheet = getMasterRawDataSheet();
+    if (!sheet) return "No sheet";
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 5) return "No data";
+
+    const data = sheet.getRange(1, 1, lastRow, 20).getValues();
+    const todayStr = Utilities.formatDate(new Date(), "Asia/Bangkok", "yyyy-MM-dd");
+    let clearedCount = 0;
+
+    for (let i = 4; i < data.length; i++) {
+      const rowNum = i + 1;
+      const dateVal = data[i][5]; // Col F (วันที่ส่งงาน)
+      const taskDateStr = parseTaskDateString(dateVal);
+
+      // If task date is strictly before today, clear Col Q, R, S, T (17, 18, 19, 20)
+      if (taskDateStr && taskDateStr < todayStr) {
+        const currentQ = data[i][16];
+        const currentR = data[i][17];
+        const currentS = data[i][18];
+        const currentT = data[i][19];
+        if (currentQ !== "" || currentR !== "" || currentS !== "" || currentT !== "") {
+          sheet.getRange(rowNum, 17, 1, 4).clearContent();
+          clearedCount++;
+        }
+      }
+    }
+    CacheService.getScriptCache().remove(CACHE_KEY);
+    return `Cleared ${clearedCount} past retroactive rows before ${todayStr}`;
+  } catch (err) {
+    return "Error clearing past data: " + err.message;
+  }
 }
 
 // ============================================================
@@ -158,7 +225,7 @@ function parseDateValue(val) {
 
 // ============================================================
 // 4. Automatic Sync for Master Sheet (GEM_Graphic_Master)
-// With 2-Minute IMPORTRANGE propagation delay safeguard
+// Processes Tasks starting from TODAY (Asia/Bangkok) onwards
 // ============================================================
 function syncMasterQueueStatus() {
   try {
@@ -171,6 +238,7 @@ function syncMasterQueueStatus() {
     
     const data = sheet.getRange(1, 1, lastRow, 20).getValues();
     const now = new Date();
+    const todayStr = Utilities.formatDate(now, "Asia/Bangkok", "yyyy-MM-dd");
     let hasChanges = false;
 
     // Header at row 4 (index 3), Data starts at row 5 (index 4)
@@ -179,6 +247,13 @@ function syncMasterQueueStatus() {
       const row = data[i];
       const taskName = String(row[CONFIG.MASTER_COL_TASK_NAME] || '').trim();
       if (!taskName) continue;
+
+      // Filter: Only process tasks from TODAY onwards
+      const dateVal = row[5]; // Col F (วันที่ส่งงาน)
+      const taskDateStr = parseTaskDateString(dateVal);
+      if (taskDateStr && taskDateStr < todayStr) {
+        continue; // Skip past dates before today
+      }
 
       const graphicStatus = String(row[CONFIG.MASTER_COL_STATUS] || '').trim();
       const normVal = graphicStatus.toLowerCase().replace(/’/g, "'");
@@ -268,6 +343,13 @@ function getTasksData() {
       const row = data[i];
       const taskName = String(row[CONFIG.MASTER_COL_TASK_NAME] || '').trim();
       if (!taskName) continue;
+
+      // Filter: Only return tasks from TODAY onwards
+      const dateVal = row[5]; // Col F (วันที่ส่งงาน)
+      const taskDateStr = parseTaskDateString(dateVal);
+      if (taskDateStr && taskDateStr < todayStr) {
+        continue; // Skip past dates before today
+      }
 
       const graphicStatus = String(row[CONFIG.MASTER_COL_STATUS] || '').trim();
       let reviewStatus = String(row[CONFIG.MASTER_COL_REVIEW_STATUS] || '').trim();
@@ -837,7 +919,7 @@ function setupTrigger() {
       .everyDays(1)
       .create();
       
-    return ContentService.createTextOutput(`ตั้งค่า Trigger สำหรับ Master Sheet สำเร็จแล้ว! 🚀\n(1) ตั้งค่าระบบ Sync อัตโนมัติทุก 1 นาที (ตอบกลับการตรวจงานด้วย Flex Card ไม่มีปุ่ม)\n(2) ผูก Master Sheet (onChange & onEdit)\n(3) แจ้งเตือนสรุปงาน 09:30 และ 17:00`);
+    return ContentService.createTextOutput(`ตั้งค่า Trigger สำหรับ Master Sheet สำเร็จแล้ว! 🚀\n(1) ตั้งค่าระบบ Sync อัตโนมัติทุก 1 นาที (ประมวลผลเฉพาะงานตั้งแต่วันนี้เป็นต้นไป)\n(2) ผูก Master Sheet (onChange & onEdit)\n(3) แจ้งเตือนสรุปงาน 09:30 และ 17:00`);
   } catch (err) {
     return ContentService.createTextOutput('Error: ' + err.message);
   }
@@ -852,8 +934,13 @@ function pushDailySummary() {
 
   const data = sheet.getDataRange().getValues();
   let pendingTasks = [];
+  const todayStr = Utilities.formatDate(new Date(), "Asia/Bangkok", "yyyy-MM-dd");
 
   for (let i = 4; i < data.length; i++) {
+    const dateVal = data[i][5];
+    const taskDateStr = parseTaskDateString(dateVal);
+    if (taskDateStr && taskDateStr < todayStr) continue;
+
     const revStatus = String(data[i][CONFIG.MASTER_COL_REVIEW_STATUS] || '').trim();
     const status = String(data[i][CONFIG.MASTER_COL_STATUS] || '').trim();
     if (revStatus === "รอรีวิว" || status === "Sent to P'Aof") {
