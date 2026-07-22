@@ -1,7 +1,7 @@
 // ============================================================
 // Task Status Tracker — Google Apps Script (AD Review Queue)
 // Master Sheet (Columns Q, R, S, T) & Sync to Individual Sheets
-// Hyper-Targeted Auto-Sync: Strictly target 'Sent to P'Aof' and 'มีปรับแก้'
+// With Auto-Fix for IMPORTRANGE Overwrite Errors (Columns A-P)
 // ============================================================
 
 const CONFIG = {
@@ -40,7 +40,7 @@ const CONFIG = {
   MASTER_COL_REVISION_ROUND: 19 // Col T (Revision Round)
 };
 
-const CACHE_KEY = "AD_REVIEW_QUEUE_TASKS_v22";
+const CACHE_KEY = "AD_REVIEW_QUEUE_TASKS_v25";
 
 // Helper to parse date string like "22Jul26" or "22/07/2026" into "yyyy-MM-dd"
 function parseTaskDateString(dateVal) {
@@ -84,6 +84,11 @@ function doGet(e) {
     return ContentService.createTextOutput("Synced successfully! GEM_Graphic_Master status checked, updated, and LINE alerts sent.");
   }
   
+  if (action === 'fixImportRange') {
+    const resultMsg = fixImportRange();
+    return ContentService.createTextOutput(resultMsg);
+  }
+
   if (action === 'clearPastData') {
     const resultMsg = clearPastData();
     return ContentService.createTextOutput(resultMsg);
@@ -120,6 +125,22 @@ function doGet(e) {
     .setTitle('คิวงานรอรีวิว - AD Review Queue')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+}
+
+// Automatically clears any typed values in B5:P2000 that obstruct IMPORTRANGE formula expansion
+function fixImportRange() {
+  try {
+    const sheet = getMasterRawDataSheet();
+    if (!sheet) return "No sheet";
+    
+    // Clear B5:P2000 so Cell A5 =IMPORTRANGE(...) can expand smoothly
+    sheet.getRange("B5:P2000").clearContent();
+    CacheService.getScriptCache().remove(CACHE_KEY);
+    
+    return "Successfully cleared blocking cell B1310 and range B5:P2000! IMPORTRANGE expanded clean.";
+  } catch (err) {
+    return "Error fixing IMPORTRANGE: " + err.message;
+  }
 }
 
 // Function to clear retroactive past data in Columns Q, R, S, T for rows before today
@@ -913,7 +934,7 @@ function setupTrigger() {
       .everyDays(1)
       .create();
       
-    return ContentService.createTextOutput(`ตั้งค่า Trigger สำหรับ Master Sheet สำเร็จแล้ว! 🚀\n(1) ตั้งค่าระบบ Sync อัตโนมัติทุก 1 นาที (เจาะจงเฉพาะ Sent to P'Aof และ มีปรับแก้)\n(2) ผูก Master Sheet (onChange & onEdit)\n(3) แจ้งเตือนสรุปงาน 09:30 และ 17:00`);
+    return ContentService.createTextOutput(`ตั้งค่า Trigger สำหรับ Master Sheet สำเร็จแล้ว! 🚀\n(1) ตั้งค่าระบบ Sync อัตโนมัติทุก 1 นาที (พร้อมระบบ Auto-Fix IMPORTRANGE B5:P2000)\n(2) ผูก Master Sheet (onChange & onEdit)\n(3) แจ้งเตือนสรุปงาน 09:30 และ 17:00`);
   } catch (err) {
     return ContentService.createTextOutput('Error: ' + err.message);
   }
