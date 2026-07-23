@@ -116,6 +116,10 @@ function doGet(e) {
   if (action === 'setupTrigger') {
     return setupTrigger();
   }
+
+  if (action === 'triggerLineAlerts') {
+    return forceSendPendingLineAlerts();
+  }
   
   if (action === 'manual') {
     return HtmlService.createHtmlOutputFromFile('Manual')
@@ -389,16 +393,21 @@ function syncMasterQueueStatus() {
 
         const alertKey = "SENT_R" + newRound;
 
-        if (currentReviewStatus !== "รอรีวิว" || currentAlertSent !== alertKey) {
+        // State 1: Prepare Queue & set Col U = WAIT_SENT if not yet sent for this round
+        if (currentReviewStatus !== "รอรีวิว" || (currentAlertSent !== alertKey && currentAlertSent !== "WAIT_SENT")) {
           sheet.getRange(rowNum, 17).setValue("รอรีวิว"); // Col Q
           sheet.getRange(rowNum, 18).setValue(nowStr); // Col R
           sheet.getRange(rowNum, 19).setValue("");     // Col S (Reviewed At cleared)
           sheet.getRange(rowNum, 20).setValue(newRound);   // Col T (Revision Round)
-          sheet.getRange(rowNum, 21).setValue(alertKey);   // Col U (LINE Alert Sent)
-          
-          if (currentAlertSent !== alertKey) {
-            sendLineReviewAlert(taskName, workerName, newRound, rowNum, CONFIG.MASTER_SHEET_ID);
-          }
+          sheet.getRange(rowNum, 21).setValue("WAIT_SENT"); // Col U = WAIT_SENT (Queued for LINE push)
+          currentAlertSent = "WAIT_SENT";
+          hasChanges = true;
+        }
+
+        // State 2: Push LINE Flex Alert & update Col U = SENT_R1 / SENT_R2 ONLY AFTER push executes!
+        if (currentAlertSent === "WAIT_SENT" || (currentAlertSent !== alertKey && currentAlertSent !== "REVIEWED")) {
+          sendLineReviewAlert(taskName, workerName, newRound, rowNum, CONFIG.MASTER_SHEET_ID);
+          sheet.getRange(rowNum, 21).setValue(alertKey); // Col U = SENT_R1 / SENT_R2 (Push succeeded)
           hasChanges = true;
         } else if (!currentSentAt) {
           sheet.getRange(rowNum, 18).setValue(nowStr);
@@ -426,6 +435,31 @@ function syncMasterQueueStatus() {
     }
   } catch (err) {
     console.error("syncMasterQueueStatus error: " + err.message);
+  }
+}
+
+function forceSendPendingLineAlerts() {
+  try {
+    const sheet = getMasterRawDataSheet();
+    if (!sheet) return ContentService.createTextOutput("Sheet not found");
+    const data = sheet.getDataRange().getValues();
+    let count = 0;
+    for (let i = 4; i < data.length; i++) {
+      const rowNum = i + 1;
+      const graphicStatus = String(data[i][CONFIG.MASTER_COL_STATUS] || '').trim().toLowerCase();
+      const reviewStatus = String(data[i][CONFIG.MASTER_COL_REVIEW_STATUS] || '').trim();
+      if (graphicStatus === "sent to p'aof" || reviewStatus === "รอรีวิว") {
+        const taskName = String(data[i][CONFIG.MASTER_COL_TASK_NAME] || '').trim();
+        const workerName = String(data[i][CONFIG.MASTER_COL_OWNER_A] || data[i][CONFIG.MASTER_COL_OWNER_N] || 'ไม่ระบุ').trim();
+        const round = parseInt(data[i][CONFIG.MASTER_COL_REVISION_ROUND]) || 1;
+        sendLineReviewAlert(taskName, workerName, round, rowNum, CONFIG.MASTER_SHEET_ID);
+        sheet.getRange(rowNum, 21).setValue("SENT_R" + round);
+        count++;
+      }
+    }
+    return ContentService.createTextOutput("Sent " + count + " LINE alerts!");
+  } catch (err) {
+    return ContentService.createTextOutput("Error: " + err.message);
   }
 }
 
