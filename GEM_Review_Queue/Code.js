@@ -607,7 +607,7 @@ function updateTaskStatus(taskId, newStatus) {
       }
 
       // Sync status to Graphic designer's personal sheet (Col A)
-      const taskDateVal = data[i][5]; // Col F (วันที่ส่งงาน)
+      const taskDateVal = data[foundRow - 1][5]; // Col F (วันที่ส่งงาน)
       syncToIndividualSheet(taskId, taskName, ownerA, ownerN, newStatus, taskDateVal);
 
       // Invalidate Cache
