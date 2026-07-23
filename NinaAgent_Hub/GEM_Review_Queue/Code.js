@@ -331,6 +331,15 @@ function syncMasterQueueStatus() {
       const taskName = String(row[CONFIG.MASTER_COL_TASK_NAME] || '').trim();
       if (!taskName) continue;
 
+      // STRICT BOUNDARY: ONLY process tasks starting from 20/07/2026 (20Jul26) onwards.
+      // NEVER touch, track, or modify tasks before July 20, 2026!
+      const START_DATE = "2026-07-20";
+      const dateVal = row[5]; // Col F (วันที่ส่งงาน)
+      const taskDateStr = parseTaskDateString(dateVal);
+      if (taskDateStr && taskDateStr < START_DATE) {
+        continue; // Skip all tasks before 20/07/2026 completely
+      }
+
       const graphicStatus = String(row[CONFIG.MASTER_COL_STATUS] || '').trim();
       const normVal = graphicStatus.toLowerCase().replace(/’/g, "'");
       const currentReviewStatus = String(row[CONFIG.MASTER_COL_REVIEW_STATUS] || '').trim();
@@ -354,9 +363,8 @@ function syncMasterQueueStatus() {
       }
 
       // 2. Skip past dates BEFORE today IF already approved or inactive
-      const dateVal = row[5]; // Col F (วันที่ส่งงาน)
-      const taskDateStr = parseTaskDateString(dateVal);
       if (taskDateStr && taskDateStr < todayStr) {
+        const isActiveTask = (normVal === "sent to p'aof" || normVal === "มีปรับแก้" || currentReviewStatus === "รอรีวิว" || currentReviewStatus === "มีปรับแก้");
         if (currentReviewStatus === "อนุมัติแล้ว" || !isActiveTask) {
           continue; // Skip past inactive tasks
         }
@@ -467,11 +475,12 @@ function getTasksData() {
 
       const isActiveTask = (normVal === "sent to p'aof" || normVal === "มีปรับแก้" || reviewStatus === "รอรีวิว" || reviewStatus === "มีปรับแก้");
 
-      // Filter: Skip past inactive tasks
+      // STRICT BOUNDARY: ONLY fetch tasks starting from 20/07/2026 (20Jul26) onwards.
+      const START_DATE = "2026-07-20";
       const dateVal = row[5]; // Col F (วันที่ส่งงาน)
       const taskDateStr = parseTaskDateString(dateVal);
-      if (taskDateStr && taskDateStr < todayStr && !isActiveTask) {
-        continue;
+      if (taskDateStr && taskDateStr < START_DATE) {
+        continue; // Skip all tasks before July 20, 2026
       }
 
       let sentToReviewAtRaw = row[CONFIG.MASTER_COL_SENT_AT];
