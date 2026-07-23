@@ -189,7 +189,7 @@ function handleRouting() {
                 const toolName = match[1];
                 const url = match[2];
                 const expectedHash = '#' + toolName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-                if (hash === expectedHash) {
+                if (hash === expectedHash || (hash === '#creative-team' && toolName === 'GEM Review Queue') || (hash === '#creative_team' && toolName === 'GEM Review Queue')) {
                     loadToolInFrame(link, toolName, url, true);
                     return;
                 }
