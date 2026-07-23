@@ -118,7 +118,7 @@ function doGet(e) {
   
   if (action === 'manual') {
     return HtmlService.createHtmlOutputFromFile('Manual')
-      .setTitle('คู่มือการใช้งาน CREATIVE TEAM')
+      .setTitle('คู่มือการใช้งาน GEM Review Queue')
       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
   }
   
@@ -127,7 +127,7 @@ function doGet(e) {
   }
   
   return HtmlService.createHtmlOutputFromFile('Index')
-    .setTitle('คิวงานรอรีวิว - AD Review Queue')
+    .setTitle('คิวงานรอรีวิว - GEM Review Queue')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
