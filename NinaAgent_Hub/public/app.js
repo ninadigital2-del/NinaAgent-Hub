@@ -1,4 +1,4 @@
-const API_URL = 'https://script.google.com/macros/s/AKfycby01Vt8mWPbziblEgfQb0sexWqrkEm9cIiFR810UVxCJF26SPXJDOkx11aT0Ezo4u9h/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbwWffrwgCbxM1Ox6ujhcD78qx19vmsLYsl7Try2HdeFqkZ2aUk8EJhQMrcArBX_NMKF/exec';
 
 // Update Clock
 function updateClock() {
