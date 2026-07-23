@@ -347,12 +347,12 @@ function syncMasterQueueStatus() {
       }
 
       if (normVal === "sent to p'aof") {
-        if (currentReviewStatus !== "รอรีวิว") {
-          // Safeguard: Wait 30 seconds after AD review for IMPORTRANGE catchup
-          if (currentReviewedAt && (now.getTime() - currentReviewedAt.getTime()) < 30 * 1000) {
-            continue;
-          }
+        // Strict Protection: If already reviewed (มีปรับแก้ or อนุมัติแล้ว), DO NOT re-trigger LINE alert automatically
+        if (currentReviewStatus === "มีปรับแก้" || currentReviewStatus === "อนุมัติแล้ว") {
+          continue;
+        }
 
+        if (currentReviewStatus !== "รอรีวิว") {
           let newRound = currentRound;
           if (currentReviewStatus !== "") {
             newRound = currentRound + 1;
