@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>คู่มือการใช้งาน GEM Review Queue</title>
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --text-main: #0f172a;
+      --text-muted: #475569;
+      --border: #e2e8f0;
+      --accent-purple: #8b5cf6;
+      --accent-green: #10b981;
+      --accent-red: #ef4444;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Prompt', -apple-system, sans-serif;
+      background-color: var(--bg);
+      color: var(--text-main);
+      line-height: 1.6;
+      padding: 2rem 1rem;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: var(--card-bg);
+      padding: 2.5rem;
+      border-radius: 16px;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
+      border: 1px solid var(--border);
+    }
+
+    .header-banner {
+      text-align: center;
+      padding-bottom: 2rem;
+      border-bottom: 2px dashed var(--border);
+      margin-bottom: 2rem;
+    }
+
+    .header-banner h1 {
+      font-size: 2.2rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--primary), var(--accent-purple));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 0.5rem;
+    }
+
+    .header-banner p {
+      color: var(--text-muted);
+      font-size: 1.05rem;
+    }
+
+    .section {
+      margin-bottom: 2.5rem;
+    }
+
+    .section-title {
+      font-size: 1.35rem;
+      font-weight: 600;
+      color: var(--primary-dark);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 2px solid var(--border);
+    }
+
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1.25rem;
+      margin-top: 1rem;
+    }
+
+    .feature-card {
+      background: #f1f5f9;
+      padding: 1.25rem;
+      border-radius: 12px;
+      border-left: 4px solid var(--primary);
+    }
+
+    .feature-card.green { border-left-color: var(--accent-green); }
+    .feature-card.purple { border-left-color: var(--accent-purple); }
+    .feature-card.red { border-left-color: var(--accent-red); }
+
+    .feature-card h4 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      color: var(--text-main);
+    }
+
+    .feature-card p {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+    }
+
+    ul, ol {
+      padding-left: 1.5rem;
+      margin-top: 0.5rem;
+    }
+
+    li {
+      margin-bottom: 0.5rem;
+      color: var(--text-muted);
+    }
+
+    li strong {
+      color: var(--text-main);
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 0.25rem 0.6rem;
+      border-radius: 9999px;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+
+    .badge-primary { background: #dbeafe; color: #1e40af; }
+    .badge-green { background: #dcfce7; color: #166534; }
+    .badge-red { background: #fee2e2; color: #991b1b; }
+
+    .no-print {
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: 1.5rem;
+    }
+
+    .btn-print {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 0.6rem 1.25rem;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: inherit;
+      box-shadow: 0 4px 6px rgba(37, 99, 235, 0.2);
+      transition: all 0.2s;
+    }
+
+    .btn-print:hover {
+      background: var(--primary-dark);
+    }
+
+    @media print {
+      body { background: white; padding: 0; }
+      .container { box-shadow: none; border: none; padding: 0; max-width: 100%; }
+      .no-print { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <div class="no-print">
+      <button class="btn-print" onclick="window.print()">🖨️ พิมพ์เป็น PDF / ดาวน์โหลดเอกสาร</button>
+    </div>
+
+    <div class="header-banner">
+      <h1>คู่มือการใช้งาน GEM Review Queue</h1>
+      <p>ระบบติดตามสถานะงานทีม (Google Sheets) และการแจ้งเตือนตอบกลับอัตโนมัติผ่าน LINE Bot</p>
+    </div>
+
+    <!-- 1. ภาพรวมระบบ -->
+    <div class="section">
+      <h2 class="section-title">📌 1. ภาพรวมระบบ (System Overview)</h2>
+      <p><strong>GEM Review Queue</strong> ถูกพัฒนาขึ้นเพื่อบริหารจัดการและติดตามสถานะงานของสมาชิกในทีมทั้ง 7 คน (จ๊ะเอ๋, อุ้ม, กิ๊บ, เป้, โชกุล, ท้อป, โอม) โดยเชื่อมโยงตาราง Google Sheets ของทุกคนเข้ากับ LINE Bot และ Web App Dashboard เพื่อให้สามารถตรวจงานและเปลี่ยนสถานะได้อย่างรวดเร็ว ไร้รอยต่อ</p>
+      
+      <div class="feature-grid">
+        <div class="feature-card">
+          <h4>📊 Google Sheets</h4>
+          <p>ฐานข้อมูลหลักเก็บรายการงาน วันที่ส่ง และรายละเอียดลิงก์ของทีมทุกคน</p>
+        </div>
+        <div class="feature-card green">
+          <h4>📱 LINE Bot Notification</h4>
+          <p>แจ้งเตือนงานรอตรวจแบบ Flex Message พร้อมปุ่มกดเปลี่ยนสถานะในแชท</p>
+        </div>
+        <div class="feature-card purple">
+          <h4>💻 Web App Dashboard</h4>
+          <p>หน้าเว็บติดตามสถานะงาน เรียบหรู คลีน สดใส พร้อมอัปเดตแบบ Auto-refresh</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. การใช้งานผ่าน LINE Bot -->
+    <div class="section">
+      <h2 class="section-title">📱 2. การใช้งานผ่าน LINE Bot</h2>
+      <ol>
+        <li>
+          <strong>การแจ้งเตือนงานรอตรวจ (Sent to P'Aof):</strong>
+          <br>เมื่อพนักงานอัปเดตสถานะงานใน Google Sheet เป็น <span class="badge badge-primary">Sent to P'Aof</span> ระบบจะส่งการ์ดแจ้งเตือนเข้ากลุ่ม LINE ทันที พร้อมแสดงชื่อชิ้นงาน ผู้รับผิดชอบ และวันที่ส่ง
+        </li>
+        <li>
+          <strong>ปุ่มกดเปลี่ยนสถานะทันที:</strong>
+          <ul>
+            <li><span class="badge badge-red">มีปรับแก้</span> : กดเพื่อแจ้งว่างานชิ้นนี้มีจุดต้องแก้ไข สถานะใน Sheet จะเปลี่ยนเป็น "มีปรับแก้" ทันทีพร้อมตอบกลับเวลาไทยปัจจุบัน</li>
+            <li><span class="badge badge-green">Done</span> : กดเมื่อตรวจผ่านแล้ว สถานะใน Sheet จะเปลี่ยนเป็น "Done" ทันที</li>
+          </ul>
+        </li>
+        <li>
+          <strong>ระบบป้องกันการกดซ้ำ (Anti Double-Click):</strong>
+          <br>หากงานชิ้นนั้นถูกกดเปลี่ยนสถานะไปแล้ว (ไม่ว่าจะกดผ่าน LINE หรือผ่านหน้าเว็บ) หากมีคนเผลอกดปุ่มเดิมซ้ำ บอทจะแจ้งเตือนว่า <em>"⚠️ ปุ่มนี้ถูกกดไปแล้วครับ!"</em> เพื่อป้องกันข้อมูลสับสน
+        </li>
+      </ol>
+    </div>
+
+    <!-- 3. การใช้งานผ่าน Web App Dashboard -->
+    <div class="section">
+      <h2 class="section-title">💻 3. การใช้งานผ่าน Web App Dashboard</h2>
+      <ol>
+        <li>
+          <strong>การกรองสถานะงาน (Filter Tabs):</strong>
+          <br>มีปุ่มสลับดูงานตามสถานะด้านบน: <span class="badge badge-primary">Sent to P'Aof</span> และ <span class="badge badge-red">มีปรับแก้</span> พร้อมแสดงตัวเลขจำนวนงานค้างแบบเรียลไทม์
+        </li>
+        <li>
+          <strong>การดูรายละเอียดงาน:</strong>
+          <br>การ์ดงานแต่ละใบจะแสดงชื่องาน, ป้ายสถานะใต้ชื่องาน, วันเวลาส่งงาน, เจ้าของงาน และปุ่ม <code>🔗 เปิดดูรายละเอียดงาน</code> สำหรับกดเปิดลิงก์ชิ้นงาน (เช่น Google Drive, Canva, Slide)
+        </li>
+        <li>
+          <strong>ระบบดึงข้อมูลอัตโนมัติ (Silent Auto-Refresh):</strong>
+          <br>หน้าเว็บจะแอบดึงข้อมูลอัปเดตจาก Google Sheets ทุกๆ 10 วินาทีโดยอัตโนมัติ เพื่อให้เห็นสถานะล่าสุดอยู่เสมอโดยไม่ต้องกด F5 รีเฟรชหน้าเว็บ
+        </li>
+      </ol>
+    </div>
+
+    <!-- 4. โครงสร้างตาราง Google Sheets -->
+    <div class="section">
+      <h2 class="section-title">⚙️ 4. การจัดการข้อมูลใน Google Sheets</h2>
+      <p>ระบบอ่านข้อมูลจากคอลัมน์มาตรฐานดังนี้:</p>
+      <ul>
+        <li><strong>คอลัมน์ A (Status):</strong> สถานะงาน (Sent to P'Aof, มีปรับแก้, Done ฯลฯ)</li>
+        <li><strong>คอลัมน์ E (Date):</strong> วันเวลาที่ส่งงาน</li>
+        <li><strong>คอลัมน์ J (Job No.):</strong> รหัสงาน</li>
+        <li><strong>คอลัมน์ L (Task Name):</strong> ชื่องาน/โปรเจกต์</li>
+        <li><strong>คอลัมน์ M (Owner):</strong> ชื่อผู้รับผิดชอบงาน</li>
+        <li><strong>คอลัมน์ N (Detail / Link):</strong> รายละเอียดงานหรือลิงก์ส่งงาน</li>
+      </ul>
+    </div>
+
+  </div>
+
+</body>
+</html>

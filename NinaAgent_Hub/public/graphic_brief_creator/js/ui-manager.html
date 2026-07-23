@@ -1,0 +1,349 @@
+<script>
+// ============================================
+// Graphic Brief System - File Handler
+// ============================================
+
+function updateCustomerFileList(brand) {
+    const listSection = document.getElementById('uploaded-files-list-customer');
+    const listContainer = document.getElementById('customer-file-items');
+    listContainer.innerHTML = '';
+
+    const files = brand.uploadedCustomerFiles || [];
+    if (files.length > 0) {
+        listSection.classList.remove('hidden');
+        files.forEach(function(file, index) {
+            const fileEl = document.createElement('div');
+            fileEl.className = "flex items-center justify-between bg-white border border-gray-150 p-2 rounded-lg text-xs mt-1 shadow-sm";
+            fileEl.innerHTML = '<span class="flex items-center gap-2 truncate max-w-[70%]">' +
+                '<i class="fa-solid fa-file-shield text-indigo-500"></i>' +
+                '<span class="font-semibold text-slate-800 truncate" title="' + file.name + '">' + file.name + '</span>' +
+                '<span class="text-gray-400">(' + (file.size / (1024 * 1024)).toFixed(2) + ' MB)</span>' +
+                '</span>' +
+                '<div class="flex items-center gap-1">' +
+                '<span class="text-emerald-600 font-bold hidden sm:inline flex items-center gap-1 mr-2">' +
+                '<i class="fa-solid fa-cloud-check"></i> บันทึกแล้ว</span>' +
+                '<button onclick="deleteUploadedFile(\'' + brand.id + '\', ' + index + ', \'customer\')" class="text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 py-1 px-2.5 rounded-md transition font-semibold flex items-center gap-1">' +
+                '<i class="fa-solid fa-trash-can text-[10px]"></i> ลบ</button>' +
+                '</div>';
+            listContainer.appendChild(fileEl);
+        });
+    } else {
+        listSection.classList.add('hidden');
+    }
+}
+
+function updateBriefFileList() {
+    const listSection = document.getElementById('uploaded-files-list-brief');
+    const listContainer = document.getElementById('brief-file-items');
+    listContainer.innerHTML = '';
+
+    const selectorVal = document.getElementById('brief-brand-selector').value;
+    const currentBrand = clientBrands.find(function(b) { return b.id === selectorVal; });
+
+    if (currentBrand && currentBrand.uploadedBriefFiles && currentBrand.uploadedBriefFiles.length > 0) {
+        listSection.classList.remove('hidden');
+        currentBrand.uploadedBriefFiles.forEach(function(file, index) {
+            const fileEl = document.createElement('div');
+            fileEl.className = "flex items-center justify-between bg-white border border-gray-150 p-2 rounded-lg text-xs mt-1 shadow-sm";
+            fileEl.innerHTML = '<span class="flex items-center gap-2 truncate max-w-[70%]">' +
+                '<i class="fa-solid fa-file-invoice text-sky-500"></i>' +
+                '<span class="font-semibold text-slate-800 truncate" title="' + file.name + '">' + file.name + '</span>' +
+                '<span class="text-gray-400">(' + (file.size / (1024 * 1024)).toFixed(2) + ' MB)</span>' +
+                '</span>' +
+                '<div class="flex items-center gap-1">' +
+                '<span class="text-emerald-600 font-bold hidden sm:inline flex items-center gap-1 mr-2">' +
+                '<i class="fa-solid fa-cloud-check"></i> ไฟล์ระบบ</span>' +
+                '<button onclick="deleteUploadedFile(\'' + currentBrand.id + '\', ' + index + ', \'brief\')" class="text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 py-1 px-2.5 rounded-md transition font-semibold flex items-center gap-1">' +
+                '<i class="fa-solid fa-trash-can text-[10px]"></i> ลบ</button>' +
+                '</div>';
+            listContainer.appendChild(fileEl);
+        });
+    } else {
+        listSection.classList.add('hidden');
+    }
+}
+
+function deleteUploadedFile(brandId, fileIndex, type) {
+    const brand = clientBrands.find(function(b) { return b.id === brandId; });
+    if (!brand) return;
+
+    if (type === 'customer') {
+        const targetFiles = brand.uploadedCustomerFiles || [];
+        if (targetFiles[fileIndex]) {
+            const deletedName = targetFiles[fileIndex].name;
+            brand.uploadedCustomerFiles.splice(fileIndex, 1);
+            updateCustomerFileList(brand);
+            saveDataToStorage();
+            showAlert('ลบไฟล์เรียบร้อย', 'ลบไฟล์ "' + deletedName + '" จากแบรนด์ ' + brand.name + ' แล้ว', 'success');
+        }
+    } else {
+        const targetFiles = brand.uploadedBriefFiles || [];
+        if (targetFiles[fileIndex]) {
+            const deletedName = targetFiles[fileIndex].name;
+            brand.uploadedBriefFiles.splice(fileIndex, 1);
+            updateBriefFileList();
+            saveDataToStorage();
+            showAlert('ลบไฟล์เรียบร้อย', 'ลบไฟล์แบบร่าง "' + deletedName + '" แล้ว', 'success');
+        }
+    }
+}
+
+function setupDragAndDrop() {
+    const setupZone = function(zoneId, fileInputId, type) {
+        const zone = document.getElementById(zoneId);
+        const input = document.getElementById(fileInputId);
+
+        zone.addEventListener('click', function() { input.click(); });
+
+        zone.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            zone.classList.remove('border-indigo-300', 'bg-indigo-50/50', 'border-sky-300', 'bg-sky-50/50');
+            zone.classList.add('border-indigo-600', 'bg-indigo-100/50', 'border-sky-600', 'bg-sky-100/50');
+        });
+
+        zone.addEventListener('dragleave', function() {
+            zone.classList.remove('border-indigo-600', 'bg-indigo-100/50', 'border-sky-600', 'bg-sky-100/50');
+            zone.classList.add(
+                type === 'customer' ? 'border-indigo-300' : 'border-sky-300',
+                type === 'customer' ? 'bg-indigo-50/50' : 'bg-sky-50/50'
+            );
+        });
+
+        zone.addEventListener('drop', function(e) {
+            e.preventDefault();
+            zone.classList.remove('border-indigo-600', 'bg-indigo-100/50', 'border-sky-600', 'bg-sky-100/50');
+            zone.classList.add(
+                type === 'customer' ? 'border-indigo-300' : 'border-sky-300',
+                type === 'customer' ? 'bg-indigo-50/50' : 'bg-sky-50/50'
+            );
+
+            if (e.dataTransfer.files.length > 0) {
+                input.files = e.dataTransfer.files;
+                handleFileUpload(input, type);
+            }
+        });
+    };
+
+    setupZone('drop-zone-customer', 'file-input-customer', 'customer');
+    setupZone('drop-zone-brief', 'file-input-brief', 'brief');
+}
+
+async function handleFileUpload(input, type) {
+    const files = input.files;
+    if (files.length === 0) return;
+
+    let brandName = "General_Brief";
+    let activeBrand = null;
+
+    if (type === 'customer') {
+        activeBrand = clientBrands.find(function(b) { return b.id === selectedBrandId; });
+        if (activeBrand) brandName = activeBrand.name;
+    } else {
+        const selectorVal = document.getElementById('brief-brand-selector').value;
+        activeBrand = clientBrands.find(function(b) { return b.id === selectorVal; });
+        const briefBrand = document.getElementById('brief-brand-name').value.trim();
+        if (briefBrand) brandName = briefBrand;
+    }
+
+    if (!activeBrand) {
+        showAlert('โปรดเลือกแบรนด์ก่อนอัปโหลด', 'กรุณาระบุหรือคลิกเลือกแบรนด์ลูกค้าเพื่อจำแนกไฟล์', 'warning');
+        return;
+    }
+
+    const safeBrandName = brandName.replace(/[^a-zA-Z0-9\u0e00-\u0e7f]/g, "_");
+
+    const readPromises = Array.from(files).map(function(file) {
+        return new Promise(function(resolve) {
+            const renamedFile = safeBrandName + '_' + file.name;
+            const fileObj = {
+                name: renamedFile,
+                size: file.size,
+                type: file.type,
+                contentText: null,
+                base64Data: null,
+                mimeType: file.type || 'application/octet-stream'
+            };
+
+            const reader = new FileReader();
+
+            if (file.type.startsWith('text/') || file.name.endsWith('.txt') || file.name.endsWith('.json') || file.name.endsWith('.md') || file.name.endsWith('.csv')) {
+                reader.onload = function(e) {
+                    fileObj.contentText = e.target.result;
+                    const base64Reader = new FileReader();
+                    base64Reader.onload = function(evt) {
+                        fileObj.base64Data = evt.target.result.split(',')[1];
+                        resolve(fileObj);
+                    };
+                    base64Reader.readAsDataURL(file);
+                };
+                reader.readAsText(file);
+            } else {
+                reader.onload = function(e) {
+                    fileObj.base64Data = e.target.result.split(',')[1];
+                    resolve(fileObj);
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    });
+
+    const processedFiles = await Promise.all(readPromises);
+    const folderId = (type === 'customer') ? "1XA8p7xLPQEr37MvYWVkQCUvv85hk1MBq" : "1AyIsGgNcp6uUWDykp4E1YO-g8ge2Nrf5";
+
+    for (let i = 0; i < processedFiles.length; i++) {
+        const file = processedFiles[i];
+        if (file.base64Data) {
+            await new Promise(function(uploadResolve) {
+                google.script.run
+                    .withSuccessHandler(function(driveRes) {
+                        if (driveRes.success) {
+                            console.log("🚀 โยนเข้า Drive สำเร็จ: " + file.name);
+                            file.driveUrl = driveRes.url; 
+                        } else {
+                            console.error("❌ Drive ปฏิเสธ: " + driveRes.error);
+                        }
+                        uploadResolve();
+                    })
+                    .withFailureHandler(function(err) {
+                        console.error("❌ เกิดข้อผิดพลาดฝั่งเซิร์ฟเวอร์: " + err.message);
+                        uploadResolve();
+                    })
+                    // ส่งค่า 4 ตัวครบเป๊ะๆ ตามที่ Code.gs รอรับ
+                    .uploadFileToDrive(file.base64Data, file.name, file.mimeType, folderId);
+            });
+        }
+    }
+
+    processedFiles.forEach(function(fileObj) {
+        const minimizedFile = {
+            name: fileObj.name,
+            size: fileObj.size,
+            type: fileObj.type,
+            contentText: fileObj.contentText,
+            driveUrl: fileObj.driveUrl
+        };
+
+        if (type === 'customer') {
+            if (!activeBrand.uploadedCustomerFiles) activeBrand.uploadedCustomerFiles = [];
+            activeBrand.uploadedCustomerFiles.push(minimizedFile);
+        } else {
+            if (!activeBrand.uploadedBriefFiles) activeBrand.uploadedBriefFiles = [];
+            activeBrand.uploadedBriefFiles.push(minimizedFile);
+        }
+    });
+
+    if (type === 'customer') {
+        updateCustomerFileList(activeBrand);
+    } else {
+        updateBriefFileList();
+    }
+
+    saveDataToStorage();
+
+    showAlert(
+        'อัปโหลดเสร็จสมบูรณ์!',
+        'ไฟล์ถูกอัปโหลดขึ้น Google Drive เรียบร้อยแล้ว แผงควบคุมพร้อมส่งให้ AI ถอดความได้ทันที!',
+        'success'
+    );
+}
+function switchTab(tabName) {
+    var tabs = ['customer-tab', 'brief-tab', 'history-tab'];
+    var buttons = ['btn-customer-tab', 'btn-brief-tab', 'btn-history-tab'];
+
+    for (var i = 0; i < tabs.length; i++) {
+        var el = document.getElementById(tabs[i]);
+        if (el) el.classList.add('hidden');
+    }
+
+    for (var j = 0; j < buttons.length; j++) {
+        var btn = document.getElementById(buttons[j]);
+        if (btn) btn.className = "px-5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 text-slate-300 hover:text-white whitespace-nowrap";
+    }
+
+    var activeTab = document.getElementById(tabName);
+    var activeBtn = document.getElementById('btn-' + tabName);
+
+    if (activeTab) activeTab.classList.remove('hidden');
+    if (activeBtn) activeBtn.className = "px-5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 bg-indigo-600 text-white shadow-md whitespace-nowrap";
+
+    if (tabName === 'customer-tab' && typeof renderBrandList === 'function') renderBrandList();
+    if (tabName === 'brief-tab' && typeof updateBriefBrandSelector === 'function') {
+        updateBriefBrandSelector();
+        renderBriefsList();
+    }
+    if (tabName === 'history-tab' && typeof renderBriefHistory === 'function') renderBriefHistory();
+}
+
+function renderColorSwatches() {
+    const picker = document.getElementById('global-color-picker');
+    picker.innerHTML = '';
+    SWATCHES_64.forEach(function(color) {
+        const btn = document.createElement('button');
+        btn.onmousedown = function(e) { applyColor(e, color); };
+        btn.className = "w-6 h-6 rounded-md border border-gray-200 hover:scale-110 transition duration-100 flex-shrink-0";
+        btn.style.backgroundColor = color;
+        btn.title = color;
+        picker.appendChild(btn);
+    });
+}
+
+function hidePickers() {
+    document.getElementById('global-color-picker').classList.add('hidden');
+    document.getElementById('global-emoji-picker').classList.add('hidden');
+}
+
+function toggleColorPicker(event, editorId) {
+    event.stopPropagation();
+    activeEditorId = editorId;
+    saveSelection();
+    const picker = document.getElementById('global-color-picker');
+    const emojiPicker = document.getElementById('global-emoji-picker');
+    emojiPicker.classList.add('hidden');
+    const rect = event.currentTarget.getBoundingClientRect();
+    picker.style.top = (rect.bottom + window.scrollY + 5) + 'px';
+    picker.style.left = (rect.left + window.scrollX) + 'px';
+    picker.classList.toggle('hidden');
+}
+
+function toggleEmojiPicker(event, editorId) {
+    event.stopPropagation();
+    activeEditorId = editorId;
+    saveSelection();
+    const picker = document.getElementById('global-emoji-picker');
+    const colorPicker = document.getElementById('global-color-picker');
+    colorPicker.classList.add('hidden');
+    const rect = event.currentTarget.getBoundingClientRect();
+    picker.style.top = (rect.bottom + window.scrollY + 5) + 'px';
+    picker.style.left = (rect.left + window.scrollX) + 'px';
+    picker.classList.toggle('hidden');
+}
+
+window.addEventListener('DOMContentLoaded', function() {
+    loadDataFromStorage();
+
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('brief-date').value = today;
+
+    renderColorSwatches();
+    renderBrandList();
+    renderBriefsList();
+    setupDragAndDrop();
+    attachBriefSaveListeners();
+
+    if (selectedBriefId) {
+        loadBriefToCanvas(selectedBriefId);
+    }
+
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.editor-btn') && !e.target.closest('#global-color-picker') && !e.target.closest('#global-emoji-picker')) {
+            hidePickers();
+        }
+    });
+
+    // 🚀 โหลดข้อมูลล่าสุดจาก Sheets โดยอัตโนมัติ 1 วิ หลังจากหน้าเว็บเปิด
+    setTimeout(function() {
+        if (typeof fetchBrandsFromSheets === 'function') fetchBrandsFromSheets(true);
+        if (typeof fetchBriefsFromSheets === 'function') fetchBriefsFromSheets(true);
+    }, 1000);
+});
+</script>

@@ -1,0 +1,149 @@
+<script>
+// ============================================
+// Graphic Brief System - Utility Functions
+// ============================================
+
+function escapeHTML(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+function saveDataToStorage() {
+    const safeBrands = clientBrands.map(brand => {
+        // 🚀 เติม driveUrl คืนกลับเข้าไปให้ระบบจดจำลิงก์คลาวด์ได้
+        const cleanCust = (brand.uploadedCustomerFiles || []).map(f => ({ name: f.name, size: f.size, type: f.type, driveUrl: f.driveUrl || '' }));
+        const cleanBrief = (brand.uploadedBriefFiles || []).map(f => ({ name: f.name, size: f.size, type: f.type, driveUrl: f.driveUrl || '' }));
+        return { ...brand, uploadedCustomerFiles: cleanCust, uploadedBriefFiles: cleanBrief };
+    });
+    localStorage.setItem(STORAGE_KEY_BRANDS, JSON.stringify(safeBrands));
+    localStorage.setItem(STORAGE_KEY_BRIEFS, JSON.stringify(briefsList));
+}
+
+function loadDataFromStorage() {
+    try {
+        const storedBrands = localStorage.getItem(STORAGE_KEY_BRANDS);
+        const storedBriefs = localStorage.getItem(STORAGE_KEY_BRIEFS);
+
+        if (storedBrands && storedBrands !== "undefined") {
+            const parsedBrands = JSON.parse(storedBrands);
+            if (Array.isArray(parsedBrands)) clientBrands = parsedBrands;
+
+            if (clientBrands.length > 0 && !clientBrands.find(b => b.id === selectedBrandId)) {
+                selectedBrandId = clientBrands[0].id;
+            }
+        }
+        if (storedBriefs && storedBriefs !== "undefined") {
+            const parsedBriefs = JSON.parse(storedBriefs);
+            if (Array.isArray(parsedBriefs)) briefsList = parsedBriefs;
+
+            if (briefsList.length > 0 && !briefsList.find(b => b.id === selectedBriefId)) {
+                selectedBriefId = briefsList[0].id;
+            }
+        }
+    } catch (e) {
+        console.error("Failed to load data from storage:", e);
+    }
+}
+
+function saveSelection() {
+    const sel = window.getSelection();
+    if (sel.rangeCount > 0) {
+        savedSelectionRange = sel.getRangeAt(0);
+    }
+}
+
+function restoreSelection() {
+    if (savedSelectionRange) {
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(savedSelectionRange);
+    }
+}
+
+function applyColor(event, color) {
+    event.preventDefault();
+    restoreSelection();
+    document.execCommand('foreColor', false, color);
+    hidePickers();
+}
+
+function applyEmoji(event, emoji) {
+    event.preventDefault();
+    restoreSelection();
+
+    const editor = document.getElementById(activeEditorId);
+    editor.focus();
+
+    const sel = window.getSelection();
+    if (sel.rangeCount > 0 && savedSelectionRange) {
+        const range = sel.getRangeAt(0);
+        range.deleteContents();
+        range.insertNode(document.createTextNode(emoji));
+        range.collapse(false);
+    } else {
+        editor.innerText += emoji;
+    }
+    hidePickers();
+}
+
+function setAIGuideText(elementId, text) {
+    const el = document.getElementById(elementId);
+    el.innerHTML = '<span style="color: #94a3b8; font-style: italic;">' + text + ' (แนะนำโดย AI)</span>';
+}
+
+function formatDoc(command, targetId) {
+    document.getElementById(targetId).focus();
+    document.execCommand(command, false, null);
+}
+
+function downloadFile(content, fileName, mimeType) {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    showAlert('ส่งออกสำเร็จ!', 'บันทึกไฟล์ "' + fileName + '" ลงในเครื่องคอมพิวเตอร์ของคุณเรียบร้อยแล้ว', 'success');
+}
+
+function showAlert(title, message, iconType) {
+    iconType = iconType || 'success';
+    const modal = document.getElementById('alert-modal');
+    const titleEl = document.getElementById('alert-title');
+    const messageEl = document.getElementById('alert-message');
+    const iconEl = document.getElementById('alert-icon');
+
+    titleEl.innerText = title;
+    messageEl.innerText = message;
+
+    if (iconType === 'success') {
+        iconEl.className = "fa-solid fa-circle-check text-2xl text-emerald-500";
+    } else if (iconType === 'warning') {
+        iconEl.className = "fa-solid fa-triangle-exclamation text-2xl text-amber-500";
+    } else {
+        iconEl.className = "fa-solid fa-circle-info text-2xl text-blue-500";
+    }
+
+    modal.classList.remove('hidden');
+}
+
+function closeAlert() {
+    document.getElementById('alert-modal').classList.add('hidden');
+}
+
+window.onerror = function(message, source, lineno, colno, error) {
+    var errText = "JavaScript Error: " + message + "\nLine: " + lineno;
+    console.error(errText);
+    alert(errText);
+    return false;
+};
+</script>

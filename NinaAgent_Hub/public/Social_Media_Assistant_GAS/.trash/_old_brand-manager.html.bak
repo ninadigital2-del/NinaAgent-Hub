@@ -1,0 +1,79 @@
+<script>
+  let cachedBrands = [];
+
+  function openBrandModal() {
+    document.getElementById('modal-brand').classList.remove('hidden');
+    document.getElementById('modal-brand').classList.add('flex');
+    loadBrandsFromSheet();
+  }
+
+  function closeBrandModal() {
+    document.getElementById('modal-brand').classList.add('hidden');
+    document.getElementById('modal-brand').classList.remove('flex');
+  }
+
+  function loadBrandsFromSheet() {
+    const container = document.getElementById('brand-list-container');
+    container.innerHTML = '<div class="text-center py-10 text-slate-500"><i class="fa-solid fa-spinner fa-spin text-2xl mb-2"></i><p>กำลังโหลด...</p></div>';
+
+    google.script.run
+      .withSuccessHandler(function(res) {
+        if (res.success) {
+          cachedBrands = res.brands;
+          renderBrandList(res.brands);
+        } else {
+          container.innerHTML = `<p class="text-red-500 text-center">Error: ${res.error}</p>`;
+        }
+      })
+      .loadBrandsFromSheets();
+  }
+
+  function renderBrandList(brands) {
+    const container = document.getElementById('brand-list-container');
+    if (brands.length === 0) {
+      container.innerHTML = '<p class="text-center text-slate-500">ไม่พบข้อมูลแบรนด์ใน Sheets</p>';
+      return;
+    }
+
+    let html = '';
+    brands.forEach((brand, index) => {
+      // การแมปข้อมูล:
+      // Sheet 'background' -> TSX 'brandInfo'
+      // Sheet 'mood' -> TSX 'tone'
+      // Sheet 'target' -> TSX 'businessType' (ใกล้เคียงที่สุด)
+      // Sheet 'obj' -> TSX 'productInfo'
+      
+      html += `
+        <div onclick="selectBrand(${index})" class="p-4 bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-indigo-500 rounded-xl cursor-pointer transition group">
+          <div class="flex justify-between items-start mb-2">
+            <h4 class="font-bold text-indigo-400 group-hover:text-white transition">${brand.name || 'ไม่มีชื่อ'}</h4>
+            <span class="text-xs text-slate-500">${brand.Timestamp ? new Date(brand.Timestamp).toLocaleDateString() : ''}</span>
+          </div>
+          <p class="text-xs text-slate-400 line-clamp-2">${brand.background || 'ไม่มีข้อมูล'}</p>
+        </div>
+      `;
+    });
+    container.innerHTML = html;
+  }
+
+  function selectBrand(index) {
+    const brand = cachedBrands[index];
+    if (!brand) return;
+
+    // Fill Form (Reuse Data Logic)
+    document.getElementById('input-brand-info').value = brand.background || '';
+    document.getElementById('input-tone').value = brand.mood || 'เป็นกันเองและเข้าถึงง่าย';
+    document.getElementById('input-business-type').value = brand.target || 'อาหารและเครื่องดื่ม'; // Map target to business type
+    document.getElementById('input-product-info').value = brand.obj || ''; // Map obj to product info
+
+    closeBrandModal();
+    showToast(`โหลดข้อมูลแบรนด์ "${brand.name}" เรียบร้อย!`);
+  }
+
+  function showToast(msg) {
+    const toast = document.getElementById('toast');
+    document.getElementById('toast-message').innerText = msg;
+    toast.classList.remove('hidden');
+    setTimeout(() => toast.classList.add('hidden'), 3000);
+  }
+</script>

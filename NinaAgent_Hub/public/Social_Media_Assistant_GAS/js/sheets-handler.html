@@ -1,0 +1,248 @@
+<script>
+// ============================================
+// Social Media Assistant - Sheets Handler
+// ============================================
+
+// Save Content History to Sheets
+function saveContentHistoryToSheets(promptData) {
+    generatedContents.forEach(function(item) {
+        const contentData = {
+            id: item.id,
+            platform: promptData.platform,
+            businessType: promptData.businessType,
+            tone: promptData.tone,
+            contentType: promptData.contentType,
+            mediaFormat: promptData.mediaFormat,
+            quantity: promptData.quantity,
+            headline: item.headline,
+            caption: item.caption,
+            hashtags: item.hashtags.join(', '),
+            visualSuggestion: item.visual_suggestion
+        };
+
+        google.script.run
+            .withSuccessHandler(function(result) {
+                if (result.success) {
+                    console.log('บันทึกคอนเทนต์ลง Sheets สำเร็จ แถวที่ ' + result.rowNumber);
+                } else {
+                    console.error('บันทึกไม่สำเร็จ: ' + result.error);
+                }
+            })
+            .withFailureHandler(function(err) {
+                console.error('เกิดข้อผิดพลาด: ' + err.message);
+            })
+            .saveContentToSheets(contentData);
+    });
+}
+
+// Load Brands from Sheets
+function loadBrandsFromSheets() {
+    google.script.run
+        .withSuccessHandler(function(result) {
+            if (result.success && result.brands) {
+                console.log('โหลดแบรนด์จาก Sheets สำเร็จ: ' + result.brands.length + ' รายการ');
+                // สามารถใช้ข้อมูลนี้เพื่อแสดงรายการแบรนด์ที่บันทึกไว้
+            } else {
+                console.error('โหลดแบรนด์ไม่สำเร็จ: ' + result.error);
+            }
+        })
+        .withFailureHandler(function(err) {
+            console.error('เกิดข้อผิดพลาด: ' + err.message);
+        })
+        .loadBrandsFromSheets();
+}
+
+// Load Content History from Sheets
+function loadContentHistoryFromSheets() {
+    google.script.run
+        .withSuccessHandler(function(result) {
+            if (result.success && result.history) {
+                console.log('โหลดประวัติคอนเทนต์จาก Sheets สำเร็จ: ' + result.history.length + ' รายการ');
+                // สามารถใช้ข้อมูลนี้เพื่อแสดงประวัติคอนเทนต์
+            } else {
+                console.error('โหลดประวัติไม่สำเร็จ: ' + result.error);
+            }
+        })
+        .withFailureHandler(function(err) {
+            console.error('เกิดข้อผิดพลาด: ' + err.message);
+        })
+        .loadContentHistoryFromSheets();
+}
+
+// Save Brand to Sheets
+function saveBrandToSheets(promptData) {
+    if (!promptData || !promptData.brandInfo) return;
+
+    const brandData = {
+        id: currentBrandId ? currentBrandId : 'brand-' + Date.now(),
+        title: promptData.businessType.split(' (')[0],
+        brandInfo: promptData.brandInfo,
+        businessType: promptData.businessType,
+        tone: promptData.tone,
+        genderTone: promptData.genderTone,
+        platform: promptData.platform,
+        mediaFormat: promptData.mediaFormat,
+        productInfo: promptData.productInfo,
+        contentObjective: promptData.contentType,
+        quantity: promptData.quantity
+    };
+
+    google.script.run
+        .withSuccessHandler(function(result) {
+            if (result.success) {
+                if (result.action === 'create') {
+                    currentBrandId = brandData.id;
+                }
+                document.getElementById('btn-history').classList.remove('hidden');
+                console.log('บันทึกแบรนด์และประวัติสำเร็จ!');
+            } else {
+                console.error('ไม่สามารถบันทึกลง Sheets: ' + result.error);
+            }
+        })
+        .withFailureHandler(function(err) {
+            console.error('เกิดข้อผิดพลาดเชื่อมต่อสคริปต์: ' + err.message);
+        })
+        .saveBrandToSheets(brandData);
+}
+
+// ============================================
+// Brand History UI & Logic
+// ============================================
+function showBrandHistoryModal() {
+    if (!currentBrandId) {
+        showAlert('ไม่มีประวัติ', 'ยังไม่มีการสร้างบรีฟสำหรับแบรนด์นี้ โปรดสร้างคอนเทนต์อย่างน้อย 1 ครั้งก่อนดูประวัติ', 'warning');
+        return;
+    }
+    document.getElementById('history-modal').classList.remove('hidden');
+    document.getElementById('history-list-container').innerHTML = `
+        <div class="flex flex-col items-center justify-center py-10 text-slate-400 gap-2">
+            <i class="fa-solid fa-spinner fa-spin text-2xl"></i>
+            <p class="text-sm">กำลังโหลดประวัติ...</p>
+        </div>`;
+
+    google.script.run
+        .withSuccessHandler(function(result) {
+            if (result.success) {
+                renderHistoryList(result.history);
+            } else {
+                document.getElementById('history-list-container').innerHTML = `
+                    <div class="text-center text-red-500 py-10">เกิดข้อผิดพลาด: ${result.error}</div>`;
+            }
+        })
+        .withFailureHandler(function(err) {
+            document.getElementById('history-list-container').innerHTML = `
+                <div class="text-center text-red-500 py-10">ไม่สามารถเชื่อมต่อได้: ${err.message}</div>`;
+        })
+        .loadBrandHistoryFromSheets(currentBrandId);
+}
+
+function hideBrandHistoryModal() {
+    document.getElementById('history-modal').classList.add('hidden');
+}
+
+function renderHistoryList(historyData) {
+    const container = document.getElementById('history-list-container');
+    container.innerHTML = '';
+
+    if (!historyData || historyData.length === 0) {
+        container.innerHTML = `
+            <div class="text-center text-slate-500 py-10">
+                <i class="fa-solid fa-folder-open text-3xl mb-2 text-slate-300"></i>
+                <p>ยังไม่มีประวัติการแก้ไขบรีฟ</p>
+            </div>`;
+        return;
+    }
+
+    historyData.forEach(function(item, idx) {
+        // Parse date for display
+        const dateObj = new Date(item.Timestamp);
+        const dateString = dateObj.toLocaleDateString('th-TH') + ' ' + dateObj.toLocaleTimeString('th-TH');
+        const isLatest = idx === 0;
+
+        const el = document.createElement('div');
+        el.className = "bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all";
+        el.innerHTML = `
+            <div class="flex items-start justify-between gap-4">
+                <div class="flex-1 space-y-2">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-bold text-slate-500"><i class="fa-regular fa-clock"></i> ${dateString}</span>
+                        ${isLatest ? '<span class="px-2 py-0.5 bg-indigo-100 text-indigo-700 text-[10px] font-bold rounded-full">ล่าสุด</span>' : ''}
+                    </div>
+                    <div class="text-sm font-semibold text-slate-800 line-clamp-1">ประเภทธุรกิจ: ${item.businessType}</div>
+                    <p class="text-xs text-slate-500 line-clamp-2">${item.brandInfo}</p>
+                    <div class="flex flex-wrap gap-1 mt-2">
+                        <span class="px-2 py-1 bg-slate-100 text-slate-600 text-[10px] rounded border border-slate-200">โทน: ${item.tone}</span>
+                        <span class="px-2 py-1 bg-slate-100 text-slate-600 text-[10px] rounded border border-slate-200">แพลตฟอร์ม: ${item.platform}</span>
+                    </div>
+                </div>
+                <button onclick='restoreHistoryVersion(${JSON.stringify(item).replace(/'/g, "\\'")})' class="shrink-0 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 text-xs font-bold rounded-lg border border-indigo-200 transition-colors">
+                    <i class="fa-solid fa-rotate-left"></i> Restore
+                </button>
+            </div>
+        `;
+        container.appendChild(el);
+    });
+}
+
+function restoreHistoryVersion(item) {
+    document.getElementById('brand-info').value = item.brandInfo || '';
+    document.getElementById('product-info').value = item.productInfo || '';
+    
+    // Set Business Type
+    const busTypeSelect = document.getElementById('business-type');
+    let busFound = false;
+    for(let i=0; i<busTypeSelect.options.length; i++){
+        if(busTypeSelect.options[i].value === item.businessType){
+            busFound = true; break;
+        }
+    }
+    if (busFound) {
+        busTypeSelect.value = item.businessType;
+        if(isCustomBusiness) toggleCustomInput('business'); // Turn off custom
+    } else {
+        if(!isCustomBusiness) toggleCustomInput('business'); // Turn on custom
+        document.getElementById('custom-business').value = item.businessType;
+    }
+
+    // Set Tone
+    const toneSelect = document.getElementById('tone-voice');
+    let toneFound = false;
+    for(let i=0; i<toneSelect.options.length; i++){
+        if(toneSelect.options[i].value === item.tone){
+            toneFound = true; break;
+        }
+    }
+    if (toneFound) {
+        toneSelect.value = item.tone;
+        if(isCustomTone) toggleCustomInput('tone');
+    } else {
+        if(!isCustomTone) toggleCustomInput('tone');
+        document.getElementById('custom-tone').value = item.tone;
+    }
+
+    // Set Gender Tone
+    const genderSelect = document.getElementById('gender-tone');
+    let genderFound = false;
+    for(let i=0; i<genderSelect.options.length; i++){
+        if(genderSelect.options[i].value === item.genderTone){
+            genderFound = true; break;
+        }
+    }
+    if (genderFound) {
+        genderSelect.value = item.genderTone;
+        if(isCustomGender) toggleCustomInput('gender');
+    } else {
+        if(!isCustomGender) toggleCustomInput('gender');
+        document.getElementById('custom-gender').value = item.genderTone;
+    }
+
+    // Set Platform & format
+    if (item.platform) document.getElementById('platform').value = item.platform;
+    if (item.mediaFormat) document.getElementById('media-format').value = item.mediaFormat;
+    
+    if (item.contentObjective) setContentType(item.contentObjective);
+
+    hideBrandHistoryModal();
+    showToast('ดึงข้อมูลบรีฟจากประวัติสำเร็จ!', 'success');
+}
+</script>

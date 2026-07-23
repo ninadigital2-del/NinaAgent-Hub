@@ -1,0 +1,158 @@
+<script>
+// ============================================
+// Graphic Brief System - Sheets Handler
+// ============================================
+
+function saveCurrentCustomerToSheets() {
+    if (!selectedBrandId) {
+        showAlert('โปรดเลือกแบรนด์ก่อน', 'กรุณาระบุหรือคลิกเลือกแบรนด์ลูกค้าเพื่อบันทึกข้อมูล', 'warning');
+        return;
+    }
+    const brand = clientBrands.find(function(b) { return b.id === selectedBrandId; });
+    if (!brand) return;
+
+    var customerData = {
+        id: brand.id,
+        name: brand.name,
+        background: document.getElementById('edit-brand-bg').value,
+        target: document.getElementById('edit-brand-target').value,
+        pain: document.getElementById('edit-brand-pain').value,
+        obj: document.getElementById('edit-brand-obj').value,
+        mood: document.getElementById('edit-brand-mood').value,
+        rule: brand.rule || '',
+        msg: brand.msg || '',
+        cta: brand.cta || '',
+        ref: brand.ref || '',
+        files: (brand.uploadedCustomerFiles || []).map(function(f) { return f.driveUrl; }).filter(Boolean).join(', ')
+    };
+
+    google.script.run
+        .withSuccessHandler(function(result) {
+            if (result.success) {
+                var actionMsg = result.action === 'update' ? 'อัปเดตข้อมูลเก่า' : 'เพิ่มข้อมูลใหม่';
+                showAlert('บันทึกโปรไฟล์สำเร็จ!', actionMsg + ' ของแบรนด์ "' + customerData.name + '" ลงในแท็บ Customers แถวที่ ' + result.rowNumber + ' เรียบร้อยแล้ว', 'success');
+            } else {
+                showAlert('เกิดข้อผิดพลาด', 'ไม่สามารถบันทึกลงชีต Customers: ' + result.error, 'warning');
+            }
+        })
+        .withFailureHandler(function(err) {
+            showAlert('เกิดข้อผิดพลาด', 'เกิดข้อผิดพลาดเชื่อมต่อสคริปต์: ' + err.message, 'warning');
+        })
+        .saveCustomerToSheets(customerData);
+}
+
+function saveCurrentBriefToSheets() {
+    var brief = briefsList.find(function(b) { return b.id === selectedBriefId; });
+    if (!brief) {
+        showAlert('กรุณาเลือก Brief', 'โปรดเลือกหรือสร้างแบบร่าง Brief ก่อนบันทึกลง Sheets', 'warning');
+        return;
+    }
+
+    saveCurrentBriefFields();
+    brief = briefsList.find(function(b) { return b.id === selectedBriefId; });
+
+    const currentBrand = clientBrands.find(function(b) { return b.id === brief.brandId; });
+    var briefFilesUrl = "";
+    if (currentBrand && currentBrand.uploadedBriefFiles) {
+        briefFilesUrl = currentBrand.uploadedBriefFiles.map(function(f) { return f.driveUrl; }).filter(Boolean).join(', ');
+    }
+
+    var data = {
+        id: brief.id,
+        brandId: brief.brandId || '',
+        brandName: brief.brandName || '',
+        projectName: brief.projectName || '',
+        channels: brief.channels || '',
+        date: brief.date || '',
+        deadline: brief.deadline || '',
+        graphicName: brief.graphicName || '',
+        // 🚀 แก้ไขการแมปชื่อฟิลด์ให้ตรงกับตัวแปรในระบบ (bg, target, pain, obj)
+        bg: brief.bg || '',
+        target: brief.target || '',
+        pain: brief.pain || '',
+        obj: brief.obj || '',
+        scope: brief.scope || '',
+        deliver: brief.deliver || '',
+        mood: brief.mood || '',
+        rule: brief.rule || '',
+        msg: brief.msg || '',
+        cta: brief.cta || '',
+        ref: brief.ref || '',
+        files: briefFilesUrl
+    };
+
+    google.script.run
+        .withSuccessHandler(function(result) {
+            if (result.success) {
+                showAlert('บันทึกสำเร็จ!', 'ข้อมูล Brief "' + brief.projectName + '" ถูกบันทึกลง Google Sheets แท็บ Briefs แถวที่ ' + result.rowNumber + ' เรียบร้อยแล้ว', 'success');
+            } else {
+                showAlert('เกิดข้อผิดพลาด', 'ไม่สามารถบันทึกลง Sheets: ' + result.error, 'warning');
+            }
+        })
+        .withFailureHandler(function(err) {
+            showAlert('เกิดข้อผิดพลาด', 'เกิดข้อผิดพลาดในการเชื่อมต่อกับ Sheets: ' + err.message, 'warning');
+        })
+        .saveBriefToSheets(data);
+}
+
+function fetchBriefsFromSheets(isAutoLoad = false) {
+    google.script.run
+        .withSuccessHandler(function(result) {
+            if (result.success && result.briefs) {
+                briefsList = result.briefs;
+                saveDataToStorage();
+                
+                if (typeof renderBriefHistory === 'function') renderBriefHistory();
+                if (typeof renderBriefsList === 'function') renderBriefsList();
+                
+                if (!isAutoLoad) {
+                    if (result.briefs.length > 0) {
+                        showAlert('ซิงค์ข้อมูลสำเร็จ!', 'ดึงข้อมูลล่าสุดจาก Sheets ลงมาทับในเครื่องเรียบร้อย', 'success');
+                    } else {
+                        showAlert('อัปเดตข้อมูลแล้ว', 'ขณะนี้ตาราง Brief ใน Google Sheets ยังว่างเปล่า', 'success');
+                    }
+                }
+            }
+        })
+        .loadBriefsFromSheets();
+}
+
+function fetchBrandsFromSheets(isAutoLoad = false) {
+    google.script.run
+        .withSuccessHandler(function(result) {
+            if (result.success && result.brands) {
+                // 🚀 นำไฟล์เก่าที่ค้างอยู่ในเครื่องมาประกบเข้ากับข้อมูลใหม่จาก Sheets เพื่อไม่ให้ไฟล์หายตอนรีเฟรช
+                result.brands.forEach(function(newBrand) {
+                    const oldBrand = clientBrands.find(function(b) { return b.id === newBrand.id; });
+                    if (oldBrand) {
+                        newBrand.uploadedCustomerFiles = oldBrand.uploadedCustomerFiles || [];
+                        newBrand.uploadedBriefFiles = oldBrand.uploadedBriefFiles || [];
+                    } else {
+                        newBrand.uploadedCustomerFiles = [];
+                        newBrand.uploadedBriefFiles = [];
+                    }
+                });
+                
+                clientBrands = result.brands;
+                saveDataToStorage();
+                
+                // วาดรายชื่อที่หน้าแรกลูกค้า
+                if (typeof renderBrandList === 'function') renderBrandList();
+                
+                // ยิงคำสั่งอัปเดตกล่องตัวเลือก Dropdown บนหน้าจัดทำ Brief
+                if (typeof updateBriefBrandSelector === 'function') updateBriefBrandSelector();
+
+                // 🚀 สั่งวาดกล่องแสดงไฟล์บนหน้าจอใหม่ เพื่อให้ไฟล์กลับมาโชว์หลังรีเฟรช
+                if (selectedBrandId) {
+                    const currentBrand = clientBrands.find(function(b) { return b.id === selectedBrandId; });
+                    if (currentBrand && typeof updateCustomerFileList === 'function') {
+                        updateCustomerFileList(currentBrand);
+                    }
+                }
+                // สั่งวาดกล่องแสดงไฟล์ฝั่งหน้า Brief ด้วย
+                if (typeof updateBriefFileList === 'function') updateBriefFileList();
+            }
+        })
+        .loadBrandsFromSheets();
+}
+</script>

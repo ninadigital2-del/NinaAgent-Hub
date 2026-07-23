@@ -1,0 +1,368 @@
+<script>
+// ============================================
+// Social Media Assistant - Core App Logic
+// ============================================
+
+// Create Content
+function createContent() {
+    const brandInfo = document.getElementById('brand-info').value.trim();
+    
+    if (!brandInfo) {
+        showAlert('กรุณากรอกข้อมูลแบรนด์', 'โปรดระบุข้อมูลแบรนด์หรืออัพโหลดเอกสารแบรนด์บุคก่อนเริ่มสร้างคอนเทนต์', 'warning');
+        return;
+    }
+
+    const btn = document.getElementById('create-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-white"></i><span class="text-base">AI กำลังเชื่อมต่อสืบค้นข้อมูลและจัดร่าง...</span>';
+
+    const promptData = {
+        brandInfo: brandInfo,
+        businessType: isCustomBusiness ? document.getElementById('custom-business').value : document.getElementById('business-type').value,
+        tone: isCustomTone ? document.getElementById('custom-tone').value : document.getElementById('tone-voice').value,
+        genderTone: isCustomGender ? document.getElementById('custom-gender').value : document.getElementById('gender-tone').value,
+        productInfo: document.getElementById('product-info').value.trim(),
+        platform: document.getElementById('platform').value,
+        mediaFormat: document.getElementById('media-format').value,
+        contentType: currentContentType,
+        quantity: currentQuantity
+    };
+
+    google.script.run
+        .withSuccessHandler(function(result) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles text-yellow-300"></i><span class="text-base">เริ่มสร้างสรรค์เนื้อหา (Create Content)</span>';
+            
+            if (result.success && result.data && result.data.contents) {
+                generatedContents = result.data.contents;
+                saveDataToStorage();
+                switchTab('editor');
+                showToast('สร้างโซเชียลมีเดียคอนเทนต์สำเร็จ ' + generatedContents.length + ' รายการแล้ว!', 'success');
+                
+                // Save to Sheets
+                saveContentHistoryToSheets(promptData);
+                saveBrandToSheets(promptData);
+            } else {
+                showAlert('เกิดข้อผิดพลาด', result.error || 'ไม่สามารถสร้างคอนเทนต์ได้ กรุณาลองใหม่อีกครั้ง', 'error');
+            }
+        })
+        .withFailureHandler(function(err) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles text-yellow-300"></i><span class="text-base">เริ่มสร้างสรรค์เนื้อหา (Create Content)</span>';
+            showAlert('เกิดข้อผิดพลาดในการเชื่อมต่อ', err.message, 'error');
+        })
+        .generateSocialContent(promptData, GEMINI_API_KEY);
+}
+
+// Refine Content
+function refineContent(id) {
+    const refinePrompt = document.getElementById('refine-prompt-' + id).value.trim();
+    if (!refinePrompt) return;
+
+    const item = generatedContents.find(function(i) { return i.id === id; });
+    if (!item) return;
+
+    const btn = document.getElementById('refine-btn-' + id);
+    btn.disabled = true;
+    btn.textContent = 'กำลังวิเคราะห์แก้ไข...';
+
+    const promptData = {
+        id: id,
+        platform: document.getElementById('platform').value,
+        originalHeadline: item.headline,
+        originalCaption: item.caption,
+        originalVisual: item.visual_suggestion,
+        refinePrompt: refinePrompt
+    };
+
+    google.script.run
+        .withSuccessHandler(function(result) {
+            btn.disabled = false;
+            btn.textContent = 'ยืนยัน';
+            
+            if (result.success && result.data) {
+                const idx = generatedContents.findIndex(function(i) { return i.id === id; });
+                if (idx !== -1) {
+                    generatedContents[idx] = { ...generatedContents[idx], ...result.data };
+                    saveDataToStorage();
+                    renderEditorView();
+                    document.getElementById('refine-prompt-' + id).value = '';
+                    showToast('AI ทำการขัดเกลาและปรับแต่งคอนเทนต์นี้ให้เรียบร้อยแล้ว!', 'success');
+                }
+            } else {
+                showAlert('เกิดข้อผิดพลาด', result.error || 'ไม่สามารถปรับแต่งได้', 'error');
+            }
+        })
+        .withFailureHandler(function(err) {
+            btn.disabled = false;
+            btn.textContent = 'ยืนยัน';
+            showAlert('เกิดข้อผิดพลาด', err.message, 'error');
+        })
+        .refineContent(promptData, GEMINI_API_KEY);
+}
+
+// Render Editor View
+function renderEditorView() {
+    const container = document.getElementById('editor-view');
+    container.innerHTML = '';
+
+    if (generatedContents.length === 0) {
+        document.getElementById('empty-state').classList.remove('hidden');
+        return;
+    }
+
+    generatedContents.forEach(function(item, index) {
+        const card = document.createElement('div');
+        card.className = 'content-card';
+        card.innerHTML = '<div class="flex items-center justify-between border-b pb-3 mb-4 border-slate-200">'
+            + '<div class="flex items-center gap-2">'
+            + '<span class="w-6 h-6 rounded-lg bg-indigo-500/20 border border-indigo-500/30 text-indigo-600 flex items-center justify-center text-xs font-mono font-bold">' + (index + 1) + '</span>'
+            + '<h4 class="text-sm font-bold text-indigo-600 uppercase tracking-wide">Post #' + (index + 1) + ' - ฉบับร่างสำหรับ ' + document.getElementById('platform').value + ' (' + document.getElementById('media-format').value + ')</h4>'
+            + '</div>'
+            + '<button onclick="copyContent(\'' + item.id + '\')" class="text-xs flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border transition-all text-slate-600 hover:text-slate-900 bg-slate-50 border-slate-200 shadow-sm">'
+            + '<i class="fa-solid fa-copy text-xs"></i><span class="font-bold">คัดลอกบทโฆษณา</span></button></div>'
+            + '<div class="space-y-1.5 mb-4"><label class="text-xs font-semibold text-slate-500">🎯 พาดหัวสั้นดึงสายตา (Hook Line / Headline)</label>'
+            + '<input type="text" value="' + escapeHtml(item.headline) + '" onchange="updateField(\'' + item.id + '\', \'headline\', this.value)" class="w-full rounded-xl px-4 py-2.5 text-sm font-bold outline-none transition-all bg-slate-50 border border-slate-200 focus:border-indigo-500 text-slate-800"></div>'
+            + '<div class="space-y-1.5 mb-4"><label class="text-xs font-semibold text-slate-500">📝 ร่างรายละเอียดเนื้อความโฆษณา (Caption Copywriting)</label>'
+            + '<textarea onchange="updateField(\'' + item.id + '\', \'caption\', this.value)" class="w-full h-44 rounded-xl p-4 text-sm outline-none transition-all resize-y font-sans leading-relaxed bg-slate-50 border border-slate-200 focus:border-indigo-500 text-slate-800">' + escapeHtml(item.caption) + '</textarea></div>'
+            + '<div class="space-y-2 mb-4"><label class="text-xs font-semibold text-slate-500">🏷️ แฮชแท็กหลักกลุ่มไทยยอดนิยม (Hashtags)</label>'
+            + '<div class="flex flex-wrap items-center gap-2" id="hashtags-' + item.id + '">' + renderHashtags(item) + '</div></div>'
+            + '<div class="visual-box mb-4"><label class="text-xs font-bold flex items-center gap-1.5 text-amber-700"><i class="fa-solid fa-lightbulb"></i> คู่มือสร้างสไลด์/ซีนวิดีโอ (Visual Guideline)</label>'
+            + '<textarea onchange="updateField(\'' + item.id + '\', \'visual_suggestion\', this.value)" class="w-full bg-transparent border-none text-xs font-sans italic outline-none resize-y h-36 leading-relaxed text-slate-700">' + escapeHtml(item.visual_suggestion) + '</textarea></div>'
+            + '<div class="border-t pt-4 flex flex-col gap-2 border-slate-200">'
+            + '<div class="flex items-center justify-between"><span class="text-xs font-semibold text-indigo-600 flex items-center gap-1"><i class="fa-solid fa-comment-dots"></i> ให้ AI ขัดเกลาข้อความโพลต์นี้ตามสั่ง (AI Refiner)</span></div>'
+            + '<div class="flex gap-2"><input type="text" id="refine-prompt-' + item.id + '" placeholder="พิมพ์ปรับแก้ได้เลย เช่น \'ขอฮาๆ สั้นลง\', \'เน้น CTA ให้กดแชร์\'..." class="refiner-input flex-1">'
+            + '<button id="refine-btn-' + item.id + '" onclick="refineContent(\'' + item.id + '\')" class="px-4 py-2 bg-indigo-500 hover:bg-indigo-600 rounded-xl text-xs font-bold text-white transition-all flex items-center gap-1"><i class="fa-solid fa-check"></i> ยืนยัน</button></div></div>';
+        container.appendChild(card);
+    });
+}
+
+// Render Hashtags
+function renderHashtags(item) {
+    var html = '';
+    item.hashtags.forEach(function(tag, idx) {
+        html += '<div class="hashtag-tag"><span>#</span>'
+            + '<input type="text" value="' + escapeHtml(tag.replace(/^#/, '')) + '" onchange="updateHashtag(\'' + item.id + '\', ' + idx + ', this.value)" class="bg-transparent border-none text-xs w-20 outline-none font-semibold">'
+            + '<button onclick="removeHashtag(\'' + item.id + '\', ' + idx + ')" class="hover:text-red-500 transition-colors ml-1 font-bold">\u00d7</button></div>';
+    });
+    html += '<button onclick="addHashtag(\'' + item.id + '\')" class="px-2.5 py-1 rounded-lg text-xs font-bold border bg-white hover:bg-slate-100 text-slate-600 border-slate-300 shadow-sm">+ เพิ่มคีย์เวิร์ดแฮชแท็ก</button>';
+    return html;
+}
+
+// Render Preview View
+function renderPreviewView() {
+    const container = document.getElementById('preview-view');
+    container.innerHTML = '';
+
+    const platform = document.getElementById('platform').value;
+    const mediaFormat = document.getElementById('media-format').value;
+
+    generatedContents.forEach(function(item) {
+        const card = document.createElement('div');
+        card.className = 'preview-card border border-slate-200 bg-white';
+        
+        var headerBg = 'bg-blue-600';
+        var profileIcon = '\ud83d\udc64';
+        
+        if (platform === 'IG') {
+            headerBg = 'bg-gradient-to-tr from-yellow-500 via-pink-500 to-purple-600';
+            profileIcon = '\ud83d\udcf8';
+        } else if (platform === 'TikTok') {
+            headerBg = 'bg-black';
+            profileIcon = '\ud83c\udfb5';
+        } else if (platform === 'Youtube') {
+            headerBg = 'bg-red-600';
+            profileIcon = '\ud83d\udcfa';
+        } else if (platform === 'Line') {
+            headerBg = 'bg-emerald-500';
+            profileIcon = '\ud83d\udcac';
+        }
+
+        card.innerHTML = '<div class="p-4 flex items-center justify-between border-b border-slate-200">'
+            + '<div class="flex items-center gap-3">'
+            + '<div class="w-10 h-10 rounded-full flex items-center justify-center text-lg ' + headerBg + ' text-white">' + profileIcon + '</div>'
+            + '<div><div class="font-bold text-sm flex items-center gap-1.5 text-slate-800">'
+            + '<span>แบรนด์ตัวตนของคุณ (Official)</span>'
+            + '<span class="w-4 h-4 bg-blue-500 rounded-full text-[9px] flex items-center justify-center text-white">\u2713</span></div>'
+            + '<div class="text-[11px] flex items-center gap-1 text-slate-500"><span>ผู้ดูแลคอนเทนต์แบรนด์</span><span>\u2022</span><span>\ud83c\udf10 ' + platform + '</span></div></div></div>'
+            + '<button class="text-slate-400 hover:text-indigo-400 font-bold">\u2022\u2022\u2022</button></div>'
+            + '<div class="p-4 space-y-3">'
+            + '<div class="font-extrabold text-base tracking-wide border-l-4 border-indigo-500 pl-2 text-slate-800">' + escapeHtml(item.headline) + '</div>'
+            + '<p class="text-sm whitespace-pre-wrap leading-relaxed text-slate-700">' + escapeHtml(item.caption) + '</p>'
+            + '<div class="text-blue-500 text-sm font-semibold flex flex-wrap gap-x-1.5">' + item.hashtags.map(function(tag) { return '<span>' + (tag.startsWith('#') ? tag : '#' + tag) + '</span>'; }).join('') + '</div></div>'
+            + '<div class="p-6 text-center space-y-4 border-y border-slate-200 bg-slate-50">'
+            + '<div class="h-auto min-h-[176px] rounded-xl border flex flex-col items-center justify-center p-4 bg-slate-50 border-slate-200">'
+            + '<div class="w-12 h-12 bg-indigo-500/10 text-indigo-500 rounded-full flex items-center justify-center mb-2 text-2xl flex-shrink-0">' + (mediaFormat === "Video" ? "\ud83c\udfa5" : "\ud83d\uddbc\ufe0f") + '</div>'
+            + '<span class="text-[10px] uppercase tracking-widest text-indigo-500 font-semibold mb-2 block">ความคาดหวังภาพกราฟิก / คัทซีน ' + mediaFormat + ' (รายละเอียด)</span>'
+            + '<div class="text-xs italic text-left max-w-sm leading-relaxed whitespace-pre-wrap w-full text-slate-600">' + escapeHtml(item.visual_suggestion) + '</div></div>'
+            + '<p class="text-[10px] text-slate-500">(องค์ประกอบภาพศิลป์ แสง สี จะถูกวางกรอบโครงสร้างแนวนี้เพื่อให้ฝ่ายผลิตผลงานต่อทันที)</p></div>'
+            + '<div class="px-4 py-3 flex items-center justify-between text-xs font-semibold bg-slate-50 text-slate-500 border-t border-slate-200">'
+            + '<div class="flex items-center gap-1 hover:text-blue-500 cursor-pointer"><span>\ud83d\udc4d กดไลก์ถูกใจ</span></div>'
+            + '<div class="flex items-center gap-1 hover:text-blue-500 cursor-pointer"><span>\ud83d\udcac เขียนความคิดเห็น</span></div>'
+            + '<div class="flex items-center gap-1 hover:text-blue-500 cursor-pointer"><span>\ud83d\udd04 ส่งต่อ / แชร์</span></div></div>';
+        container.appendChild(card);
+    });
+}
+
+// Update Field
+function updateField(id, field, value) {
+    const idx = generatedContents.findIndex(function(i) { return i.id === id; });
+    if (idx !== -1) {
+        generatedContents[idx][field] = value;
+        saveDataToStorage();
+    }
+}
+
+// Update Hashtag
+function updateHashtag(id, idx, value) {
+    const item = generatedContents.find(function(i) { return i.id === id; });
+    if (item) {
+        item.hashtags[idx] = value;
+        saveDataToStorage();
+        document.getElementById('hashtags-' + id).innerHTML = renderHashtags(item);
+    }
+}
+
+// Add Hashtag
+function addHashtag(id) {
+    const item = generatedContents.find(function(i) { return i.id === id; });
+    if (item) {
+        item.hashtags.push('แท็กใหม่');
+        saveDataToStorage();
+        document.getElementById('hashtags-' + id).innerHTML = renderHashtags(item);
+    }
+}
+
+// Remove Hashtag
+function removeHashtag(id, idx) {
+    const item = generatedContents.find(function(i) { return i.id === id; });
+    if (item) {
+        item.hashtags.splice(idx, 1);
+        saveDataToStorage();
+        document.getElementById('hashtags-' + id).innerHTML = renderHashtags(item);
+    }
+}
+
+// Copy Content
+function copyContent(id) {
+    const item = generatedContents.find(function(i) { return i.id === id; });
+    if (!item) return;
+
+    const text = 'หัวข้อ: ' + item.headline + '\n\nแคปชั่น:\n' + item.caption + '\n\nแฮชแท็ก: ' + item.hashtags.map(function(t) { return t.startsWith('#') ? t : '#' + t; }).join(' ');
+    
+    const tempTextArea = document.createElement('textarea');
+    tempTextArea.value = text;
+    document.body.appendChild(tempTextArea);
+    tempTextArea.select();
+    try {
+        document.execCommand('copy');
+        showToast('คัดลอกเนื้อหาไปยังคลิปบอร์ดแล้ว!', 'success');
+    } catch (err) {
+        showToast('ไม่สามารถคัดลอกได้โดยอัตโนมัติ กรุณาไฮไลต์และคัดลอกเอง', 'warning');
+    }
+    document.body.removeChild(tempTextArea);
+}
+
+// Export to Word
+function exportToDoc() {
+    if (generatedContents.length === 0) {
+        showAlert('ยังไม่มีคอนเทนต์', 'กรุณาสร้างคอนเทนต์ก่อนส่งออกไฟล์', 'warning');
+        return;
+    }
+
+    var businessType = isCustomBusiness ? document.getElementById('custom-business').value : document.getElementById('business-type').value;
+    var tone = isCustomTone ? document.getElementById('custom-tone').value : document.getElementById('tone-voice').value;
+    var platform = document.getElementById('platform').value;
+    var mediaFormat = document.getElementById('media-format').value;
+
+    var parts = [];
+    parts.push("<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>");
+    parts.push('<head><title>แผนงานโซเชียลมีเดียคอนเทนต์</title><meta charset="utf-8" />');
+    parts.push('<style>body{font-family:"Tahoma","Segoe UI",sans-serif;line-height:1.6;color:#1e293b;padding:20px}.header{border-bottom:3px double #6366f1;padding-bottom:15px;margin-bottom:30px;text-align:center}.title{font-size:26px;font-weight:bold;color:#4338ca}.metadata{font-size:13px;color:#64748b;margin-top:5px}.card{border:1px solid #e2e8f0;border-radius:8px;padding:25px;margin-bottom:30px;background-color:#f8fafc}.post-num{font-size:18px;font-weight:bold;color:#4f46e5;border-bottom:1px solid #e2e8f0;padding-bottom:8px;margin-bottom:15px}.label{font-weight:bold;color:#0f172a;margin-top:15px}.headline{font-size:16px;font-weight:bold;color:#1e1b4b;background-color:#e0e7ff;padding:8px 12px;border-radius:4px;margin-bottom:10px}.caption{background-color:#fff;border:1px solid #cbd5e1;padding:15px;border-radius:6px;white-space:pre-wrap;margin-bottom:15px}.hashtags{color:#2563eb;font-weight:bold;font-family:monospace;font-size:14px;margin-bottom:15px}.visual-box{border-left:4px solid #f59e0b;background-color:#fffbeb;padding:12px 16px;border-radius:0 4px 4px 0;font-style:italic;font-size:13px;color:#b45309;white-space:pre-wrap}</style></head><body>');
+    parts.push('<div class="header"><div class="title">\ud83d\udccb Social Media Content Calendar & Copy</div>');
+    parts.push('<div class="metadata">สร้างโดย AI Content Strategy Assistant | ประเภทธุรกิจ: ' + escapeHtml(businessType) + ' | โทนเสียง: ' + escapeHtml(tone) + ' | ช่องทาง: ' + escapeHtml(platform) + '</div></div>');
+
+    generatedContents.forEach(function(item, idx) {
+        var hashtags = item.hashtags.map(function(t) { return t.startsWith('#') ? t : '#' + t; }).join(' ');
+        parts.push('<div class="card"><div class="post-num">โพสต์ที่ ' + (idx + 1) + ' (' + escapeHtml(platform) + ' - ' + escapeHtml(mediaFormat) + ')</div>');
+        parts.push('<div class="label">\ud83c\udfaf หัวข้อ / Hook:</div><div class="headline">' + escapeHtml(item.headline) + '</div>');
+        parts.push('<div class="label">\ud83d\udcdd แคปชั่นสำหรับใช้งาน:</div><div class="caption">' + escapeHtml(item.caption) + '</div>');
+        parts.push('<div class="label">\ud83c\udff7\ufe0f แฮชแท็ก:</div><div class="hashtags">' + escapeHtml(hashtags) + '</div>');
+        parts.push('<div class="label">\ud83d\udca1 คำแนะนำสำหรับการทำภาพกราฟิก/วิดีโอ:</div><div class="visual-box">' + escapeHtml(item.visual_suggestion) + '</div></div>');
+    });
+
+    parts.push('</body></html>');
+
+    var blob = new Blob(['\ufeff' + parts.join('')], { type: 'application/msword' });
+    var url = URL.createObjectURL(blob);
+    var link = document.createElement('a');
+    link.href = url;
+    link.download = 'social_content_plan_' + platform + '_' + Date.now() + '.doc';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast('ส่งออกข้อมูลเป็นไฟล์เอกสาร Word (.doc) สำเร็จแล้ว!', 'success');
+}
+
+// Export to Slides
+function exportToSlides() {
+    if (generatedContents.length === 0) {
+        showAlert('ไม่มีข้อมูล', 'ยังไม่มีคอนเทนต์สำหรับสร้างสไลด์ กรุณาสร้างคอนเทนต์ก่อน', 'warning');
+        return;
+    }
+
+    var businessType = isCustomBusiness ? document.getElementById('custom-business').value : document.getElementById('business-type').value;
+    var platform = document.getElementById('platform').value;
+    var mediaFormat = document.getElementById('media-format').value;
+    var sOpen = '<' + 'script>';
+    var sClose = '<' + '/script>';
+
+    var p = [];
+    p.push('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Content Concept Deck</title>');
+    p.push('<' + 'script src="https://cdn.tailwindcss.com">' + sClose);
+    p.push('<style>.slide{display:none;min-height:100vh}.slide.active{display:flex}</style></head>');
+    p.push('<body class="bg-slate-900 text-white font-sans">');
+    p.push('<div class="slide active flex-col justify-between p-16" id="slide-0">');
+    p.push('<div class="my-auto max-w-4xl"><h1 class="text-6xl font-extrabold tracking-tight mb-6 bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">Content Concept Presentation</h1>');
+    p.push('<p class="text-2xl text-slate-300">สำหรับธุรกิจ: ' + escapeHtml(businessType) + ' | ช่องทาง: <span class="text-indigo-300 font-bold">' + escapeHtml(platform) + '</span></p></div>');
+    p.push('<div class="text-slate-500 text-xs text-center">กดปุ่มลูกศร ซ้าย-ขวา เพื่อเปลี่ยนหน้า | สร้างเมื่อ: ' + new Date().toLocaleDateString('th-TH') + '</div></div>');
+
+    generatedContents.forEach(function(item, idx) {
+        p.push('<div class="slide flex-col justify-between p-12 bg-slate-950" id="slide-' + ((idx*2)+1) + '">');
+        p.push('<div class="flex justify-between items-center border-b border-slate-800 pb-4"><span class="text-indigo-400 font-bold text-sm">POST #' + (idx+1) + ': CONCEPT</span><span class="text-slate-400 text-xs">' + escapeHtml(platform) + '</span></div>');
+        p.push('<div class="my-auto space-y-6"><div><h3 class="text-xs font-semibold text-indigo-400 uppercase tracking-widest mb-1">Hook</h3><h2 class="text-3xl font-extrabold text-white">' + escapeHtml(item.headline) + '</h2></div>');
+        p.push('<div><h3 class="text-xs font-semibold text-amber-400 uppercase tracking-widest mb-1">Visual Direction</h3><div class="p-5 bg-amber-950/40 border border-amber-900/50 rounded-xl text-amber-200 text-xs italic whitespace-pre-wrap">' + escapeHtml(item.visual_suggestion) + '</div></div></div>');
+        p.push('<div class="text-slate-500 text-xs">สไลด์ ' + ((idx*2)+1) + '</div></div>');
+
+        var hashStr = item.hashtags.map(function(t){ return t.startsWith('#') ? t : '#' + t; }).join(' ');
+        p.push('<div class="slide flex-col justify-between p-12 bg-indigo-950/20" id="slide-' + ((idx*2)+2) + '">');
+        p.push('<div class="flex justify-between items-center border-b border-indigo-900/40 pb-4"><span class="text-indigo-400 font-bold text-sm">POST #' + (idx+1) + ': COPY</span><span class="text-slate-400 text-xs">' + escapeHtml(platform) + '</span></div>');
+        p.push('<div class="my-auto max-w-4xl mx-auto w-full"><h3 class="text-xs font-semibold text-indigo-400 uppercase tracking-widest mb-2">Caption</h3><div class="bg-slate-900/80 border border-indigo-500/20 rounded-xl p-6 text-sm text-slate-100 whitespace-pre-wrap">' + escapeHtml(item.caption) + '<br/><br/>' + escapeHtml(hashStr) + '</div></div>');
+        p.push('<div class="text-slate-500 text-xs">สไลด์ ' + ((idx*2)+2) + '</div></div>');
+    });
+
+    var totalSlides = (generatedContents.length * 2) + 1;
+    p.push(sOpen);
+    p.push('var cs=0,ts=' + totalSlides + ';function ss(i){document.querySelectorAll(".slide").forEach(function(e){e.classList.remove("active")});document.getElementById("slide-"+i).classList.add("active");cs=i}document.addEventListener("keydown",function(e){if(e.key==="ArrowRight"&&cs<ts-1)ss(cs+1);else if(e.key==="ArrowLeft"&&cs>0)ss(cs-1)});');
+    p.push(sClose);
+    p.push('</body></html>');
+
+    var blob = new Blob([p.join('')], { type: 'text/html' });
+    var url = URL.createObjectURL(blob);
+    var link = document.createElement('a');
+    link.href = url;
+    link.download = 'pitching_deck_' + platform + '_' + Date.now() + '.html';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast('ดาวน์โหลดสไลด์คอนเซปต์สำเร็จ!', 'success');
+}
+
+// Escape HTML
+function escapeHtml(text) {
+    if (!text) return '';
+    var div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+</script>

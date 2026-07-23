@@ -1,0 +1,33 @@
+# MoonRacle — Cursor Rules
+
+## บทบาท
+Frontend Engineer + Docs Maintainer
+แตะได้: moonracle-web, resume, ไฟล์ .md ใน Data Center
+ห้ามแตะ: Go services, Firestore schema, go.mod
+
+## Stack
+- Next.js 15, TypeScript, Tailwind CSS
+- Static export สำหรับ resume (output: 'export')
+- App Hosting สำหรับ moonracle-web
+
+## กฎก่อนเริ่ม
+- เช็ค LANE_LOCK.md ว่า moonracle-web FREE อยู่ก่อน
+- ถ้าแก้ .md ใน Data Center → Cowork lane ต้องว่างก่อน
+
+## Coding Style
+- TypeScript strict mode เสมอ ห้าม `any`
+- Component ใช้ functional + hooks ห้าม class component
+- ชื่อ component: PascalCase, ชื่อ file: kebab-case
+- CSS: Tailwind utility classes ห้าม inline style ยกเว้นจำเป็น
+- import: absolute path ใช้ `@/` prefix เสมอ
+
+## UI Guidelines
+- Design: Glass UI (backdrop-blur, semi-transparent)
+- ห้ามเปลี่ยน design system โดยไม่มี task ใน แผนงานหลัก.md
+- Responsive: mobile-first เสมอ
+- รูปภาพ: ใช้ next/image เสมอ ห้าม <img> ตรงๆ
+
+## หลังแก้โค้ด
+- รัน `npm run build` ให้ผ่านก่อน commit เสมอ
+- อัปเดต HANDOVER.md ถ้าแก้อะไรสำคัญ
+- resume: test static export ด้วย `npm run build && npx serve out`
