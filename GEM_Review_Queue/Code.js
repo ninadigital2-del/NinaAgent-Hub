@@ -343,11 +343,13 @@ function syncMasterQueueStatus() {
       // Check if this task is actively in review / revision loop
       const isActiveTask = (normVal === "sent to p'aof" || normVal === "มีปรับแก้" || currentReviewStatus === "รอรีวิว" || currentReviewStatus === "มีปรับแก้");
 
-      // Skip past dates BEFORE today ONLY IF the task is NOT actively "Sent to P'Aof" or "มีปรับแก้"
+      // Skip past dates BEFORE today IF the task was already reviewed (มีปรับแก้ / อนุมัติแล้ว)
       const dateVal = row[5]; // Col F (วันที่ส่งงาน)
       const taskDateStr = parseTaskDateString(dateVal);
-      if (taskDateStr && taskDateStr < todayStr && !isActiveTask) {
-        continue; // Skip past inactive tasks
+      if (taskDateStr && taskDateStr < todayStr) {
+        if (currentReviewStatus === "มีปรับแก้" || currentReviewStatus === "อนุมัติแล้ว" || !isActiveTask) {
+          continue; // Skip past reviewed / inactive tasks
+        }
       }
 
       if (normVal === "sent to p'aof") {
