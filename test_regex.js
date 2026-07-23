@@ -1,0 +1,1 @@
+const row14 = '[20/07/2026 17:21:33] (LINE) ???????????????? ?????????'; const m = String(row14).match(/\[(\d{2})\/(\d{2})\/(\d{4}) (\d{2}):(\d{2}):(\d{2})\]/); if (m) { const d = new Date(${m[3]}--T::+07:00); console.log(isNaN(d.getTime()) ? '' : d.toISOString()); } else { console.log('no match'); }
