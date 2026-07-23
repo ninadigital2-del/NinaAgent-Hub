@@ -1,0 +1,184 @@
+<script>
+// ============================================
+// Graphic Brief System - Export Service
+// ============================================
+
+function exportToGoogleDocs() {
+    if (!selectedBrandId) {
+        showAlert('โปรดเลือกแบรนด์ก่อน', 'กรุณาระบุหรือเลือกแบรนด์ลูกค้าเพื่อส่งออกเอกสาร', 'warning');
+        return;
+    }
+    const brand = clientBrands.find(function(b) { return b.id === selectedBrandId; });
+
+    const btns = document.querySelectorAll('button');
+    let targetBtn = null;
+    btns.forEach(b => { if(b.innerText.includes('Export Google Docs')) targetBtn = b; });
+    
+    let originalText = '';
+    if (targetBtn) {
+        originalText = targetBtn.innerHTML;
+        targetBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังสร้าง Docs...';
+        targetBtn.disabled = true;
+    }
+
+    google.script.run
+        .withSuccessHandler(function(result) {
+            if (targetBtn) { targetBtn.innerHTML = originalText; targetBtn.disabled = false; }
+            if (result.success) {
+                showAlert('สร้างเอกสารสำเร็จ!', 'ระบบได้สร้าง Google Docs เรียบร้อยแล้ว กำลังเปิดหน้าต่างใหม่...', 'success');
+                window.open(result.url, '_blank');
+            } else {
+                showAlert('เกิดข้อผิดพลาด', result.error, 'error');
+            }
+        })
+        .withFailureHandler(function(error) {
+            if (targetBtn) { targetBtn.innerHTML = originalText; targetBtn.disabled = false; }
+            showAlert('เชื่อมต่อล้มเหลว', error.message, 'error');
+        })
+        .createGoogleDocCustomer(brand);
+}
+
+function exportToGoogleSlides() {
+    if (!selectedBrandId) {
+        showAlert('โปรดเลือกแบรนด์ก่อน', 'กรุณาระบุหรือเลือกแบรนด์ลูกค้าเพื่อส่งออกสไลด์', 'warning');
+        return;
+    }
+    const brand = clientBrands.find(function(b) { return b.id === selectedBrandId; });
+
+    const btns = document.querySelectorAll('button');
+    let targetBtn = null;
+    btns.forEach(b => { if(b.innerText.includes('Export Google Slides')) targetBtn = b; });
+    
+    let originalText = '';
+    if (targetBtn) {
+        originalText = targetBtn.innerHTML;
+        targetBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังสร้างสไลด์...';
+        targetBtn.disabled = true;
+    }
+
+    google.script.run
+        .withSuccessHandler(function(result) {
+            if (targetBtn) { targetBtn.innerHTML = originalText; targetBtn.disabled = false; }
+            if (result.success) {
+                showAlert('สร้างสไลด์สำเร็จ!', 'ระบบได้สร้าง Google Slides เรียบร้อยแล้ว กำลังเปิดหน้าต่างใหม่...', 'success');
+                window.open(result.url, '_blank');
+            } else {
+                showAlert('เกิดข้อผิดพลาด', result.error, 'error');
+            }
+        })
+        .withFailureHandler(function(error) {
+            if (targetBtn) { targetBtn.innerHTML = originalText; targetBtn.disabled = false; }
+            showAlert('เชื่อมต่อล้มเหลว', error.message, 'error');
+        })
+        .createGoogleSlideCustomer(brand);
+}
+
+function exportBriefToDocs() {
+    const brief = briefsList.find(function(b) { return b.id === selectedBriefId; }) || {};
+    
+    const btns = document.querySelectorAll('button');
+    let targetBtn = null;
+    btns.forEach(b => { if(b.innerText.includes('Export Google Docs')) targetBtn = b; });
+    
+    let originalText = '';
+    if (targetBtn) {
+        originalText = targetBtn.innerHTML;
+        targetBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังสร้าง Docs...';
+        targetBtn.disabled = true;
+    }
+
+    const briefData = {
+        brandName: document.getElementById('brief-brand-name').value.trim() || brief.brandName || "ไม่มีชื่อแบรนด์",
+        projectName: document.getElementById('brief-project-name').value || brief.projectName || "โปรเจกต์งานออกแบบ",
+        channels: document.getElementById('brief-channels').value || brief.channels || "ไม่ระบุช่องทาง",
+        graphicName: document.getElementById('brief-graphic-name').value || brief.graphicName || "ไม่ระบุดีไซเนอร์",
+        dateStr: document.getElementById('brief-date').value || brief.date || "-",
+        deadline: document.getElementById('brief-deadline').value || brief.deadline || "-",
+        bg: document.getElementById('brief-editor-bg').innerHTML,
+        target: document.getElementById('brief-editor-target').innerHTML,
+        pain: document.getElementById('brief-editor-pain').innerHTML,
+        obj: document.getElementById('brief-editor-obj').innerHTML,
+        scope: document.getElementById('brief-editor-scope').innerHTML,
+        deliver: document.getElementById('brief-editor-deliver').innerHTML,
+        mood: document.getElementById('brief-editor-mood').innerHTML,
+        rule: document.getElementById('brief-editor-rule').innerHTML,
+        msg: document.getElementById('brief-editor-msg').innerHTML,
+        cta: document.getElementById('brief-editor-cta').innerHTML,
+        ref: document.getElementById('brief-editor-ref').innerHTML
+    };
+
+    google.script.run
+        .withSuccessHandler(function(result) {
+            if (targetBtn) { targetBtn.innerHTML = originalText; targetBtn.disabled = false; }
+            if (result.success) {
+                showAlert('สร้างเอกสารสำเร็จ!', 'ระบบได้สร้าง Google Docs เรียบร้อยแล้ว กำลังเปิดหน้าต่างใหม่...', 'success');
+                window.open(result.url, '_blank');
+            } else {
+                showAlert('เกิดข้อผิดพลาด', result.error, 'error');
+            }
+        })
+        .withFailureHandler(function(error) {
+            if (targetBtn) { targetBtn.innerHTML = originalText; targetBtn.disabled = false; }
+            showAlert('เชื่อมต่อล้มเหลว', error.message, 'error');
+        })
+        .createGoogleDocBrief(briefData);
+}
+
+function exportBriefToSlides() {
+    const brief = briefsList.find(function(b) { return b.id === selectedBriefId; }) || {};
+    
+    // Find the button to show loading state
+    const btns = document.querySelectorAll('button');
+    let targetBtn = null;
+    btns.forEach(b => { if(b.innerText.includes('Export Google Slides')) targetBtn = b; });
+    
+    let originalText = '';
+    if (targetBtn) {
+        originalText = targetBtn.innerHTML;
+        targetBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังสร้างสไลด์...';
+        targetBtn.disabled = true;
+    }
+
+    const briefData = {
+        brandName: document.getElementById('brief-brand-name').value.trim() || brief.brandName || "ไม่มีชื่อแบรนด์",
+        projectName: document.getElementById('brief-project-name').value || brief.projectName || "โปรเจกต์งานออกแบบ",
+        channels: document.getElementById('brief-channels').value || brief.channels || "ไม่ระบุช่องทาง",
+        graphicName: document.getElementById('brief-graphic-name').value || brief.graphicName || "ไม่ระบุดีไซเนอร์",
+        dateStr: document.getElementById('brief-date').value || brief.date || "-",
+        deadline: document.getElementById('brief-deadline').value || brief.deadline || "-",
+        bg: document.getElementById('brief-editor-bg').innerHTML,
+        target: document.getElementById('brief-editor-target').innerHTML,
+        pain: document.getElementById('brief-editor-pain').innerHTML,
+        obj: document.getElementById('brief-editor-obj').innerHTML,
+        scope: document.getElementById('brief-editor-scope').innerHTML,
+        deliver: document.getElementById('brief-editor-deliver').innerHTML,
+        mood: document.getElementById('brief-editor-mood').innerHTML,
+        rule: document.getElementById('brief-editor-rule').innerHTML,
+        msg: document.getElementById('brief-editor-msg').innerHTML,
+        cta: document.getElementById('brief-editor-cta').innerHTML,
+        ref: document.getElementById('brief-editor-ref').innerHTML
+    };
+
+    google.script.run
+        .withSuccessHandler(function(result) {
+            if (targetBtn) {
+                targetBtn.innerHTML = originalText;
+                targetBtn.disabled = false;
+            }
+            if (result.success) {
+                showAlert('สร้างสไลด์สำเร็จ!', 'ระบบได้สร้าง Google Slides เรียบร้อยแล้ว กำลังเปิดหน้าต่างใหม่...', 'success');
+                window.open(result.url, '_blank');
+            } else {
+                showAlert('เกิดข้อผิดพลาด', result.error, 'error');
+            }
+        })
+        .withFailureHandler(function(error) {
+            if (targetBtn) {
+                targetBtn.innerHTML = originalText;
+                targetBtn.disabled = false;
+            }
+            showAlert('เชื่อมต่อล้มเหลว', error.message, 'error');
+        })
+        .createGoogleSlideBrief(briefData);
+}
+</script>

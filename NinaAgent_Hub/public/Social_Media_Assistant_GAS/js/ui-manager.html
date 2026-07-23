@@ -1,0 +1,317 @@
+<script>
+// ============================================
+// Social Media Assistant - UI Manager
+// ============================================
+
+// Theme Toggle
+function toggleTheme() {
+    if (currentTheme === "light") {
+        currentTheme = "dark";
+        document.body.classList.add('theme-dark');
+        document.getElementById('theme-toggle-btn').innerHTML = '<i class="fa-solid fa-moon text-sm"></i><span class="text-xs ml-2 font-bold">โหมดมืด</span>';
+    } else {
+        currentTheme = "light";
+        document.body.classList.remove('theme-dark');
+        document.getElementById('theme-toggle-btn').innerHTML = '<i class="fa-solid fa-sun text-sm"></i><span class="text-xs ml-2 font-bold">โหมดสว่าง</span>';
+    }
+    localStorage.setItem(STORAGE_KEY_THEME, currentTheme);
+    showToast('เปลี่ยนโครงสร้างสีหน้าจอเป็น: ' + (currentTheme === "dark" ? "โหมดมืด" : "โหมดสว่างสบายตา"), 'info');
+}
+
+// Custom Input Toggle
+function toggleCustomInput(type) {
+    if (type === 'business') {
+        isCustomBusiness = !isCustomBusiness;
+        const select = document.getElementById('business-type');
+        const input = document.getElementById('custom-business');
+        if (isCustomBusiness) {
+            select.classList.add('hidden');
+            input.classList.remove('hidden');
+        } else {
+            select.classList.remove('hidden');
+            input.classList.add('hidden');
+            input.value = '';
+        }
+    } else if (type === 'tone') {
+        isCustomTone = !isCustomTone;
+        const select = document.getElementById('tone-voice');
+        const input = document.getElementById('custom-tone');
+        if (isCustomTone) {
+            select.classList.add('hidden');
+            input.classList.remove('hidden');
+        } else {
+            select.classList.remove('hidden');
+            input.classList.add('hidden');
+            input.value = '';
+        }
+    } else if (type === 'gender') {
+        isCustomGender = !isCustomGender;
+        const select = document.getElementById('gender-tone');
+        const input = document.getElementById('custom-gender');
+        if (isCustomGender) {
+            select.classList.add('hidden');
+            input.classList.remove('hidden');
+        } else {
+            select.classList.remove('hidden');
+            input.classList.add('hidden');
+            input.value = '';
+        }
+    }
+}
+
+// Content Type Selection
+function setContentType(type) {
+    currentContentType = type;
+    document.querySelectorAll('.content-type-btn').forEach(function(btn) {
+        btn.classList.remove('active');
+    });
+    document.querySelector('[data-type="' + type + '"]').classList.add('active');
+}
+
+// Quantity Control
+function changeQuantity(delta) {
+    currentQuantity = Math.max(1, Math.min(20, currentQuantity + delta));
+    document.getElementById('quantity-display').textContent = currentQuantity;
+}
+
+// Tab Switching
+function switchTab(tabName) {
+    currentTab = tabName;
+    
+    document.getElementById('editor-view').classList.add('hidden');
+    document.getElementById('preview-view').classList.add('hidden');
+    document.getElementById('empty-state').classList.add('hidden');
+    
+    document.getElementById('btn-editor').classList.remove('bg-indigo-500', 'text-white', 'shadow');
+    document.getElementById('btn-editor').classList.add('text-slate-400', 'hover:text-slate-600');
+    document.getElementById('btn-preview').classList.remove('bg-indigo-500', 'text-white', 'shadow');
+    document.getElementById('btn-preview').classList.add('text-slate-400', 'hover:text-slate-600');
+    
+    if (generatedContents.length === 0) {
+        document.getElementById('empty-state').classList.remove('hidden');
+        return;
+    }
+    
+    if (tabName === 'editor') {
+        document.getElementById('editor-view').classList.remove('hidden');
+        document.getElementById('btn-editor').classList.add('bg-indigo-500', 'text-white', 'shadow');
+        document.getElementById('btn-editor').classList.remove('text-slate-400', 'hover:text-slate-600');
+        renderEditorView();
+    } else {
+        document.getElementById('preview-view').classList.remove('hidden');
+        document.getElementById('btn-preview').classList.add('bg-indigo-500', 'text-white', 'shadow');
+        document.getElementById('btn-preview').classList.remove('text-slate-400', 'hover:text-slate-600');
+        renderPreviewView();
+    }
+}
+
+// Toast Notification
+function showToast(message, type) {
+    const toast = document.getElementById('toast');
+    const toastMessage = document.getElementById('toast-message');
+    
+    toast.className = 'fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-4 rounded-xl border shadow-xl transition-all duration-300';
+    toast.classList.add(type);
+    
+    toastMessage.textContent = message;
+    toast.classList.remove('hidden');
+    
+    setTimeout(function() {
+        toast.classList.add('hidden');
+    }, 4500);
+}
+
+// Alert Modal
+function showAlert(title, message, type) {
+    const modal = document.getElementById('alert-modal');
+    const icon = document.getElementById('alert-icon');
+    const titleEl = document.getElementById('alert-title');
+    const messageEl = document.getElementById('alert-message');
+    
+    titleEl.textContent = title;
+    messageEl.textContent = message;
+    
+    if (type === 'success') {
+        icon.className = 'fa-solid fa-circle-check text-2xl text-emerald-500';
+    } else if (type === 'warning') {
+        icon.className = 'fa-solid fa-triangle-exclamation text-2xl text-amber-500';
+    } else if (type === 'error') {
+        icon.className = 'fa-solid fa-circle-xmark text-2xl text-red-500';
+    }
+    
+    modal.classList.remove('hidden');
+}
+
+function closeAlert() {
+    document.getElementById('alert-modal').classList.add('hidden');
+}
+
+// Notion Modal
+function showNotionModal() {
+    document.getElementById('notion-modal').classList.remove('hidden');
+    renderNotionPages();
+}
+
+function hideNotionModal() {
+    document.getElementById('notion-modal').classList.add('hidden');
+}
+
+function renderNotionPages() {
+    const container = document.getElementById('notion-pages-list');
+    container.innerHTML = '<div class="flex flex-col items-center justify-center py-10 text-slate-400 gap-2"><i class="fa-solid fa-spinner fa-spin text-2xl"></i><p class="text-sm">กำลังโหลดโปรเจกต์จาก Notion...</p></div>';
+    
+    google.script.run.withSuccessHandler(function(response) {
+        container.innerHTML = '';
+        if(response.success && response.projects.length > 0) {
+            response.projects.forEach(function(page) {
+                const card = document.createElement('div');
+                card.className = 'p-4 border rounded-xl cursor-pointer transition-all duration-200 flex flex-col gap-1.5 bg-slate-50 border-slate-200 hover:border-indigo-500 hover:bg-white shadow-sm';
+                card.onclick = function() { importFromNotion(page); };
+                card.innerHTML = '<div class="flex items-center justify-between"><span class="text-xs text-indigo-500 font-bold font-mono">Notion Project</span><span class="text-[10px] text-slate-400">ID: ' + page.id + '</span></div><h4 class="text-sm font-bold text-slate-800">' + page.name + '</h4><p class="text-xs italic line-clamp-2 text-slate-600">คลิกเพื่อใช้เป็นโปรเจกต์ (นำไปใส่ในช่อง สินค้า/บริการ)</p>';
+                container.appendChild(card);
+            });
+        } else {
+            container.innerHTML = '<p class="text-sm text-center text-slate-500">ไม่พบข้อมูลโปรเจกต์ หรือ API ผิดพลาด</p>';
+        }
+    }).getNotionProjects();
+}
+
+function importFromNotion(page) {
+    let oldProductInfo = document.getElementById('product-info').value;
+    document.getElementById('product-info').value = (oldProductInfo ? oldProductInfo + "\n\n" : "") + "อ้างอิงโปรเจกต์จาก Notion: " + page.name;
+    
+    hideNotionModal();
+    showToast('ดึงฐานข้อมูล Notion "' + page.name + '" เรียบร้อย!', 'success');
+}
+
+// Graphic Brief Modal
+function showGraphicBriefModal() {
+    document.getElementById('graphic-brief-modal').classList.remove('hidden');
+    renderGraphicBriefCustomers();
+}
+
+function hideGraphicBriefModal() {
+    document.getElementById('graphic-brief-modal').classList.add('hidden');
+}
+
+function renderGraphicBriefCustomers() {
+    const container = document.getElementById('graphic-brief-list');
+    container.innerHTML = '<div class="flex flex-col items-center justify-center py-10 text-slate-400 gap-2"><i class="fa-solid fa-spinner fa-spin text-2xl"></i><p class="text-sm">กำลังโหลดข้อมูลลูกค้า...</p></div>';
+    
+    google.script.run.withSuccessHandler(function(response) {
+        container.innerHTML = '';
+        if(response.success && response.customers && response.customers.length > 0) {
+            response.customers.forEach(function(customer) {
+                const card = document.createElement('div');
+                card.className = 'p-4 border rounded-xl cursor-pointer transition-all duration-200 flex flex-col gap-1.5 bg-slate-50 border-slate-200 hover:border-pink-500 hover:bg-white shadow-sm';
+                card.onclick = function() { importFromGraphicBrief(customer); };
+                card.innerHTML = '<div class="flex items-center justify-between"><span class="text-xs text-pink-500 font-bold font-mono">Graphic Brief</span><span class="text-[10px] text-slate-400">ID: ' + customer.id + '</span></div><h4 class="text-sm font-bold text-slate-800">' + customer.name + '</h4><p class="text-xs italic line-clamp-2 text-slate-600">Background: ' + customer.background + '</p>';
+                container.appendChild(card);
+            });
+        } else {
+            container.innerHTML = '<p class="text-sm text-center text-slate-500">ไม่พบข้อมูลลูกค้า</p>';
+        }
+    }).loadCustomersFromGraphicBrief();
+}
+
+function importFromGraphicBrief(customer) {
+    let brandInfo = "ชื่อลูกค้า (Brand): " + customer.name + "\n";
+    if (customer.background) brandInfo += "Background: " + customer.background + "\n";
+    if (customer.target) brandInfo += "Target Audience: " + customer.target + "\n";
+    if (customer.pain) brandInfo += "Pain Point: " + customer.pain + "\n";
+    if (customer.obj) brandInfo += "Objective: " + customer.obj + "\n";
+    if (customer.mood) brandInfo += "Mood & Tone: " + customer.mood + "\n";
+    if (customer.rule) brandInfo += "Brand Rule: " + customer.rule + "\n";
+    if (customer.msg) brandInfo += "Key Message: " + customer.msg + "\n";
+    if (customer.cta) brandInfo += "Call to Action (CTA): " + customer.cta;
+    
+    document.getElementById('brand-info').value = brandInfo;
+    
+    hideGraphicBriefModal();
+    showToast('ดึงข้อมูลลูกค้า "' + customer.name + '" เรียบร้อย!', 'success');
+}
+
+// Clear All Data
+function clearAllData() {
+    document.getElementById('brand-info').value = '';
+    document.getElementById('product-info').value = '';
+    document.getElementById('business-type').value = 'อาหารและเครื่องดื่ม (Food & Beverage)';
+    document.getElementById('tone-voice').value = 'เป็นกันเองและเข้าถึงง่าย (Friendly & Casual)';
+    document.getElementById('gender-tone').value = 'ไม่ระบุเพศ (Neutral)';
+    document.getElementById('platform').value = 'Facebook';
+    document.getElementById('media-format').value = 'Single image';
+    document.getElementById('quantity-display').textContent = '2';
+    document.getElementById('custom-business').value = '';
+    document.getElementById('custom-tone').value = '';
+    document.getElementById('custom-gender').value = '';
+    
+    isCustomBusiness = false;
+    isCustomTone = false;
+    isCustomGender = false;
+    currentQuantity = 2;
+    currentContentType = 'educational';
+    generatedContents = [];
+    
+    document.getElementById('business-type').classList.remove('hidden');
+    document.getElementById('custom-business').classList.add('hidden');
+    document.getElementById('tone-voice').classList.remove('hidden');
+    document.getElementById('custom-tone').classList.add('hidden');
+    document.getElementById('gender-tone').classList.remove('hidden');
+    document.getElementById('custom-gender').classList.add('hidden');
+    
+    setContentType('educational');
+    saveDataToStorage();
+    switchTab('editor');
+    showToast('ล้างข้อมูลอินพุตและโครงงานคอนเทนต์เก่าทั้งหมดเรียบร้อยแล้ว!', 'info');
+}
+
+// Load Demo Preset
+function loadDemoPreset() {
+    document.getElementById('brand-info').value = "แบรนด์สกินแคร์ 'GlowRecipe TH' บิวตี้ออร์แกนิกยอดขายอันดับหนึ่งในไทย ชูส่วนผสมหลักจากสารสกัดข้าวหอมมะลิหมักธรรมชาติและอโลเวร่าออร์แกนิก ช่วยรักษาสิวและปลอบประโลมผิวอย่างอ่อนโยน เหมาะกับผิวคนเอเชียที่แพ้ง่ายและเผชิญมลภาวะร้อนชื้นอย่างกรุงเทพฯ เสมอ";
+    document.getElementById('product-info').value = "โปรโมชั่นพิเศษ 11.11 ซื้อ 'เซรั่มข้าวหอมมะลิ' ขนาด 30ml จำนวน 1 ขวด แถมฟรีขนาดพกพา 10ml อีก 1 ขวด ในราคาเพียง 690 บาท (จากปกติ 990 บาท) จำนวนจำกัดเพียง 500 เซ็ตแรกเท่านั้น";
+    document.getElementById('business-type').value = 'ความงามและเครื่องสำอาง (Beauty & Cosmetics)';
+    document.getElementById('tone-voice').value = 'เป็นกันเองและเข้าถึงง่าย (Friendly & Casual)';
+    document.getElementById('gender-tone').value = 'ผู้หญิง (Feminine - ค่ะ/ขา)';
+    document.getElementById('platform').value = 'IG';
+    setContentType('educational');
+    currentQuantity = 2;
+    document.getElementById('quantity-display').textContent = '2';
+    showToast('โหลดข้อมูลธุรกิจความงามและสกินแคร์ตัวอย่างเรียบร้อย!', 'info');
+}
+
+// Save Data to LocalStorage
+function saveDataToStorage() {
+    localStorage.setItem(STORAGE_KEY_CONTENT, JSON.stringify(generatedContents));
+}
+
+// Load Data from LocalStorage
+function loadDataFromStorage() {
+    const saved = localStorage.getItem(STORAGE_KEY_CONTENT);
+    if (saved) {
+        try {
+            generatedContents = JSON.parse(saved);
+        } catch (e) {
+            generatedContents = [];
+        }
+    }
+    
+    const savedTheme = localStorage.getItem(STORAGE_KEY_THEME);
+    if (savedTheme === 'dark') {
+        currentTheme = 'dark';
+        document.body.classList.add('theme-dark');
+        document.getElementById('theme-toggle-btn').innerHTML = '<i class="fa-solid fa-moon text-sm"></i><span class="text-xs ml-2 font-bold">โหมดมืด</span>';
+    }
+}
+
+// Initialization
+window.addEventListener('DOMContentLoaded', function() {
+    loadDataFromStorage();
+    setContentType('educational');
+    
+    if (generatedContents.length > 0) {
+        switchTab('editor');
+    }
+    
+    showToast('ยินดีต้อนรับเข้าสู่ AI Social Creator Workspace!', 'info');
+});
+</script>

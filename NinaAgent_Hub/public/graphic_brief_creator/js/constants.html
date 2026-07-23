@@ -1,0 +1,42 @@
+<script>
+// ============================================
+// Graphic Brief System - Runtime State & Config
+// ============================================
+
+// Drive Folder URLs
+const DRIVE_FOLDER_CUSTOMER = "https://drive.google.com/drive/folders/1XA8p7xLPQEr37MvYWVkQCUvv85hk1MBq?usp=share_link";
+const DRIVE_FOLDER_BRIEF = "https://drive.google.com/drive/folders/1AyIsGgNcp6uUWDykp4E1YO-g8ge2Nrf5?usp=share_link";
+
+// Professional 64-color swatches (8x8 grid)
+const SWATCHES_64 = [
+    '#000000', '#1e293b', '#334155', '#475569', '#64748b', '#94a3b8', '#cbd5e1', '#ffffff',
+    '#991b1b', '#b91c1c', '#dc2626', '#ef4444', '#f87171', '#fca5a5', '#fee2e2', '#fff1f2',
+    '#9d174d', '#c2185b', '#db2777', '#ec4899', '#f472b6', '#fbcfe8', '#fce7f3', '#fff0f6',
+    '#6b21a8', '#7c3aed', '#8b5cf6', '#a78bfa', '#c4b5fd', '#ddd6fe', '#ede9fe', '#f5f3ff',
+    '#1e3a8a', '#1d4ed8', '#2563eb', '#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe', '#eff6ff',
+    '#115e59', '#0f766e', '#0d9488', '#14b8a6', '#2dd4bf', '#99f6e4', '#ccfbf1', '#f0fdfa',
+    '#166534', '#15803d', '#16a34a', '#22c55e', '#4ade80', '#86efac', '#bbf7d0', '#f0fdf4',
+    '#7c2d12', '#9a3412', '#ea580c', '#f97316', '#fb923c', '#fde047', '#fef08a', '#fffbeb'
+];
+
+// Gemini API Configuration
+const GEMINI_API_KEY = "AIzaSyDUiXbjyo9a2_TpLUXBpWfwFoHerfXW1HA";
+
+// LocalStorage Keys
+const STORAGE_KEY_BRANDS = 'gb_clientBrands';
+const STORAGE_KEY_BRIEFS = 'gb_briefsList';
+
+// ============================================
+// Runtime State (mutable)
+// ============================================
+
+let clientBrands = [];
+
+let briefsList = [];
+
+let selectedBrandId = null;
+let selectedBriefId = null;
+// Rich Text Editor state
+let activeEditorId = "";
+let savedSelectionRange = null;
+</script>

@@ -1,0 +1,417 @@
+<script>
+// ============================================
+// Graphic Brief System - Brief Manager
+// ============================================
+
+function updateBriefBrandSelector() {
+    const selector = document.getElementById('brief-brand-selector');
+    selector.innerHTML = '<option value="">-- ไม่ใช้แบรนด์ (กรอกเอง) --</option>';
+    clientBrands.forEach(function(b) {
+        const opt = document.createElement('option');
+        opt.value = b.id;
+        opt.innerText = b.name;
+        selector.appendChild(opt);
+    });
+}
+
+function renderBriefsList() {
+    const container = document.getElementById('brief-list-container');
+    const badge = document.getElementById('brief-count-badge');
+    container.innerHTML = '';
+    badge.innerText = briefsList.length;
+
+    briefsList.forEach(function(brief) {
+        const isSelected = brief.id === selectedBriefId;
+        const btn = document.createElement('button');
+        btn.className = 'w-full text-left p-3.5 rounded-lg text-xs transition-all flex flex-col gap-1 border ' +
+            (isSelected
+                ? 'bg-indigo-50 border-indigo-300 text-indigo-900 font-bold shadow-sm'
+                : 'bg-white hover:bg-slate-50 text-gray-700 border-gray-200 shadow-sm');
+        btn.onclick = function() {
+            saveCurrentBriefFields();
+            selectedBriefId = brief.id;
+            renderBriefsList();
+            loadBriefToCanvas(brief.id);
+        };
+
+        const projName = brief.projectName || "Brief ไม่มีชื่อ";
+        const brandName = brief.brandName || "ระบุแบบแมนนวล";
+
+        btn.innerHTML = '<div class="flex items-center justify-between gap-1 w-full">' +
+            '<span class="font-extrabold truncate text-[11px] max-w-[70%]">' + projName + '</span>' +
+            '<span class="text-[9px] text-gray-400 font-medium">' + (brief.date || '') + '</span>' +
+            '</div>' +
+            '<div class="text-[10px] text-slate-500 font-normal truncate flex items-center gap-1">' +
+            '<i class="fa-solid fa-tags text-[8px] text-indigo-500"></i> ' + brandName +
+            '</div>';
+        container.appendChild(btn);
+    });
+}
+
+function loadBriefToCanvas(briefId) {
+    const brief = briefsList.find(function(b) { return b.id === briefId; });
+    if (!brief) return;
+
+    document.getElementById('brief-brand-name').value = brief.brandName || '';
+    document.getElementById('brief-project-name').value = brief.projectName || '';
+    document.getElementById('brief-channels').value = brief.channels || '';
+    document.getElementById('brief-date').value = brief.date || '';
+    document.getElementById('brief-deadline').value = brief.deadline || '';
+    document.getElementById('brief-graphic-name').value = brief.graphicName || '';
+
+    document.getElementById('brief-brand-selector').value = brief.brandId || '';
+
+    const fields = ['bg', 'target', 'pain', 'obj', 'scope', 'deliver', 'mood', 'rule', 'msg', 'cta', 'ref'];
+    fields.forEach(function(f) {
+        const el = document.getElementById('brief-editor-' + f);
+        if (el) {
+            el.innerHTML = brief[f] || '';
+        }
+    });
+
+    updateBriefFileList();
+}
+
+function clearBriefCanvas() {
+    document.getElementById('brief-brand-name').value = '';
+    document.getElementById('brief-project-name').value = '';
+    document.getElementById('brief-channels').value = '';
+    document.getElementById('brief-date').value = '';
+    document.getElementById('brief-deadline').value = '';
+    document.getElementById('brief-graphic-name').value = '';
+    document.getElementById('brief-brand-selector').value = '';
+
+    const fields = ['bg', 'target', 'pain', 'obj', 'scope', 'deliver', 'mood', 'rule', 'msg', 'cta', 'ref'];
+    fields.forEach(function(f) {
+        const el = document.getElementById('brief-editor-' + f);
+        if (el) el.innerHTML = '';
+    });
+}
+
+function saveCurrentBriefFields() {
+    const brief = briefsList.find(function(b) { return b.id === selectedBriefId; });
+    if (!brief) return;
+
+    brief.brandName = document.getElementById('brief-brand-name').value;
+    brief.projectName = document.getElementById('brief-project-name').value;
+    brief.channels = document.getElementById('brief-channels').value;
+    brief.date = document.getElementById('brief-date').value;
+    brief.deadline = document.getElementById('brief-deadline').value;
+    brief.graphicName = document.getElementById('brief-graphic-name').value;
+    brief.brandId = document.getElementById('brief-brand-selector').value;
+
+    const fields = ['bg', 'target', 'pain', 'obj', 'scope', 'deliver', 'mood', 'rule', 'msg', 'cta', 'ref'];
+    fields.forEach(function(f) {
+        const el = document.getElementById('brief-editor-' + f);
+        if (el) {
+            brief[f] = el.innerHTML;
+        }
+    });
+    saveDataToStorage();
+}
+
+function attachBriefSaveListeners() {
+    const inputs = ['brief-brand-name', 'brief-project-name', 'brief-channels', 'brief-date', 'brief-deadline', 'brief-graphic-name'];
+    inputs.forEach(function(id) {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('input', function() {
+            saveCurrentBriefFields();
+            renderBriefsList();
+        });
+    });
+
+    const editors = ['bg', 'target', 'pain', 'obj', 'scope', 'deliver', 'mood', 'rule', 'msg', 'cta', 'ref'];
+    editors.forEach(function(f) {
+        const el = document.getElementById('brief-editor-' + f);
+        if (el) el.addEventListener('input', saveCurrentBriefFields);
+    });
+}
+
+function createNewBrief() {
+    const currentIndex = briefsList.findIndex(function(b) { return b.id === selectedBriefId; });
+    const insertIndex = currentIndex !== -1 ? currentIndex : 0;
+
+    const newUniqueId = 'brief-' + Date.now() + '-new-' + Math.floor(Math.random() * 1000);
+    const newBrief = {
+        id: newUniqueId,
+        brandId: '',
+        projectName: 'Brief แคมเปญใหม่',
+        channels: 'Facebook, Instagram',
+        date: new Date().toISOString().split('T')[0],
+        deadline: '',
+        graphicName: 'ทีมดีไซเนอร์',
+        brandName: '',
+        background: '',
+        target: '',
+        pain: '',
+        obj: '',
+        scope: '',
+        deliver: '',
+        mood: '',
+        rule: '',
+        msg: '',
+        cta: '',
+        ref: ''
+    };
+
+    briefsList.splice(insertIndex, 0, newBrief);
+    selectedBriefId = newUniqueId;
+
+    saveDataToStorage();
+    renderBriefsList();
+    loadBriefToCanvas(newUniqueId);
+    showAlert('สร้าง Brief ใหม่สำเร็จ', 'แบบร่างเอกสารเปล่าถูกสร้างขึ้นเป็นรายการใหม่เรียบร้อยแล้วและไม่มีการเขียนทับของเก่า', 'success');
+}
+
+function duplicateBrief() {
+    if (!selectedBriefId) {
+        showAlert('กรุณาเลือก Brief', 'กรุณาเลือกรายการแบบร่างที่ต้องการคัดลอกก่อน', 'warning');
+        return;
+    }
+
+    const currentIndex = briefsList.findIndex(function(b) { return b.id === selectedBriefId; });
+    if (currentIndex === -1) return;
+
+    saveCurrentBriefFields();
+
+    const original = briefsList[currentIndex];
+    const newUniqueId = 'brief-' + Date.now() + '-dup-' + Math.floor(Math.random() * 1000);
+
+    const duplicated = {
+        ...original,
+        id: newUniqueId,
+        projectName: original.projectName + ' (คัดลอก)'
+    };
+
+    briefsList.splice(currentIndex, 0, duplicated);
+    selectedBriefId = newUniqueId;
+
+    saveDataToStorage();
+    renderBriefsList();
+    loadBriefToCanvas(newUniqueId);
+    showAlert('Duplicate สำเร็จ', 'คัดลอกรายละเอียด Brief และความต้องการมาติดตั้งไว้เหนือเอกสารเดิมแล้ว', 'success');
+}
+
+function deleteBrief() {
+    if (!selectedBriefId) {
+        showAlert('กรุณาเลือก Brief', 'ไม่พบแบบร่างแบบสั่งงานที่ต้องการลบ', 'warning');
+        return;
+    }
+
+    const currentIndex = briefsList.findIndex(function(b) { return b.id === selectedBriefId; });
+    if (currentIndex === -1) return;
+
+    const deletedTitle = briefsList[currentIndex].projectName;
+    const idToDelete = selectedBriefId;
+
+    // 1. ลบออกจากหน้าจอคอมพิวเตอร์และ LocalStorage ก่อน
+    briefsList.splice(currentIndex, 1);
+
+    if (briefsList.length > 0) {
+        const nextIndex = currentIndex < briefsList.length ? currentIndex : briefsList.length - 1;
+        selectedBriefId = briefsList[nextIndex].id;
+    } else {
+        selectedBriefId = null;
+    }
+
+    renderBriefsList();
+
+    if (selectedBriefId) {
+        loadBriefToCanvas(selectedBriefId);
+    } else {
+        clearBriefCanvas();
+    }
+
+    saveDataToStorage();
+
+    // 2. จัด ID ใส่กล่อง Array เพื่อยิงไปหา Sheets
+    const idsArray = [idToDelete]; 
+
+    // 🚀 3. ยิงคำสั่งไปลบออกจากตาราง Google Sheets ทันที!
+    google.script.run
+        .withSuccessHandler(function(res) {
+            // ดักจับการตอบสนองจาก Google Sheets ให้ชัวร์ที่สุด
+            if (res && res.success) {
+                showAlert('ลบเอกสารสำเร็จ', 'ลบแบบร่าง Brief "' + deletedTitle + '" ออกจาก Google Sheets เรียบร้อยแล้ว (ล้างทิ้ง ' + res.deletedCount + ' แถว)', 'success');
+            } else {
+                showAlert('ลบหน้าเว็บสำเร็จ (แต่หาใน Sheets ไม่เจอ)', 'ลบออกในเครื่องแล้ว แต่การลบใน Sheets เกิดข้อผิดพลาด: ' + (res ? res.error : 'ไม่ทราบสาเหตุ'), 'warning');
+            }
+        })
+        .withFailureHandler(function(err) {
+            showAlert('ข้อผิดพลาดรุนแรง', 'ไม่สามารถเชื่อมต่อระบบหลังบ้านได้: ' + err.message, 'warning');
+        })
+        .deleteBriefsFromSheets(idsArray);
+}
+
+
+function loadBrandToBrief(brandId) {
+    const brand = clientBrands.find(function(b) { return b.id === brandId; });
+
+    if (!selectedBriefId) {
+        showAlert('กรุณาสร้างหรือเลือก Brief', 'โปรดคลิกเลือกหรือกดปุ่มสร้าง Brief ทางซ้ายมือก่อนผูกข้อมูลแบรนด์', 'warning');
+        document.getElementById('brief-brand-selector').value = '';
+        return;
+    }
+
+    const currentBrief = briefsList.find(function(b) { return b.id === selectedBriefId; });
+    if (!currentBrief) return;
+
+    currentBrief.brandId = brandId;
+
+    if (brand) {
+        document.getElementById('brief-brand-name').value = brand.name;
+        currentBrief.brandName = brand.name;
+
+        const mapping = {
+            bg: brand.background,
+            target: brand.target,
+            pain: brand.pain,
+            obj: brand.obj,
+            mood: brand.mood,
+            rule: brand.rule,
+            msg: brand.msg,
+            cta: brand.cta,
+            ref: brand.ref
+        };
+
+        Object.keys(mapping).forEach(function(f) {
+            const el = document.getElementById('brief-editor-' + f);
+            if (el) {
+                el.innerHTML = mapping[f] || '';
+                currentBrief[f] = mapping[f] || '';
+            }
+        });
+
+        const scopeEl = document.getElementById('brief-editor-scope');
+        if (scopeEl) {
+            const defaultScope = "ออกแบบชุดภาพกราฟิก Key Visual พร้อมสื่อขนาด 1:1, 16:9 และ Story";
+            scopeEl.innerHTML = defaultScope;
+            currentBrief.scope = defaultScope;
+        }
+        const deliverEl = document.getElementById('brief-editor-deliver');
+        if (deliverEl) {
+            const defaultDeliver = "ไฟล์ต้นฉบับ .ai แบบจัด Layer, ภาพความละเอียดสูง .PNG และ .JPEG";
+            deliverEl.innerHTML = defaultDeliver;
+            currentBrief.deliver = defaultDeliver;
+        }
+    } else {
+        document.getElementById('brief-brand-name').value = '';
+        currentBrief.brandName = '';
+        currentBrief.brandId = '';
+    }
+
+    saveCurrentBriefFields();
+    renderBriefsList();
+    updateBriefFileList();
+}
+
+function renderBriefHistory() {
+    const container = document.getElementById('history-list-container');
+    const emptyState = document.getElementById('history-empty-state');
+    container.innerHTML = '';
+
+    if (briefsList.length === 0) {
+        emptyState.classList.remove('hidden');
+        return;
+    } else {
+        emptyState.classList.add('hidden');
+    }
+
+    const groupedBriefs = {};
+
+    clientBrands.forEach(function(brand) {
+        groupedBriefs[brand.id] = { brandName: brand.name, briefs: [] };
+    });
+    groupedBriefs['no-brand'] = { brandName: "ทั่วไป (ไม่ระบุแบรนด์)", briefs: [] };
+
+    briefsList.forEach(function(brief) {
+        const targetId = brief.brandId && groupedBriefs[brief.brandId] ? brief.brandId : 'no-brand';
+        groupedBriefs[targetId].briefs.push(brief);
+    });
+
+    for (const [key, group] of Object.entries(groupedBriefs)) {
+        if (group.briefs.length === 0) continue;
+
+        const brandSection = document.createElement('div');
+        brandSection.className = "border border-gray-200 rounded-xl overflow-hidden shadow-sm";
+
+        let briefsHtml = '';
+        group.briefs.forEach(function(brief) {
+            briefsHtml += '<div class="flex items-center justify-between p-3 border-b border-gray-100 hover:bg-slate-50 transition-colors last:border-0">' +
+                '<div class="flex items-center gap-3">' +
+                '<input type="checkbox" class="brief-history-checkbox w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500" value="' + brief.id + '">' +
+                '<div>' +
+                '<p class="text-sm font-bold text-slate-800">' + escapeHTML(brief.projectName || 'ไม่ระบุชื่อโปรเจกต์') + '</p>' +
+                '<p class="text-xs text-slate-500 flex items-center gap-2">' +
+                '<span><i class="fa-regular fa-calendar mr-1"></i> ' + (brief.date || '-') + '</span>' +
+                '<span><i class="fa-solid fa-user-pen mr-1"></i> ' + (brief.graphicName || '-') + '</span>' +
+                '</p>' +
+                '</div>' +
+                '</div>' +
+                '<button onclick="openBriefFromHistory(\'' + brief.id + '\')" class="text-xs font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition">' +
+                'เปิดแก้ไข <i class="fa-solid fa-arrow-right ml-1"></i>' +
+                '</button>' +
+                '</div>';
+        });
+
+        brandSection.innerHTML = '<div class="bg-slate-100 px-4 py-2.5 border-b border-gray-200 flex items-center justify-between">' +
+            '<h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">' +
+            '<i class="fa-solid fa-tags text-indigo-500"></i> ' + escapeHTML(group.brandName) +
+            '</h3>' +
+            '<span class="bg-white text-slate-600 text-[10px] font-bold px-2 py-0.5 rounded-full border border-gray-200">' + group.briefs.length + ' รายการ</span>' +
+            '</div>' +
+            '<div class="bg-white">' + briefsHtml + '</div>';
+        container.appendChild(brandSection);
+    }
+}
+
+// แก้ไขฟังก์ชันนี้เพื่อให้กางข้อมูลลงกล่องแก้ไขให้ 100% ตอนสลับหน้า
+function openBriefFromHistory(briefId) {
+    selectedBriefId = briefId;
+    switchTab('brief-tab');     // สลับแท็บมาหน้าจัดทำ Brief
+    renderBriefsList();         // ไฮไลต์รายชื่อที่กด
+    loadBriefToCanvas(briefId); // กางข้อมูลลงกล่อง
+}
+
+function deleteSelectedHistoryBriefs() {
+    const checkboxes = document.querySelectorAll('.brief-history-checkbox:checked');
+    if (checkboxes.length === 0) {
+        showAlert('กรุณาเลือกรายการ', 'ยังไม่ได้ติ๊กเลือก Brief ที่ต้องการลบ', 'warning');
+        return;
+    }
+
+    // เก็บ ID ที่ถูกติ๊กเลือก
+    const idsToDelete = Array.from(checkboxes).map(function(cb) { return cb.value; });
+
+    // ลบออกจากความจำในเครื่อง
+    briefsList = briefsList.filter(function(b) { return !idsToDelete.includes(b.id); });
+
+    if (idsToDelete.includes(selectedBriefId)) {
+        selectedBriefId = briefsList.length > 0 ? briefsList[0].id : null;
+    }
+
+    saveDataToStorage();
+
+    // 🛠️ ลบกล่องรายการที่โดนติ๊กออกจากหน้าจอทันที (แก้ปัญหาโค้ดสะดุดตรงนี้)
+    Array.from(checkboxes).forEach(function(cb) {
+        const row = cb.closest('.flex.items-center.justify-between.p-3');
+        if (row) row.remove();
+    });
+
+    // 🚀 ยิงคำสั่งข้ามไปลบแถวในสเปรดชีตของจริง (คราวนี้สคริปต์วิ่งถึงตรงนี้แน่นอน 100%)
+    google.script.run
+        .withSuccessHandler(function(result) {
+            if (result.success) {
+                showAlert('ลบสำเร็จ', 'ลบข้อมูลและทำความสะอาด Google Sheets จำนวน ' + result.deletedCount + ' รายการเรียบร้อยแล้ว', 'success');
+            } else {
+                showAlert('ลบไม่สมบูรณ์', 'ลบในเครื่องแล้วแต่ฝั่งชีตติดปัญหา: ' + result.error, 'warning');
+            }
+        })
+        .withFailureHandler(function(err) {
+            showAlert('ข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อระบบหลังบ้านได้: ' + err.message, 'warning');
+        })
+        .deleteBriefsFromSheets(idsToDelete);
+}
+
+
+</script>

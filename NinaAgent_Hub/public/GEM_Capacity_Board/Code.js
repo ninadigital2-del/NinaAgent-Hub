@@ -1,0 +1,2217 @@
+// ============================================================
+// GEM Graphic Capacity Board — Google Apps Script
+// Version: 1.0.0
+// ============================================================
+// SETUP:
+// 1. เปิด script.google.com สร้าง project ใหม่
+// 2. วาง code นี้ลงไป
+// 3. ไปที่ Project Settings → Script Properties → Add:
+//    NOTION_API_KEY  = secret_xxxxxxxxxxxxxxxx
+//    NOTION_TASKS_DB = 2e69dccd181d81df8919fbacf921c7d5
+//    MASTER_SHEET_ID = 144OB0gy5dJ8MOnc5Te0k1KpltrDoG4ocnxcS3t4MR4g
+// 4. Deploy → New deployment → Web app
+//    Execute as: Me | Who has access: Anyone with Google Account
+// ============================================================
+
+// ---------- CONFIG ----------
+const SHEET_IDS = {
+  'จ๊ะเอ๋':  '1Q7CvHdG0mXtmIJ_hHsHU1wDHhSO-zYs0SBD6gYU7PTc',
+  'อุ้ม':    '1zG0ZyQN2tT0dV9L7ktyJ-_477Yh_ybwjWLR87eFDbOY',
+  'กิ๊บ':   '1L7arKfntBNEbiLJHMV24L4NGg4pyRTeK2a989VFgam4',
+  'เป้':    '1hgEF_R0DQ8p3_mwcy7qXLl94bR0jF_nQsooFXXTbl88',
+  'โชกุล':  '1L4m3C2zHnirHbyEhgqJilDtQhyorrsrj7xDEP22BF-w',
+  'ท้อป':   '1Lz30YiHpxih0nBABS_Dg2Wm9PvZxX0aVFuwubbZIr2g',
+  'โอม':    '1R4ieki0O1Kj-Hk6k-aUeGSLCAW94oDwHQqX9GdVhgeM',
+};
+
+const SHEET_COLUMNS = [
+  'Check','Hr','Day','วันที่ส่งงาน','No','ช่วงเวลา',
+  'ประเภทงาน','จำนวนรูปหรือVDO','Job No.','แบรนด์',
+  'ชื่อชิ้นงาน','เจ้าของงาน','กำหนดลงโพสต์จริง','Actual'
+];
+
+const CAPACITY_THRESHOLD = { green: 3, amber: 8 }; // >8 = red
+
+// ---------- ENTRY POINTS ----------
+
+function doGet(e) {
+  const action = e && e.parameter && e.parameter.action;
+
+  if (action === 'getAll')      return jsonResponse(getAllData());
+  if (action === 'getTasks')    return jsonResponse(getNotionTasks());
+  if (action === 'getCapacity') return jsonResponse(getCapacityData());
+  if (action === 'getBrands')   return jsonResponse(getNotionBrands());
+  if (action === 'manual')      return HtmlService.createHtmlOutputFromFile('manual').setTitle('คู่มือการใช้งาน GEM Graphic Capacity Board').setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+
+  return HtmlService.createHtmlOutput(getHtml())
+    .setTitle('GEM Graphic Capacity Board')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+function getAllData() {
+  const t0 = new Date();
+  const props = PropertiesService.getScriptProperties().getProperties();
+  console.log('Props keys:', Object.keys(props).join(', '));
+
+  const capacity = getCapacityData();
+  const t1 = new Date();
+  console.log('getCapacityData: ' + (t1-t0) + 'ms');
+
+  const tasks = getNotionTasks();
+  const t2 = new Date();
+  console.log('getNotionTasks: ' + (t2-t1) + 'ms');
+  console.log('total: ' + (t2-t0) + 'ms');
+
+  const settings = getDropdownSettings();
+
+  if (tasks.ok && settings.brandMapping) {
+    tasks.tasks.forEach(t => {
+      if (t.brandCode && settings.brandMapping[t.brandCode]) {
+        t.brandCode = settings.brandMapping[t.brandCode];
+      }
+    });
+  }
+
+  return {
+    ok: capacity.ok && tasks.ok,
+    capacity,
+    tasks,
+    settings,
+    timings: {
+      capacity: t1-t0,
+      tasks: t2-t1,
+      total: t2-t0,
+    }
+  };
+}
+
+function getDropdownSettings() {
+  const props = PropertiesService.getScriptProperties();
+  let brandsStr = props.getProperty('GEM_BRANDS');
+  let workTypesStr = props.getProperty('GEM_WORK_TYPES');
+  
+  let customBrands = [];
+  let workTypes = [];
+  
+  try {
+    if (brandsStr) customBrands = JSON.parse(brandsStr);
+    if (workTypesStr) workTypes = JSON.parse(workTypesStr);
+  } catch(e) {}
+
+  if (!workTypes || workTypes.length === 0) {
+    workTypes = ["New AW", "New VDO", "Project", "Resize", "Adapt", "Revise", "Content"];
+    props.setProperty('GEM_WORK_TYPES', JSON.stringify(workTypes));
+  }
+  
+  // Fetch Brands from Notion dynamically
+  const notionBrandsObj = getNotionBrands();
+  let brandMapping = {};
+  
+  let allBrandsSet = new Set(customBrands);
+  
+  // Remove the old hardcoded dummy brands that were added during testing
+  const dummyBrands = ["Nina", "STD", "NINA AI", "VIVA", "KOKUYO", "Elephant", "Quantum"];
+  let removedAny = false;
+  dummyBrands.forEach(b => {
+    if (allBrandsSet.has(b)) {
+      allBrandsSet.delete(b);
+      removedAny = true;
+    }
+  });
+  
+  // If we removed any dummy brands, update the PropertiesService to save the clean list
+  if (removedAny) {
+    props.setProperty('GEM_BRANDS', JSON.stringify(Array.from(allBrandsSet)));
+  }
+
+  if (notionBrandsObj.ok) {
+    notionBrandsObj.brands.forEach(b => {
+      if (b.name) allBrandsSet.add(b.name);
+      if (b.code) brandMapping[b.code] = b.name;
+    });
+  }
+  
+  let brands = Array.from(allBrandsSet).sort();
+  if (brands.length === 0) {
+    brands = ["Nina", "STD", "NINA AI", "VIVA", "KOKUYO", "Elephant", "Quantum"];
+    props.setProperty('GEM_BRANDS', JSON.stringify(brands));
+  }
+  
+  // Remove the old hardcoded dummy work types that were added during testing
+  const dummyWorkTypes = ["New AW", "New VDO", "Project", "Resize", "Adapt", "Revise", "Content"];
+  let removedAnyWT = false;
+  let allWorkTypesSet = new Set(workTypes);
+  dummyWorkTypes.forEach(w => {
+    if (allWorkTypesSet.has(w)) {
+      allWorkTypesSet.delete(w);
+      removedAnyWT = true;
+    }
+  });
+  
+  if (removedAnyWT) {
+    props.setProperty('GEM_WORK_TYPES', JSON.stringify(Array.from(allWorkTypesSet)));
+  }
+
+  const notionWorkTypesObj = getNotionWorkTypes();
+  if (notionWorkTypesObj.ok) {
+    notionWorkTypesObj.workTypes.forEach(w => allWorkTypesSet.add(w));
+  }
+  
+  workTypes = Array.from(allWorkTypesSet).sort();
+  if (workTypes.length === 0) {
+    workTypes = ["New AW", "New VDO", "Project", "Resize", "Adapt", "Revise", "Content"];
+    props.setProperty('GEM_WORK_TYPES', JSON.stringify(workTypes));
+  }
+  
+  return { brands: brands, workTypes: workTypes, brandMapping: brandMapping };
+}
+
+
+function addDropdownSetting(type, newValue) {
+  const props = PropertiesService.getScriptProperties();
+  const key = type === 'brand' ? 'GEM_BRANDS' : 'GEM_WORK_TYPES';
+  let list = JSON.parse(props.getProperty(key) || '[]');
+  if (newValue && newValue.trim() && !list.includes(newValue.trim())) {
+    list.push(newValue.trim());
+    list.sort();
+    props.setProperty(key, JSON.stringify(list));
+  }
+  return { ok: true, list: list };
+}
+
+function doPost(e) {
+  const body = JSON.parse(e.postData.contents);
+  if (body.action === 'assign') {
+    return jsonResponse(handleAssign(body));
+  }
+  if (body.action === 'markDone') {
+    return jsonResponse(handleMarkDone(body));
+  }
+  if (body.action === 'relocate') {
+    return jsonResponse(handleRelocate(body));
+  }
+  if (body.action === 'edit') {
+    return jsonResponse(handleEditTask(body));
+  }
+  if (body.action === 'unassign') {
+    return jsonResponse(handleUnassignTask(body));
+  }
+  if (body.action === 'deletePermanent') {
+    return jsonResponse(handleDeleteTaskPermanently(body));
+  }
+  if (body.action === 'editNotion') {
+    return jsonResponse(handleEditNotionTask(body));
+  }
+  if (body.action === 'deleteNotion') {
+    return jsonResponse(handleDeleteNotionTask(body));
+  }
+  if (body.action === 'addSetting') {
+    return jsonResponse(addDropdownSetting(body.type, body.newValue));
+  }
+  return jsonResponse({ ok: false, error: 'Unknown action' });
+}
+
+// ---------- DATA: NOTION ----------
+
+function getNotionWorkTypes() {
+  const props = PropertiesService.getScriptProperties();
+  const key   = props.getProperty('NOTION_API_KEY') || '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';
+  const dbId  = '2e69dccd181d81df8919fbacf921c7d5';
+
+  const res = notionFetch(`databases/${dbId}`, 'GET', null, key);
+  if (!res || res.error) return { ok: false, workTypes: [] };
+  
+  if (res.properties && res.properties['Work Type'] && res.properties['Work Type'].multi_select) {
+    return { ok: true, workTypes: res.properties['Work Type'].multi_select.options.map(o => o.name) };
+  }
+  return { ok: false, workTypes: [] };
+}
+
+function getNotionTasks() {
+  const props = PropertiesService.getScriptProperties();
+  const key   = props.getProperty('NOTION_API_KEY') || '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';
+  const dbId  = '2e69dccd181d81df8919fbacf921c7d5';
+
+  const payload = {
+    filter: {
+      and: [
+        {
+          property: 'Status',
+          status: { does_not_equal: 'Done' }
+        }
+      ]
+    },
+    sorts: [{ property: 'Due Date', direction: 'ascending' }],
+    page_size: 100
+  };
+
+  const res = notionFetch(`databases/${dbId}/query`, 'POST', payload, key);
+  if (!res || !res.results) return { ok: false, tasks: [] };
+
+  const tasks = res.results.map(p => {
+    const props = p.properties;
+    return {
+      id:          p.id,
+      url:         p.url,
+      name:        props['Name']?.title?.[0]?.plain_text || '(ไม่มีชื่อ)',
+      status:      props['Status']?.status?.name || '',
+      dueDate:     props['Due Date']?.date?.start || '',
+      workType:    (props['Work Type']?.multi_select || []).map(x => x.name).join(', '),
+      assignee:    props['Graphic Assignee']?.select?.name || '',
+      workBy:      (props['Work By']?.multi_select || []).map(x => x.name).join(', '),
+      jobNumber:   props['Job Number']?.formula?.string || '',
+      brandCode:   props['Brand Code']?.rollup?.array?.[0]?.formula?.string || '',
+    };
+  }).filter(t => !t.assignee); // เฉพาะที่ยังไม่ assign
+
+  return { ok: true, tasks };
+}
+
+function getNotionBrands() {
+  const props = PropertiesService.getScriptProperties();
+  const key   = props.getProperty('NOTION_API_KEY') || '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';
+  // ID ของ Database Brands
+  const dbId  = '2eb9dccd181d808fb888cdf883503df6';
+
+  const res = notionFetch(`databases/${dbId}/query`, 'POST', {
+    sorts: [{ property: 'Name', direction: 'ascending' }],
+    page_size: 100
+  }, key);
+
+  if (!res || !res.results) return { ok: false, brands: [] };
+
+  const brands = res.results.map(p => ({
+    id:   p.id,
+    name: p.properties['Name']?.title?.[0]?.plain_text || '',
+    code: p.properties['Client Code']?.rich_text?.[0]?.plain_text || '',
+  })).filter(b => b.name);
+
+  return { ok: true, brands };
+}
+
+// ============================================================
+// REPLACE getCapacityData() ใน GEM_Capacity_Board.gs
+// ด้วย function นี้ทั้งหมด
+// ============================================================
+
+function getCapacityData() {
+  const now = new Date();
+  const todayStart = new Date(now);
+  todayStart.setHours(0, 0, 0, 0);
+
+  const windowStart = new Date(todayStart);
+  windowStart.setDate(todayStart.getDate() - 14);
+
+  const windowEnd = new Date(todayStart);
+  windowEnd.setDate(todayStart.getDate() + 7);
+  windowEnd.setHours(23, 59, 59, 999);
+
+  const NAMES = ['จ๊ะเอ๋','อุ้ม','กิ๊บ','เป้','โชกุล','ท้อป','โอม'];
+  const summary = {};
+  NAMES.forEach(n => {
+    summary[n] = { name: n, periodTasks: [], todayTasks: [], totalOpen: 0 };
+  });
+
+  const todayStr = Utilities.formatDate(now, 'Asia/Bangkok', 'yyyy-MM-dd');
+
+  const debugLogs = {};
+
+  // วนลูปตามรายชื่อเพื่อดึงข้อมูลจากแต่ละ Sheet โดยตรง
+  NAMES.forEach(personName => {
+    const sheetId = SHEET_IDS[personName];
+    if (!sheetId) return;
+
+    debugLogs[personName] = {
+      sheetId: sheetId,
+      status: 'started',
+      lastRow: 0,
+      lastCol: 0,
+      rowCount: 0,
+      skippedNoDateOrName: 0,
+      skippedInvalidDate: 0,
+      skippedOutOfWindow: 0,
+      skippedDoneOrCancelled: 0,
+      okCount: 0,
+      sampleRows: []
+    };
+
+    try {
+      const ss = SpreadsheetApp.openById(sheetId);
+      const sheet = ss.getSheets()[0]; // ดึง Sheet แรกสุด
+      const lastRow = Math.max(sheet.getLastRow(), 4);
+      debugLogs[personName].lastRow = lastRow;
+      if (lastRow < 5) {
+        debugLogs[personName].status = 'skipped_lastrow_less_than_5';
+        return;
+      }
+
+      const lastCol = sheet.getLastColumn();
+      debugLogs[personName].lastCol = lastCol;
+      if (lastCol < 11) {
+        debugLogs[personName].status = 'skipped_col_less_than_11';
+        return; // ไม่ใช่ Sheet งานที่ถูกต้อง
+      }
+      const data = sheet.getRange(5, 1, lastRow - 4, lastCol).getValues();
+      debugLogs[personName].rowCount = data.length;
+
+      data.forEach((row, index) => {
+        const checkStatus = String(row[0] || ''); // Check
+        const rawDate = row[4];                   // วันที่ส่งงาน (E)
+        const workType = String(row[7] || '');    // ประเภทงาน (H)
+        const brand = String(row[10] || '');      // แบรนด์ (K)
+        const taskName = String(row[11] || '');   // ชื่อชิ้นงาน (L)
+        const jobNumber = String(row[9] || row[5] || ''); // Job No (J หรือ F)
+
+        if (debugLogs[personName].sampleRows.length < 5) {
+          debugLogs[personName].sampleRows.push({
+            rowIndex: index + 5,
+            checkStatus,
+            rawDateType: typeof rawDate,
+            rawDateStr: String(rawDate),
+            taskName,
+            brand,
+            jobNumber
+          });
+        }
+
+        if (!rawDate || !taskName) {
+          debugLogs[personName].skippedNoDateOrName++;
+          return;
+        }
+
+        let taskDate;
+        if (rawDate instanceof Date) {
+          taskDate = rawDate;
+        } else {
+          const s = String(rawDate).trim();
+          taskDate = new Date(s);
+          if (isNaN(taskDate.getTime())) {
+            // ลอง parse รูปแบบ dMMMyy (เช่น 9Jul26)
+            const match = s.match(/^(\d{1,2})([A-Za-z]{3})(\d{2})$/);
+            if (match) {
+              const day = parseInt(match[1], 10);
+              const mNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+              const mIdx = mNames.findIndex(m => m.toLowerCase() === match[2].toLowerCase());
+              const year = 2000 + parseInt(match[3], 10);
+              if (mIdx >= 0) {
+                taskDate = new Date(year, mIdx, day);
+              }
+            }
+          }
+        }
+        
+        if (!taskDate || isNaN(taskDate.getTime())) {
+          debugLogs[personName].skippedInvalidDate++;
+          return;
+        }
+
+        const taskDateStr = Utilities.formatDate(taskDate, 'Asia/Bangkok', 'yyyy-MM-dd');
+
+        if (checkStatus === 'Done' || checkStatus === 'Cancelled') {
+          debugLogs[personName].skippedDoneOrCancelled++;
+          return;
+        }
+
+        // ยอดงานค้างรวม (totalOpen) นับตั้งแต่อดีตไปจนถึงอนาคต
+        if (taskDate >= windowStart) {
+          summary[personName].totalOpen++;
+        }
+        
+        // ส่วนการแสดงผล Task ในกล่อง จะดึงเฉพาะช่วง ย้อนหลัง 14 วัน ถึง ล่วงหน้า 7 วัน
+        if (taskDate >= windowStart && taskDate <= windowEnd) {
+          debugLogs[personName].okCount++;
+          const shortDate = Utilities.formatDate(taskDate, 'Asia/Bangkok', 'd MMM');
+          const taskObj = { rowIndex: index + 5, name: taskName, brand, workType, dateStr: shortDate, rawDate: taskDateStr, status: checkStatus, jobNumber: jobNumber };
+          
+          if (taskDateStr === todayStr) {
+            summary[personName].todayTasks.push(taskObj);
+          } else {
+            summary[personName].periodTasks.push(taskObj);
+          }
+        } else {
+          debugLogs[personName].skippedOutOfWindow++;
+        }
+      });
+      debugLogs[personName].status = 'success';
+    } catch(e) {
+      debugLogs[personName].status = 'error';
+      debugLogs[personName].errorMsg = e.message;
+      console.error(`Error reading sheet for ${personName}: ` + e.message);
+    }
+  });
+
+  const people = NAMES.map(n => {
+    const p = summary[n];
+    const open = p.totalOpen;
+    let flag = 'green';
+    if (open > CAPACITY_THRESHOLD.amber) flag = 'red';
+    else if (open > CAPACITY_THRESHOLD.green) flag = 'amber';
+
+    p.periodTasks.sort((a,b) => a.rawDate.localeCompare(b.rawDate));
+
+    return {
+      name:       p.name,
+      open,
+      periodTasks: p.periodTasks,
+      todayTasks:  p.todayTasks,
+      flag,
+      sheetId:    SHEET_IDS[n] || '',
+    };
+  });
+
+  const fmtDate = d => Utilities.formatDate(d, 'Asia/Bangkok', 'd MMM');
+
+  return {
+    ok: true,
+    people,
+    windowRange: fmtDate(windowStart) + ' – ' + fmtDate(windowEnd),
+    updatedAt: now.toISOString(),
+    debugLogs
+  };
+}
+
+
+// ---------- ACTION: MARK DONE ----------
+
+function handleMarkDone(body) {
+  const { assignee, rowIndex, taskName, jobNumber } = body;
+  const sheetId = SHEET_IDS[assignee];
+  if (!sheetId) return { ok: false, error: 'ไม่พบ Sheet ของ ' + assignee };
+  try {
+    const ss = SpreadsheetApp.openById(sheetId);
+    const sheet = ss.getSheets()[0];
+    sheet.getRange(rowIndex, 1).setValue('Done');
+    
+    if (taskName) {
+      const pageId = findNotionPageId(taskName, jobNumber);
+      if (pageId) {
+        updateNotionTaskDetails(pageId, { status: 'Done' });
+      }
+    }
+    
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+}
+
+function handleEditTask(body) {
+  const { assignee, rowIndex, oldTaskName, oldJobNumber, taskName, brand, workType, dueDate } = body;
+  const sheetId = SHEET_IDS[assignee];
+  if (!sheetId) return { ok: false, error: 'ไม่พบ Sheet ของ ' + assignee };
+  
+  try {
+    const ss = SpreadsheetApp.openById(sheetId);
+    const sheet = ss.getSheets()[0];
+    
+    // ป้องกันกรณีโดน Sort ใน Sheet: เช็คว่าชื่อตรงไหม ถ้าไม่ตรงให้หาใหม่
+    let actualRow = rowIndex;
+    if (oldTaskName && String(sheet.getRange(actualRow, 12).getValue()).trim() !== String(oldTaskName).trim()) {
+      const allNames = sheet.getRange(5, 12, sheet.getLastRow() - 4, 1).getValues();
+      for (let i = 0; i < allNames.length; i++) {
+        if (String(allNames[i][0]).trim() === String(oldTaskName).trim()) {
+          actualRow = i + 5;
+          break;
+        }
+      }
+    }
+
+    // 1. อัปเดตใน Google Sheet
+    let dueFormatted = '';
+    if (dueDate) {
+      dueFormatted = Utilities.formatDate(new Date(dueDate), 'Asia/Bangkok', 'dMMMyy');
+    }
+    
+    const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    const dayStr = dueDate ? dayNames[new Date(dueDate).getDay()] : '';
+    
+    if (body.status) {
+      let sheetStatus = body.status;
+      if (body.status === 'Not started') sheetStatus = 'Not Start';
+      sheet.getRange(actualRow, 1).setValue(sheetStatus);
+    }
+    
+    sheet.getRange(actualRow, 4).setValue(dayStr);
+    sheet.getRange(actualRow, 5).setValue(dueFormatted);
+    sheet.getRange(actualRow, 8).setValue(workType || '');
+    sheet.getRange(actualRow, 11).setValue(brand || '');
+    sheet.getRange(actualRow, 12).setValue(taskName || '');
+    
+    // 2. ค้นหาและอัปเดตใน Notion
+    const pageId = findNotionPageId(oldTaskName, oldJobNumber);
+    if (pageId) {
+      updateNotionTaskDetails(pageId, { taskName, dueDate, workType, status: body.status });
+    }
+    
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+}
+
+function updateNotionTaskDetails(pageId, details) {
+  const key = PropertiesService.getScriptProperties().getProperty('NOTION_API_KEY') || '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';
+  const cleanId = pageId.replace(/-/g, '');
+  
+  const workTypes = String(details.workType || '').split(',').map(s => s.trim()).filter(Boolean);
+  const multiSelect = workTypes.map(name => ({ name }));
+  
+  const properties = {
+    'Name': {
+      title: [{ text: { content: details.taskName } }]
+    },
+    'Work Type': {
+      multi_select: multiSelect
+    }
+  };
+  
+  if (details.dueDate) {
+    properties['Due Date'] = {
+      date: { start: details.dueDate }
+    };
+  } else if (details.dueDate !== undefined) {
+    properties['Due Date'] = {
+      date: null
+    };
+  }
+  
+  if (details.status) {
+    properties['Status'] = {
+      status: { name: details.status }
+    };
+  }
+  
+  const res = notionFetch(`pages/${cleanId}`, 'PATCH', { properties }, key);
+  if (!res || res.object === 'error') {
+    console.error('Failed to update Notion task details: ' + (res?.message || 'Unknown error'));
+  }
+}
+
+function handleUnassignTask(body) {
+  const { assignee, rowIndex, taskName, jobNumber } = body;
+  const sheetId = SHEET_IDS[assignee];
+  if (!sheetId) return { ok: false, error: 'ไม่พบ Sheet ของ ' + assignee };
+  
+  try {
+    const ss = SpreadsheetApp.openById(sheetId);
+    const sheet = ss.getSheets()[0];
+    
+    // ป้องกันกรณีโดน Sort ใน Sheet: เช็คว่าชื่อตรงไหม ถ้าไม่ตรงให้หาใหม่
+    let actualRow = rowIndex;
+    if (String(sheet.getRange(actualRow, 12).getValue()).trim() !== String(taskName).trim()) {
+      const allNames = sheet.getRange(5, 12, sheet.getLastRow() - 4, 1).getValues();
+      for (let i = 0; i < allNames.length; i++) {
+        if (String(allNames[i][0]).trim() === String(taskName).trim()) {
+          actualRow = i + 5;
+          break;
+        }
+      }
+    }
+    
+    // 1. เคลียร์เฉพาะข้อมูลงานใน Google Sheet แทนการลบทิ้งทั้งแถว
+    sheet.getRange(actualRow, 1).setValue('Not Start'); // Check (A)
+    sheet.getRange(actualRow, 6).clearContent(); // No (F)
+    sheet.getRange(actualRow, 8).clearContent(); // ประเภทงาน (H)
+    sheet.getRange(actualRow, 9).clearContent(); // จำนวน (I)
+    sheet.getRange(actualRow, 10).clearContent(); // Job No. (J)
+    sheet.getRange(actualRow, 11).clearContent(); // แบรนด์ (K)
+    sheet.getRange(actualRow, 12).clearContent(); // ชื่อชิ้นงาน (L)
+    sheet.getRange(actualRow, 13).clearContent(); // เจ้าของงาน (M)
+    
+    // 2. ค้นหาใน Notion และลบ Assignee (ตีกลับเข้าระบบ)
+    const pageId = findNotionPageId(taskName, jobNumber);
+    if (pageId) {
+      const key = PropertiesService.getScriptProperties().getProperty('NOTION_API_KEY') || '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';
+      const cleanId = pageId.replace(/-/g, '');
+      const res = notionFetch(`pages/${cleanId}`, 'PATCH', {
+        properties: {
+          'Graphic Assignee': null
+        }
+      }, key);
+      if (!res || res.object === 'error') {
+        console.error('Failed to clear Notion assignee: ' + (res?.message || 'Unknown error'));
+      }
+    }
+    
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+}
+
+function handleDeleteTaskPermanently(body) {
+  const { assignee, rowIndex, taskName, jobNumber } = body;
+  const sheetId = SHEET_IDS[assignee];
+  if (!sheetId) return { ok: false, error: 'ไม่พบ Sheet ของ ' + assignee };
+  
+  try {
+    const ss = SpreadsheetApp.openById(sheetId);
+    const sheet = ss.getSheets()[0];
+    
+    // ป้องกันกรณีโดน Sort ใน Sheet: เช็คว่าชื่อตรงไหม ถ้าไม่ตรงให้หาใหม่
+    let actualRow = rowIndex;
+    if (String(sheet.getRange(actualRow, 12).getValue()).trim() !== String(taskName).trim()) {
+      const allNames = sheet.getRange(5, 12, sheet.getLastRow() - 4, 1).getValues();
+      for (let i = 0; i < allNames.length; i++) {
+        if (String(allNames[i][0]).trim() === String(taskName).trim()) {
+          actualRow = i + 5;
+          break;
+        }
+      }
+    }
+    
+    // 1. เคลียร์เฉพาะข้อมูลงานใน Google Sheet แทนการลบทิ้งทั้งแถว
+    sheet.getRange(actualRow, 1).setValue('Not Start'); // Check (A)
+    sheet.getRange(actualRow, 6).clearContent(); // No (F)
+    sheet.getRange(actualRow, 8).clearContent(); // ประเภทงาน (H)
+    sheet.getRange(actualRow, 9).clearContent(); // จำนวน (I)
+    sheet.getRange(actualRow, 10).clearContent(); // Job No. (J)
+    sheet.getRange(actualRow, 11).clearContent(); // แบรนด์ (K)
+    sheet.getRange(actualRow, 12).clearContent(); // ชื่อชิ้นงาน (L)
+    sheet.getRange(actualRow, 13).clearContent(); // เจ้าของงาน (M)
+    
+    // 2. ค้นหาใน Notion และ Archive (ลบถาวร)
+    const pageId = findNotionPageId(taskName, jobNumber);
+    if (pageId) {
+      const key = PropertiesService.getScriptProperties().getProperty('NOTION_API_KEY') || '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';
+      const cleanId = pageId.replace(/-/g, '');
+      const res = notionFetch(`pages/${cleanId}`, 'PATCH', { archived: true }, key);
+      if (!res || res.object === 'error') {
+        console.error('Failed to archive Notion page: ' + (res?.message || 'Unknown error'));
+      }
+    }
+    
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+}
+
+function handleEditNotionTask(body) {
+  const { pageId, taskName, brand, workType, dueDate, status } = body;
+  try {
+    updateNotionTaskDetails(pageId, { taskName, dueDate, workType, status });
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+}
+
+function handleDeleteNotionTask(body) {
+  const { pageId } = body;
+  try {
+    const key = PropertiesService.getScriptProperties().getProperty('NOTION_API_KEY') || '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';
+    const cleanId = pageId.replace(/-/g, '');
+    const res = notionFetch(`pages/${cleanId}`, 'PATCH', { archived: true }, key);
+    if (!res || res.object === 'error') {
+      return { ok: false, error: res?.message || 'Failed to archive Notion page' };
+    }
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+}
+
+function handleRelocate(body) {
+  const { fromAssignee, rowIndex, targetAssignee, taskName: explicitTaskName } = body;
+  
+  const fromSheetId = SHEET_IDS[fromAssignee];
+  const targetSheetId = SHEET_IDS[targetAssignee];
+  
+  if (!fromSheetId) return { ok: false, error: 'ไม่พบ Sheet ของ ' + fromAssignee };
+  if (!targetSheetId) return { ok: false, error: 'ไม่พบ Sheet ของ ' + targetAssignee };
+  
+  try {
+    const fromSs = SpreadsheetApp.openById(fromSheetId);
+    const fromSheet = fromSs.getSheets()[0];
+    const lastCol = fromSheet.getLastColumn();
+    
+    // ป้องกันกรณีโดน Sort ใน Sheet: เช็คว่าชื่อตรงไหม ถ้าไม่ตรงให้หาใหม่
+    let actualRow = rowIndex;
+    if (explicitTaskName && String(fromSheet.getRange(actualRow, 12).getValue()).trim() !== String(explicitTaskName).trim()) {
+      const allNames = fromSheet.getRange(5, 12, fromSheet.getLastRow() - 4, 1).getValues();
+      for (let i = 0; i < allNames.length; i++) {
+        if (String(allNames[i][0]).trim() === String(explicitTaskName).trim()) {
+          actualRow = i + 5;
+          break;
+        }
+      }
+    }
+    
+    // 1. อ่านข้อมูลแถวเดิมของคนเก่า
+    const rowValues = fromSheet.getRange(actualRow, 1, 1, lastCol).getValues()[0];
+    
+    // 0: Check, 1: Hr, 2: (Hidden), 3: Day, 4: วันที่ส่งงาน, 5: No, 6: ช่วงเวลา, 7: ประเภทงาน, 8: จำนวน, 9: Job No., 10: แบรนด์, 11: ชื่อชิ้นงาน, 12: เจ้าของงาน, 13: กำหนดลงโพสต์จริง
+    const rawDateVal = rowValues[4];
+    let dueDate = '';
+    if (rawDateVal instanceof Date) {
+      dueDate = Utilities.formatDate(rawDateVal, 'Asia/Bangkok', 'yyyy-MM-dd');
+    } else {
+      const s = String(rawDateVal || '').trim();
+      const match = s.match(/^(\d{1,2})([A-Za-z]{3})(\d{2})$/);
+      if (match) {
+        const day = parseInt(match[1], 10);
+        const mNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        const mIdx = mNames.findIndex(m => m.toLowerCase() === match[2].toLowerCase());
+        const year = 2000 + parseInt(match[3], 10);
+        if (mIdx >= 0) {
+          dueDate = Utilities.formatDate(new Date(year, mIdx, day), 'Asia/Bangkok', 'yyyy-MM-dd');
+        }
+      } else {
+        const d = new Date(s);
+        if (!isNaN(d.getTime())) {
+          dueDate = Utilities.formatDate(d, 'Asia/Bangkok', 'yyyy-MM-dd');
+        }
+      }
+    }
+
+    const taskName = String(rowValues[11] || ''); // ชื่อชิ้นงาน (L - index 11)
+    const brand = String(rowValues[10] || '');    // แบรนด์ (K - index 10)
+    const workType = String(rowValues[7] || '');  // ประเภทงาน (H - index 7)
+    const owner = String(rowValues[12] || '');     // เจ้าของงาน (M - index 12)
+    const jobNumber = String(rowValues[9] || ''); // Job No. (J - index 9)
+
+    if (!taskName) {
+      return { ok: false, error: 'ไม่พบชื่อชิ้นงานในแถวที่จะย้าย' };
+    }
+
+    // 2. เขียนแถวใหม่ใน Sheet ของคนใหม่
+    const writeResult = writeToPersonSheet(targetAssignee, {
+      taskName,
+      dueDate,
+      brand,
+      workType,
+      owner,
+      jobNumber
+    });
+
+    if (!writeResult.ok) {
+      return { ok: false, error: 'ไม่สามารถเขียนลง Sheet คนใหม่ได้: ' + writeResult.error };
+    }
+
+    // 3. จัดการแถวเก่าใน Sheet ของคนเก่า (เคลียร์เนื้อหาแบบเดียวกับ Unassign เพื่อป้องกันการทำลายสูตร หรือขยับบรรทัด)
+    fromSheet.getRange(actualRow, 1).setValue('Not Start'); // Check (A)
+    fromSheet.getRange(actualRow, 6).clearContent(); // No (F)
+    fromSheet.getRange(actualRow, 8).clearContent(); // ประเภทงาน (H)
+    fromSheet.getRange(actualRow, 9).clearContent(); // จำนวน (I)
+    fromSheet.getRange(actualRow, 10).clearContent(); // Job No. (J)
+    fromSheet.getRange(actualRow, 11).clearContent(); // แบรนด์ (K)
+    fromSheet.getRange(actualRow, 12).clearContent(); // ชื่อชิ้นงาน (L)
+    fromSheet.getRange(actualRow, 13).clearContent(); // เจ้าของงาน (M)
+    // 4. อัปเดต Notion
+    const pageId = findNotionPageId(taskName, jobNumber);
+    if (pageId) {
+      updateNotionAssignee(pageId, targetAssignee);
+    }
+
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+}
+
+function findNotionPageId(taskName, jobNumber) {
+  const props = PropertiesService.getScriptProperties();
+  const key   = props.getProperty('NOTION_API_KEY') || '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';
+  const dbId  = '2e69dccd181d81df8919fbacf921c7d5';
+
+  const payload = {
+    filter: {
+      property: 'Name',
+      title: { equals: taskName }
+    },
+    page_size: 10
+  };
+
+  try {
+    const res = notionFetch(`databases/${dbId}/query`, 'POST', payload, key);
+    if (res && res.results && res.results.length > 0) {
+      if (jobNumber) {
+        const match = res.results.find(p => {
+          const props = p.properties;
+          const jNum = props['Job Number']?.formula?.string || props['Job Number']?.rich_text?.[0]?.plain_text || '';
+          return String(jNum).trim() === String(jobNumber).trim();
+        });
+        if (match) return match.id;
+      }
+      return res.results[0].id;
+    }
+  } catch (e) {
+    console.error('Error finding Notion page ID: ' + e.message);
+  }
+  return null;
+}
+
+// ---------- ACTION: ASSIGN ----------
+
+function handleAssign(body) {
+  const { taskId, taskName, taskUrl, assignee, dueDate,
+          brand, workType, owner, jobNumber } = body;
+
+  const errors = [];
+
+  // 1. อัปเดต Notion
+  const notionResult = updateNotionAssignee(taskId, assignee);
+  if (!notionResult.ok) errors.push('Notion: ' + notionResult.error);
+
+  // 2. เขียน row ใน Sheet ของคนนั้น
+  const sheetResult = writeToPersonSheet(assignee, {
+    taskName, dueDate, brand, workType, owner, jobNumber
+  });
+  if (!sheetResult.ok) errors.push('Sheet: ' + sheetResult.error);
+
+  if (errors.length) {
+    return { ok: false, errors };
+  }
+
+  return {
+    ok: true,
+    message: `Assign "${taskName}" → ${assignee} เสร็จแล้ว`,
+    notionUrl: taskUrl,
+    sheetRow: sheetResult.row
+  };
+}
+
+function updateNotionAssignee(pageId, assigneeName) {
+  const key = PropertiesService.getScriptProperties().getProperty('NOTION_API_KEY') || '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';
+  const cleanId = pageId.replace(/-/g, '');
+
+  const res = notionFetch(`pages/${cleanId}`, 'PATCH', {
+    properties: {
+      'Graphic Assignee': {
+        select: { name: assigneeName }
+      }
+    }
+  }, key);
+
+  if (!res || res.object === 'error') {
+    return { ok: false, error: res?.message || 'Notion API error' };
+  }
+  return { ok: true };
+}
+
+function writeToPersonSheet(assignee, task) {
+  const sheetId = SHEET_IDS[assignee];
+  if (!sheetId) return { ok: false, error: `ไม่พบ Sheet ของ ${assignee}` };
+
+  try {
+    const ss = SpreadsheetApp.openById(sheetId);
+    const sheet = ss.getSheets()[0]; // Sheet แรก (Sheet1)
+
+    // แปลงวันที่ของชิ้นงานเพื่อเอาไปเทียบ
+    const dueFormatted = task.dueDate
+      ? Utilities.formatDate(new Date(task.dueDate), 'Asia/Bangkok', 'dMMMyy')
+      : '';
+
+    // หาแถวที่ว่างจริงๆ โดยดูจากคอลัมน์ L (ชื่อชิ้นงาน)
+    // และพยายามหาบรรทัดที่ "วันที่ส่งงาน" (คอลัมน์ E) ตรงกับ dueFormatted ก่อน
+    const lastRow = sheet.getLastRow();
+    let targetRow = 5;
+    
+    if (lastRow >= 5) {
+      // ดึงคอลัมน์ E (Date) และ L (TaskName)
+      const dateValues = sheet.getRange(5, 5, lastRow - 4, 1).getValues();
+      const nameValues = sheet.getRange(5, 12, lastRow - 4, 1).getValues();
+      
+      let foundExactDate = false;
+      targetRow = -1; // ใช้ตัวแปร targetRow ด้านนอก ไม่สร้างใหม่
+      let lastMatchRow = -1;
+      let firstEmptyRowWithNoDate = -1;
+
+      for (let i = 0; i < nameValues.length; i++) {
+        const isNameEmpty = !String(nameValues[i][0]).trim();
+        
+        // เช็คว่าช่องวันที่ว่างไหม (เพื่อหาจุดสิ้นสุดของ Template)
+        const rawDate = dateValues[i][0];
+        const isDateEmpty = !rawDate || String(rawDate).trim() === '' || String(rawDate).trim() === '-';
+        
+        let rowDateStr = '';
+        if (rawDate instanceof Date) {
+          rowDateStr = Utilities.formatDate(rawDate, 'Asia/Bangkok', 'dMMMyy');
+        } else {
+          rowDateStr = String(rawDate).trim();
+        }
+
+        if (isNameEmpty && isDateEmpty && firstEmptyRowWithNoDate === -1) {
+          firstEmptyRowWithNoDate = i + 5; // แถวที่ว่างทั้งชื่อและวันที่ (ท้ายตาราง Template)
+        }
+
+        if (dueFormatted && rowDateStr === dueFormatted) {
+          foundExactDate = true;
+          if (isNameEmpty) {
+            targetRow = i + 5; // เจอช่องว่างของวันนี้พอดี
+            break;
+          } else {
+            lastMatchRow = i + 5; // ไม่ว่าง เก็บเลขบรรทัดสุดท้ายของวันนี้ไว้เผื่อต้องแทรกบรรทัด
+          }
+        }
+      }
+      
+      if (!foundExactDate) {
+        if (firstEmptyRowWithNoDate !== -1) {
+          targetRow = firstEmptyRowWithNoDate; // วิ่งไปต่อท้ายตาราง (จุดที่ไม่มี Date pre-fill)
+        } else {
+          targetRow = lastRow + 1;
+        }
+      } else {
+        if (targetRow === -1) {
+          // วันนี้มีในตาราง แต่เต็มหมดแล้ว! -> แทรกบรรทัดใหม่ต่อจากบรรทัดสุดท้ายของวันนี้เลย
+          sheet.insertRowAfter(lastMatchRow);
+          targetRow = lastMatchRow + 1;
+          
+          // โคลนบรรทัดบนลงมา (เพื่อเอา Format, Dropdown, สูตร)
+          sheet.getRange(lastMatchRow, 1, 1, 14).copyTo(sheet.getRange(targetRow, 1, 1, 14), SpreadsheetApp.CopyPasteType.PASTE_NORMAL, false);
+          
+          // เคลียร์ข้อมูลเก่าทิ้ง เพื่อให้พร้อมรับข้อมูลใหม่ (เคลียร์เฉพาะช่องพิมพ์ เพื่อรักษาสูตรถ้ามี)
+          sheet.getRange(targetRow, 6).clearContent(); // No (F)
+          sheet.getRange(targetRow, 8).clearContent(); // ประเภทงาน (H)
+          sheet.getRange(targetRow, 9).clearContent(); // จำนวน (I)
+          sheet.getRange(targetRow, 10).clearContent(); // Job No. (J)
+          sheet.getRange(targetRow, 11).clearContent(); // แบรนด์ (K)
+          sheet.getRange(targetRow, 12).clearContent(); // ชื่อชิ้นงาน (L)
+          sheet.getRange(targetRow, 13).clearContent(); // เจ้าของงาน (M)
+        }
+      }
+    }
+
+    // Day of week
+    const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    const dayStr = task.dueDate
+      ? dayNames[new Date(task.dueDate).getDay()]
+      : '';
+
+    // ดึงแค่ค่าปัจจุบันของ Time เพื่อเอามาเซ็ต Default ถ้ามันว่าง
+    const existingTime = sheet.getRange(targetRow, 7).getValue();
+
+    sheet.getRange(targetRow, 1).setValue('Not Start'); // Check (A) ต้องเริ่มใหม่เสมอ
+    sheet.getRange(targetRow, 4).setValue(dayStr);                       // Day (D)
+    sheet.getRange(targetRow, 5).setValue(dueFormatted);                 // วันที่ส่งงาน (E)
+    sheet.getRange(targetRow, 6).setValue(task.jobNumber || '');         // No (F)
+    sheet.getRange(targetRow, 7).setValue(existingTime || '09.00 - 18.00'); // ช่วงเวลา (G)
+    sheet.getRange(targetRow, 8).setValue(task.workType || '');          // ประเภทงาน (H)
+    sheet.getRange(targetRow, 10).setValue(task.jobNumber || '');        // Job No. (J)
+    sheet.getRange(targetRow, 11).setValue(task.brand || '');            // แบรนด์ (K)
+    sheet.getRange(targetRow, 12).setValue(task.taskName || '');         // ชื่อชิ้นงาน (L)
+    sheet.getRange(targetRow, 13).setValue(task.owner || '');            // เจ้าของงาน (M)
+
+    return { ok: true, row: targetRow };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+}
+
+// ---------- NOTION HELPER ----------
+
+function notionFetch(endpoint, method, payload, key) {
+  const options = {
+    method,
+    headers: {
+      'Authorization': `Bearer ${key}`,
+      'Notion-Version': '2022-06-28',
+      'Content-Type': 'application/json',
+    },
+    muteHttpExceptions: true,
+  };
+  if (payload) options.payload = JSON.stringify(payload);
+
+  const res = UrlFetchApp.fetch(`https://api.notion.com/v1/${endpoint}`, options);
+  try {
+    return JSON.parse(res.getContentText());
+  } catch (e) {
+    return null;
+  }
+}
+
+// ---------- JSON HELPER ----------
+
+function jsonResponse(data) {
+  return ContentService
+    .createTextOutput(JSON.stringify(data))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+// ---------- HTML APP ----------
+
+function getHtml() {
+  return `<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>GEM Graphic Capacity Board</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'IBM Plex Sans Thai',sans-serif;background:#f5f4f0;color:#1a1a18;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+header{background:#fff;border-bottom:1px solid #e5e3dd;padding:10px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.logo{font-size:15px;font-weight:500;color:#1a1a18}
+.logo span{color:#aaa}
+.sync{font-size:14px;color:#aaa}
+.board{display:grid;grid-template-columns:1.6fr 1fr;gap:12px;padding:12px;flex:1;min-height:0}
+@media(max-width:700px){
+  body{height:auto;overflow:auto}
+  .board{grid-template-columns:1fr;grid-template-rows:auto auto;flex:none;height:auto;padding:8px;gap:8px}
+  .panel{min-height:320px;max-height:70vh}
+  header{padding:8px 14px}
+  .logo{font-size:14px}
+}
+.panel{background:#fff;border:1px solid #e5e3dd;border-radius:12px;display:flex;flex-direction:column;min-height:0;min-width:0;overflow:hidden}
+.ph{padding:10px 14px;border-bottom:1px solid #e5e3dd;flex-shrink:0}
+.ph-row{display:flex;align-items:center;justify-content:space-between}
+.pt{font-size:13px;font-weight:500;color:#888;text-transform:uppercase;letter-spacing:.05em}
+.pc{font-size:13px;color:#aaa}
+.cond{font-size:12px;color:#bbb;margin-top:4px}
+.pb{overflow-y:auto;flex:1;padding:10px}
+.person-card{border:1px solid #e5e3dd;border-radius:12px;padding:0;margin:0;cursor:pointer;background:#fff;transition:border-color .15s,box-shadow .15s;overflow:hidden}
+.person-card:hover{border-color:#bbb;box-shadow:0 2px 8px rgba(0,0,0,0.06)}
+.person-card.selected{border-color:#378ADD;background:#EBF4FD}
+.person-card.drag-over{border-color:#378ADD;border-style:dashed;background:#EBF4FD}
+.pc-header{display:flex;align-items:center;gap:10px;padding:10px 14px;background:linear-gradient(135deg,#faf9f7 0%,#f5f4f0 100%);border-bottom:1px solid #ece9e3}
+.av{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;flex-shrink:0;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.1)}
+.pc-info{flex:1;min-width:0}
+.pn{font-size:15px;font-weight:600;color:#1a1a18}
+.ps{font-size:12px;color:#999;margin-top:1px}
+.badge{font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px;flex-shrink:0;letter-spacing:.02em;text-transform:uppercase}
+.g{background:#EAF3DE;color:#3B6D11}
+.a{background:#FAEEDA;color:#854F0B}
+.r{background:#FCEBEB;color:#A32D2D}
+.pc-stats{display:flex;align-items:center;gap:8px;padding:8px 14px;background:#fff}
+.bb{flex:1;height:5px;background:#eee;border-radius:3px;overflow:hidden}
+.bf{height:100%;border-radius:3px;transition:width .3s ease}
+.bl{font-size:12px;color:#999;min-width:24px;text-align:right;font-weight:500}
+.today-box{padding:8px 12px;background:#fff;font-size:13px;max-height:180px;overflow-y:auto;border-top:1px solid #f0efea;}
+.today-lbl{color:#aaa;margin-bottom:4px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:600;position:sticky;top:0;background:#fff;padding-bottom:2px;z-index:1;}
+.today-item{display:flex;align-items:center;padding:4px 0;gap:6px;}
+.task-name-text{flex:1;color:#555;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.today-item.is-today .task-name-text{color:#D83B01;font-weight:600;}
+.task-date{font-size:11px;color:#999;display:inline-block;width:40px;flex-shrink:0;}
+.today-item-actions{display:flex;align-items:center;gap:4px;margin-left:auto;flex-shrink:0}
+.btn-done,.btn-edit,.btn-return,.btn-delete{background:transparent;border:1px solid #ddd;color:#888;border-radius:6px;padding:4px 8px;font-size:11px;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center}
+.btn-done:hover{background:#EAF3DE;border-color:#639922;color:#3B6D11}
+.btn-edit:hover{background:#EBF4FD;border-color:#378ADD;color:#185FA5}
+.btn-return:hover{background:#FFF9E6;border-color:#EF9F27;color:#854F0B}
+.btn-delete:hover{background:#FCEBEB;border-color:#E24B4A;color:#A32D2D}
+.btn-done:disabled,.btn-edit:disabled,.btn-return:disabled,.btn-delete:disabled{opacity:0.5;cursor:default}
+.modal-backdrop{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;z-index:1000;opacity:0;pointer-events:none;transition:opacity .2s}
+.modal-backdrop.show{opacity:1;pointer-events:auto}
+.modal-box{background:#fff;border-radius:12px;border:1px solid #e5e3dd;width:95%;max-width:720px;padding:24px;box-shadow:0 8px 30px rgba(0,0,0,0.12);transform:scale(0.95);transition:transform .2s}
+.modal-backdrop.show .modal-box{transform:scale(1)}
+.chip-group{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.chip{background:#f0efea;border:1px solid #e5e3dd;border-radius:20px;padding:4px 10px;font-size:11px;color:#555;cursor:pointer;transition:all 0.2s;user-select:none;font-weight:500;}
+.chip:hover{background:#e5e3dd;}
+.chip.selected{background:#eef2ff;border-color:#6366f1;color:#4f46e5;font-weight:600;box-shadow:0 2px 6px rgba(99,102,241,0.15);}
+.chip-add{background:transparent;border:1px dashed #bbb;color:#6366f1;}
+.chip-add:hover{background:#f8fafc;border-color:#6366f1;}
+.modal-title{font-size:15px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:6px}
+.status-tag{display:inline-block;padding:2px 6px;font-size:10px;border-radius:10px;margin-right:6px;font-weight:600;text-transform:uppercase;letter-spacing:0.02em;vertical-align:middle}
+.status-tag.tag-not-start{background:#f0efea;color:#888;border:1px solid #e5e3dd}
+.status-tag.tag-inprogress{background:#FFF9E6;color:#EF9F27;border:1px solid #F5E5C0}
+.status-tag.tag-done{background:#EAF3DE;color:#639922;border:1px solid #D6E8C2}
+.status-tag.tag-late{background:#FCEBEB;color:#E24B4A;border:1px solid #F5C6C6}
+.task-name-text.text-inprogress{color:#EF9F27 !important}
+.task-name-text.text-done{color:#639922 !important;text-decoration:line-through;opacity:0.8}
+.task-name-text.text-late{color:#E24B4A !important;font-weight:600}
+.modal-form-group{margin-bottom:12px}
+.modal-form-group label{display:block;font-size:12px;color:#888;margin-bottom:4px;text-transform:uppercase;font-weight:500}
+.modal-form-group input{width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:6px;font-size:14px;background:#fff;color:#1a1a18}
+.modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:16px}
+.modal-btn{padding:8px 16px;font-size:13px;font-weight:500;border:1px solid #ddd;border-radius:6px;background:#fff;color:#555;cursor:pointer}
+.modal-btn-save{border-color:#378ADD;background:#EBF4FD;color:#185FA5}
+.modal-btn-save:hover{background:#378ADD;color:#fff}
+.modal-btn-cancel:hover{background:#f5f4f0}
+.task-item{border:1px solid #e5e3dd;border-radius:8px;padding:12px 14px;margin-bottom:10px;cursor:pointer;background:#fff;transition:border-color .15s;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.task-item:hover{border-color:#bbb}
+.task-item.selected{border-color:#378ADD;background:#EBF4FD}
+.task-item-main{flex:1;min-width:0}
+.task-item-actions{display:flex;align-items:center;gap:4px;flex-shrink:0}
+.tn{font-size:14px;font-weight:500;line-height:1.4;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tm{display:flex;flex-wrap:wrap;gap:4px}
+.tag{font-size:12px;padding:2px 8px;border-radius:4px;background:#f5f4f0;border:1px solid #e5e3dd;color:#777}
+.tag-due{color:#854F0B}
+.tag-late{color:#A32D2D}
+.abar{padding:12px 16px;border-top:1px solid #e5e3dd;background:#fafaf8;display:flex;gap:10px;align-items:center;flex-shrink:0}
+.abar select{flex:1;font-size:14px;padding:8px 12px;border:1px solid #ddd;border-radius:7px;background:#fff;color:#1a1a18}
+.abtn{padding:8px 18px;font-size:14px;font-weight:500;border:1px solid #378ADD;border-radius:7px;background:#EBF4FD;color:#185FA5;cursor:pointer;white-space:nowrap}
+.abtn:not(:disabled):hover{background:#378ADD;color:#fff}
+.abtn:disabled{opacity:.4;cursor:default}
+@media(max-width:700px){
+  .abar{padding:10px 12px;position:sticky;bottom:0}
+  .abar select{font-size:16px;padding:10px 12px}
+  .abtn{padding:10px 20px;font-size:16px}
+  .ph{padding:10px 14px}
+  .pb{padding:10px}
+  .person-card,.task-item{padding:10px 12px;margin-bottom:8px}
+  .pn,.tn{font-size:16px}
+  .ps,.tm{font-size:14px}
+  .badge{font-size:12px;padding:4px 10px}
+}
+.empty{text-align:center;padding:40px 0;color:#bbb;font-size:14px}
+.toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#1a1a18;color:#fff;padding:8px 16px;border-radius:8px;font-size:12px;opacity:0;transition:opacity .25s;pointer-events:none;z-index:999;white-space:nowrap}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">GEM <span>/</span> Graphic Capacity Board</div>
+  <div class="sync" id="sync-info">กำลังโหลด...</div>
+</header>
+<div class="board">
+  <div class="panel">
+    <div class="ph">
+      <div class="ph-row">
+        <span class="pt"><i class="ti ti-users"></i> Graphic team</span>
+        <span class="pc" id="week-badge"></span>
+      </div>
+      <div class="cond">งานค้าง = Check ≠ Done/Cancelled (ย้อนหลัง 14 วัน - ล่วงหน้า 7 วัน)</div>
+    </div>
+    <div class="pb" id="people-panel"><div class="empty">กำลังดึงข้อมูล...</div></div>
+  </div>
+  <div class="panel">
+    <div class="ph">
+      <div class="ph-row">
+        <span class="pt"><i class="ti ti-clipboard-list"></i> งานรอ assign</span>
+        <span class="pc" id="task-count"></span>
+      </div>
+      <div class="cond">Status = Not started · ยังไม่มี Graphic Assignee</div>
+    </div>
+    <div class="pb" id="task-panel"><div class="empty">กำลังดึงข้อมูล...</div></div>
+    <div class="abar">
+      <span style="font-size:12px; font-weight:500; color:#555; margin-right:4px;">วันทำงาน</span>
+      <input type="date" id="sel-assign-date" title="เลือกวันที่ลงงาน (เว้นว่างไว้เพื่อใช้วัน Due Date ปกติ)" style="padding:4px 8px; border:1px solid #ddd; border-radius:4px; font-size:12px;">
+      <select id="sel-assignee"><option value="">เลือก graphic...</option></select>
+      <button class="abtn" id="btn-assign" disabled>Assign</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<!-- Edit Modal -->
+<div class="modal-backdrop" id="edit-modal">
+  <div class="modal-box">
+    <div class="modal-title" style="display:flex; justify-content:space-between; align-items:center;">
+      <div><i class="ti ti-edit" style="color:#378ADD"></i> แก้ไขข้อมูลงาน</div>
+      <button class="btn-delete" id="btn-delete-in-modal" onclick="deleteTaskFromModal()" style="font-size:12px; padding:6px 12px; display:flex; align-items:center; gap:4px; margin:0;" title="ลบงานนี้"><i class="ti ti-trash"></i> ลบ</button>
+    </div>
+    <input type="hidden" id="edit-assignee">
+    <input type="hidden" id="edit-row-index">
+    <input type="hidden" id="edit-old-task-name">
+    <input type="hidden" id="edit-old-job-number">
+    
+    <div class="modal-form-group">
+      <label for="edit-task-name">ชื่อชิ้นงาน</label>
+      <input type="text" id="edit-task-name">
+    </div>
+    <div class="modal-form-group">
+      <label>แบรนด์</label>
+      <input type="hidden" id="edit-brand">
+      <div id="chip-brand-container" class="chip-group"></div>
+    </div>
+    <div class="modal-form-group">
+      <label>ประเภทงาน</label>
+      <input type="hidden" id="edit-work-type">
+      <div id="chip-work-type-container" class="chip-group"></div>
+    </div>
+    <div class="modal-form-group">
+      <label>สถานะงาน (Status)</label>
+      <input type="hidden" id="edit-status">
+      <div id="chip-status-container" class="chip-group"></div>
+    </div>
+    <div class="modal-form-group">
+      <label for="edit-due-date">วันที่ส่งงาน</label>
+      <input type="date" id="edit-due-date">
+    </div>
+    
+    <div class="modal-actions">
+      <button class="modal-btn modal-btn-cancel" onclick="closeEditModal()">ยกเลิก</button>
+      <button class="modal-btn modal-btn-save" id="btn-save-edit" onclick="saveEditTask()">บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<!-- Drag Assign Modal -->
+<div class="modal-backdrop" id="drag-assign-modal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 id="drag-assign-title">ยืนยันการมอบหมายงาน</h3>
+      <div class="modal-close" onclick="closeDragAssignModal()"><i class="ti ti-x"></i></div>
+    </div>
+    <div class="modal-body">
+      <p id="drag-assign-text" style="margin-bottom: 12px; font-size: 14px; line-height: 1.5; color: #333;"></p>
+      <label style="display:block; margin-bottom: 5px; font-weight: 500; font-size: 13px; color: #555;">เลือกวันทำงาน <span style="color:#888;font-weight:normal;">(เว้นว่างเพื่อใช้วัน Due Date)</span></label>
+      <input type="date" id="drag-assign-date" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; margin-bottom: 15px; font-family: inherit;">
+      
+      <div style="text-align:right;">
+        <button class="abtn" style="background:#f1f5f9; color:#333; border:1px solid #cbd5e1; margin-right:8px;" onclick="closeDragAssignModal()">ยกเลิก</button>
+        <button class="abtn" id="drag-assign-confirm-btn" onclick="confirmDragAssign()">ยืนยัน Assign</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const COLORS = {
+  'จ๊ะเอ๋':{bg:'#E6F1FB',fg:'#185FA5'},
+  'อุ้ม':  {bg:'#E1F5EE',fg:'#0F6E56'},
+  'กิ๊บ': {bg:'#FAEEDA',fg:'#854F0B'},
+  'เป้':  {bg:'#FCEBEB',fg:'#A32D2D'},
+  'โชกุล':{bg:'#EEEDFE',fg:'#3C3489'},
+  'ท้อป': {bg:'#E1F5EE',fg:'#085041'},
+  'โอม':  {bg:'#FBEAF0',fg:'#72243E'},
+};
+let state = {people:[], tasks:[], selectedTask:null};
+
+function esc(str) {
+  return String(str || '')
+    .replace(/\\\\/g, '\\\\\\\\')
+    .replace(/'/g, '\\\\\\\'')
+    .replace(/"/g, '&quot;');
+}
+
+function getStatusMeta(status, rawDate) {
+  let isLate = false;
+  if (rawDate) {
+    const d = new Date(rawDate);
+    d.setHours(0,0,0,0);
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    if (d < today && status !== 'Done' && status !== 'Cancelled') {
+      isLate = true;
+    }
+  }
+  
+  let tagClass = 'tag-not-start';
+  let textClass = '';
+  let tagText = 'Not Start';
+  
+  if (isLate) {
+    tagClass = 'tag-late';
+    textClass = 'text-late';
+    tagText = 'Late';
+  } else if (status === 'Done') {
+    tagClass = 'tag-done';
+    textClass = 'text-done';
+    tagText = 'Done';
+  } else if (status === 'In progress') {
+    tagClass = 'tag-inprogress';
+    textClass = 'text-inprogress';
+    tagText = 'In progress';
+  } else {
+    if (status && status !== 'Not Start' && status !== 'Not started') {
+      tagText = status;
+    }
+  }
+  return { tagClass: tagClass, textClass: textClass, text: tagText };
+}
+
+function selectChip(el, inputId) {
+  const input = document.getElementById(inputId);
+  if(input) input.value = el.getAttribute('data-val');
+  
+  const container = el.parentElement;
+  const chips = container.querySelectorAll('.chip:not(.chip-add)');
+  chips.forEach(function(c) { c.classList.remove('selected'); });
+  el.classList.add('selected');
+}
+
+function syncChipsState(inputId, containerId) {
+  const input = document.getElementById(inputId);
+  const container = document.getElementById(containerId);
+  if(!input || !container) return;
+  const val = input.value;
+  const chips = container.querySelectorAll('.chip:not(.chip-add)');
+  chips.forEach(function(c) {
+    if(c.getAttribute('data-val') === val) {
+      c.classList.add('selected');
+    } else {
+      c.classList.remove('selected');
+    }
+  });
+}
+
+function renderDropdownSettings() {
+  if (!state.settings) return;
+  
+  function renderChips(containerId, inputId, list, type) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    container.innerHTML = '';
+    
+    let html = '<div class="chip" data-val="" onclick="selectChip(this, \\''+inputId+'\\')">-- ไม่ระบุ --</div>';
+    list.forEach(function(item) {
+      html += '<div class="chip" data-val="'+esc(item)+'" onclick="selectChip(this, \\''+inputId+'\\')">'+esc(item)+'</div>';
+    });
+    html += '<div class="chip chip-add" onclick="handleAddNewChip(\\''+type+'\\')">➕ เพิ่มรายการใหม่...</div>';
+    
+    container.innerHTML = html;
+    syncChipsState(inputId, containerId);
+  }
+  
+  renderChips('chip-brand-container', 'edit-brand', state.settings.brands, 'brand');
+  renderChips('chip-work-type-container', 'edit-work-type', state.settings.workTypes, 'workType');
+  
+  const statusContainer = document.getElementById('chip-status-container');
+  if (statusContainer) {
+    statusContainer.innerHTML = '';
+    const statusList = ['Not started', 'In progress', 'Done'];
+    let html = '';
+    statusList.forEach(function(item) {
+      html += '<div class="chip" data-val="'+esc(item)+'" onclick="selectChip(this, \\'edit-status\\')">'+esc(item)+'</div>';
+    });
+    statusContainer.innerHTML = html;
+    syncChipsState('edit-status', 'chip-status-container');
+  }
+}
+
+function handleAddNewChip(type) {
+  const label = type === 'brand' ? 'ชื่อแบรนด์ใหม่' : 'ชื่อประเภทงานใหม่';
+  const newVal = prompt('ระบุ' + label + ' :');
+  if (!newVal || !newVal.trim()) return;
+  
+  showToast('กำลังเพิ่ม ' + newVal + '...');
+  
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res.ok) {
+        if (type === 'brand') {
+          state.settings.brands = res.list;
+          document.getElementById('edit-brand').value = newVal.trim();
+        }
+        if (type === 'workType') {
+          state.settings.workTypes = res.list;
+          document.getElementById('edit-work-type').value = newVal.trim();
+        }
+        renderDropdownSettings();
+        showToast('เพิ่มรายการเรียบร้อยแล้ว');
+      } else {
+        showToast('เกิดข้อผิดพลาดในการเพิ่มรายการ');
+      }
+    })
+    .withFailureHandler(function(err) {
+      showToast('Error: ' + err.message);
+    })
+    .addSetting({ action: 'addSetting', type: type, newValue: newVal });
+}
+
+function init() {
+  google.script.run
+    .withSuccessHandler(function(res) {
+      const cap = res.capacity || {};
+      const tasks = res.tasks || {};
+      if (cap.ok) {
+        state.people = cap.people || [];
+        const ms = res.timings ? res.timings.total : 0;
+        document.getElementById('sync-info').textContent = 'อัปเดต ' + new Date(cap.updatedAt).toLocaleTimeString('th-TH') + ' (' + ms + 'ms)';
+      } else {
+        document.getElementById('sync-info').textContent = 'โหลด capacity ไม่สำเร็จ';
+      }
+      if (tasks.ok) {
+        state.tasks = tasks.tasks || [];
+      } else {
+        document.getElementById('sync-info').textContent = 'โหลด tasks ไม่สำเร็จ';
+      }
+      if (res.settings) {
+        state.settings = res.settings;
+        renderDropdownSettings();
+      }
+      const sel = document.getElementById('sel-assignee');
+      state.people.slice().sort(function(a,b){return a.open-b.open;}).forEach(function(p) {
+        const o = document.createElement('option');
+        o.value = p.name;
+        o.textContent = p.name + ' (' + p.open + ' งานค้าง)';
+        sel.appendChild(o);
+      });
+      document.getElementById('week-badge').textContent = (cap.windowRange || '');
+      renderPeople();
+      renderTasks();
+    })
+    .withFailureHandler(function(err) {
+      document.getElementById('sync-info').textContent = 'Error: ' + err.message;
+    })
+    .getAllData();
+}
+
+function autoRefresh() {
+  google.script.run
+    .withSuccessHandler(function(res) {
+      const cap = res.capacity || {};
+      const tasks = res.tasks || {};
+      if (cap.ok && tasks.ok) {
+        state.people = cap.people || [];
+        state.tasks = tasks.tasks || [];
+        
+        // Update assignee dropdown without resetting selection
+        const sel = document.getElementById('sel-assignee');
+        const currentVal = sel.value;
+        sel.innerHTML = '<option value="">-- เลือกผู้รับผิดชอบ --</option>';
+        state.people.slice().sort(function(a,b){return a.open-b.open;}).forEach(function(p) {
+          const o = document.createElement('option');
+          o.value = p.name;
+          o.textContent = p.name + ' (' + p.open + ' งานค้าง)';
+          sel.appendChild(o);
+        });
+        sel.value = currentVal;
+        
+        const ms = res.timings ? res.timings.total : 0;
+        document.getElementById('sync-info').textContent = 'อัปเดต ' + new Date(cap.updatedAt).toLocaleTimeString('th-TH') + ' (' + ms + 'ms) (Auto)';
+        
+        // Ensure UI doesn't visually break while someone is dragging
+        // Optimistic UI updates will be overwritten by actual data from server, which is expected
+        renderPeople();
+        renderTasks();
+      }
+    })
+    .withFailureHandler(function(err) {
+      console.log('Auto-refresh error:', err);
+    })
+    .getAllData();
+}
+
+// Auto-refresh every 60 seconds
+setInterval(autoRefresh, 60000);
+
+function renderPeople() {
+  const el = document.getElementById('people-panel');
+  el.innerHTML = '';
+  const sorted = state.people.slice().sort(function(a,b){return a.open-b.open;});
+  sorted.forEach(function(p) {
+    const pct = Math.min(100, Math.round((p.open/14)*100));
+    const flag = p.flag;
+    const bc = flag==='green'?'g':flag==='amber'?'a':'r';
+    const bl = flag==='green'?'ว่าง':flag==='amber'?'ปานกลาง':'ยุ่ง';
+    const barC = flag==='green'?'#639922':flag==='amber'?'#EF9F27':'#E24B4A';
+    const c = COLORS[p.name]||{bg:'#f0efea',fg:'#555'};
+    let todayHtml = '';
+    const allTasksCount = (p.todayTasks ? p.todayTasks.length : 0) + (p.periodTasks ? p.periodTasks.length : 0);
+    
+    if (allTasksCount > 0) {
+      let tItems = (p.todayTasks || []).map(function(t){
+        const escName = esc(t.name);
+        const escBrand = esc(t.brand);
+        const escWorkType = esc(t.workType);
+        const escDate = esc(t.rawDate);
+        const escJob = esc(t.jobNumber);
+        const escStatus = esc(t.status || '');
+        const stMeta = getStatusMeta(t.status, t.rawDate);
+        return '<div class="today-item is-today">'
+             + '<span class="task-date">วันนี้</span>'
+             + '<span class="task-name-text ' + stMeta.textClass + '" title="'+escName+'">'
+             + '<span class="status-tag ' + stMeta.tagClass + '">' + esc(stMeta.text) + '</span>' + t.name + '</span>'
+             + '<div class="today-item-actions" onclick="event.stopPropagation()">'
+             + '<button class="btn-done" onclick="markTaskDone(\\''+p.name+'\\', '+t.rowIndex+', \\''+escName+'\\', \\''+escJob+'\\', this, event)" title="ทำเสร็จแล้ว">✔</button>'
+             + '<button class="btn-edit" onclick="openEditModal(\\''+p.name+'\\', '+t.rowIndex+', \\''+escName+'\\', \\''+escBrand+'\\', \\''+escWorkType+'\\', \\''+escDate+'\\', \\''+escJob+'\\', \\''+escStatus+'\\')" title="แก้ไข">✎</button>'
+             + '<button class="btn-return" onclick="returnTaskToPool(\\''+p.name+'\\', '+t.rowIndex+', \\''+escName+'\\', \\''+escJob+'\\', this)" title="ตีกลับเข้าระบบ (Unassign)">↩</button>'
+             + '</div></div>';
+      }).join('');
+      let pItems = (p.periodTasks || []).map(function(t){
+        const escName = esc(t.name);
+        const escBrand = esc(t.brand);
+        const escWorkType = esc(t.workType);
+        const escDate = esc(t.rawDate);
+        const escJob = esc(t.jobNumber);
+        const escStatus = esc(t.status || '');
+        const stMeta = getStatusMeta(t.status, t.rawDate);
+        return '<div class="today-item">'
+             + '<span class="task-date">'+t.dateStr+'</span>'
+             + '<span class="task-name-text ' + stMeta.textClass + '" title="'+escName+'">'
+             + '<span class="status-tag ' + stMeta.tagClass + '">' + esc(stMeta.text) + '</span>' + t.name + '</span>'
+             + '<div class="today-item-actions" onclick="event.stopPropagation()">'
+             + '<button class="btn-done" onclick="markTaskDone(\\''+p.name+'\\', '+t.rowIndex+', \\''+escName+'\\', \\''+escJob+'\\', this, event)" title="ทำเสร็จแล้ว">✔</button>'
+             + '<button class="btn-edit" onclick="openEditModal(\\''+p.name+'\\', '+t.rowIndex+', \\''+escName+'\\', \\''+escBrand+'\\', \\''+escWorkType+'\\', \\''+escDate+'\\', \\''+escJob+'\\', \\''+escStatus+'\\')" title="แก้ไข">✎</button>'
+             + '<button class="btn-return" onclick="returnTaskToPool(\\''+p.name+'\\', '+t.rowIndex+', \\''+escName+'\\', \\''+escJob+'\\', this)" title="ตีกลับเข้าระบบ (Unassign)">↩</button>'
+             + '</div></div>';
+      }).join('');
+      
+      todayHtml = '<div class="today-box">'
+                + '<div class="today-lbl">งาน ('+allTasksCount+' งาน)</div>'
+                + tItems + pItems
+                + '</div>';
+    } else {
+      todayHtml = '<div class="today-box" style="border-top:1px solid #C0DD97;background:#f5faf0"><div style="color:#3B6D11;font-size:10px;padding:4px 0">✓ ไม่มีงานในช่วงนี้</div></div>';
+    }
+    const card = document.createElement('div');
+    card.className = 'person-card';
+    card.innerHTML =
+      '<div class="pc-header">'
+      +'<div class="av" style="background:'+c.bg+';color:'+c.fg+'">'+p.name.substring(0,2)+'</div>'
+      +'<div class="pc-info"><div class="pn">'+p.name+'</div><div class="ps">งานค้าง '+p.open+' งาน</div></div>'
+      +'<span class="badge '+bc+'">'+bl+'</span>'
+      +'</div>'
+      +'<div class="pc-stats"><div class="bb"><div class="bf" style="width:'+pct+'%;background:'+barC+'"></div></div>'
+      +'<span class="bl">'+p.open+'</span></div>'
+      +todayHtml;
+    
+    // Drag & Drop event handlers on target designer card
+    card.ondragover = function(event) {
+      event.preventDefault();
+      card.classList.add('drag-over');
+    };
+    card.ondragleave = function() {
+      card.classList.remove('drag-over');
+    };
+    card.ondrop = function(event) {
+      card.classList.remove('drag-over');
+      const source = event.dataTransfer.getData('source');
+      if (source === 'unassigned') {
+        const taskId = event.dataTransfer.getData('taskId');
+        assignTaskViaDrag(taskId, p.name);
+      }
+    };
+
+    card.onclick = function() {
+      document.getElementById('sel-assignee').value = p.name;
+      updateBtn();
+      document.querySelectorAll('.person-card').forEach(function(c){c.classList.remove('selected');});
+      card.classList.add('selected');
+    };
+    el.appendChild(card);
+  });
+}
+
+function renderTasks() {
+  const el = document.getElementById('task-panel');
+  document.getElementById('task-count').textContent = state.tasks.length + ' งาน';
+  el.innerHTML = '';
+  if (!state.tasks.length) {
+    el.innerHTML = '<div class="empty"><i class="ti ti-circle-check" style="font-size:28px;display:block;margin:0 auto 8px;color:#639922"></i>ไม่มีงานรอ assign</div>';
+    return;
+  }
+
+  // group by brand using brandMapping
+  const groups = {};
+  const mapping = state.settings.brandMapping || {};
+  state.tasks.forEach(function(t) {
+    const rawBrand = t.brandCode || '';
+    const brand = rawBrand ? (mapping[rawBrand] || rawBrand) : '(ไม่ระบุแบรนด์)';
+    if (!groups[brand]) groups[brand] = [];
+    groups[brand].push(t);
+  });
+
+  // เรียง brand alphabetically
+  const brandNames = Object.keys(groups).sort();
+
+  // auto-generate สีจาก brand name (hue จาก hash)
+  function brandColor(name) {
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+      hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const hue = Math.abs(hash) % 360;
+    return {
+      bg: 'hsl(' + hue + ',60%,94%)',
+      border: 'hsl(' + hue + ',45%,80%)',
+      text: 'hsl(' + hue + ',50%,30%)',
+      dot: 'hsl(' + hue + ',55%,55%)',
+    };
+  }
+
+  brandNames.forEach(function(brand) {
+    const tasks = groups[brand].sort(function(a,b) {
+      if (!a.dueDate) return 1;
+      if (!b.dueDate) return -1;
+      return new Date(a.dueDate) - new Date(b.dueDate);
+    });
+    const c = brandColor(brand);
+
+    // brand header
+    const header = document.createElement('div');
+    header.style.cssText = 'display:flex;align-items:center;gap:6px;margin:10px 0 5px;padding:5px 8px;'
+      + 'background:'+c.bg+';border:1px solid '+c.border+';border-radius:6px;';
+    header.innerHTML =
+      '<div style="width:8px;height:8px;border-radius:50%;background:'+c.dot+';flex-shrink:0"></div>'
+      +'<span style="font-size:11px;font-weight:500;color:'+c.text+';letter-spacing:.03em">'+brand+'</span>'
+      +'<span style="font-size:10px;color:'+c.text+';opacity:.7;margin-left:auto">'+tasks.length+' งาน</span>';
+    el.appendChild(header);
+
+    tasks.forEach(function(t) {
+      const item = document.createElement('div');
+      item.className = 'task-item'+(state.selectedTask===t.id?' selected':'');
+      item.style.borderLeft = '3px solid '+c.dot;
+      
+      // Make draggable
+      item.setAttribute('draggable', 'true');
+      item.ondragstart = function(event) {
+        event.dataTransfer.setData('source', 'unassigned');
+        event.dataTransfer.setData('taskId', t.id);
+      };
+
+      const due = t.dueDate ? new Date(t.dueDate).toLocaleDateString('th-TH',{day:'numeric',month:'short'}) : '';
+      const now = new Date();
+      const dueD = t.dueDate ? new Date(t.dueDate) : null;
+      const dueC = dueD?(dueD<now?'tag-late':(dueD-now<7*864e5?'tag-due':'')):'';
+      const escName = esc(t.name);
+      // use the mapped brand name instead of the raw brand code
+      const rawBrand = t.brandCode || '';
+      const mappedBrand = rawBrand ? (mapping[rawBrand] || rawBrand) : '';
+      const escBrand = esc(mappedBrand);
+      
+      const escWorkType = esc(t.workType);
+      const escDate = esc(t.dueDate);
+      const escId = esc(t.id);
+
+      const escStatus = esc(t.status || 'Not started');
+      const stMeta = getStatusMeta(t.status, t.dueDate);
+
+      item.innerHTML =
+        '<div class="task-item-main">'
+        + '<div class="tn ' + stMeta.textClass + '" title="'+escName+'">'
+        + '<span class="status-tag ' + stMeta.tagClass + '">' + esc(stMeta.text) + '</span>' + t.name + '</div>'
+        + '<div class="tm">'
+        + (t.workType?'<span class="tag">'+t.workType+'</span>':'')
+        + (due?'<span class="tag '+dueC+'"><i class="ti ti-calendar" style="font-size:10px"></i> '+due+'</span>':'')
+        + '</div>'
+        + '</div>'
+        + '<div class="task-item-actions" onclick="event.stopPropagation()">'
+        + '<button class="btn-edit" onclick="openUnassignedEditModal(\\''+escId+'\\', \\''+escName+'\\', \\''+escBrand+'\\', \\''+escWorkType+'\\', \\''+escDate+'\\', \\''+escStatus+'\\')" title="แก้ไข">✎</button>'
+        + '</div>';
+      item.onclick = function() {
+        state.selectedTask = state.selectedTask===t.id?null:t.id;
+        renderTasks();
+        updateBtn();
+      };
+      el.appendChild(item);
+    });
+  });
+}
+
+function updateBtn() {
+  const sel = document.getElementById('sel-assignee').value;
+  document.getElementById('btn-assign').disabled = !(state.selectedTask && sel);
+}
+
+document.getElementById('sel-assignee').addEventListener('change', updateBtn);
+
+document.getElementById('btn-assign').addEventListener('click', function() {
+  const assignee = document.getElementById('sel-assignee').value;
+  const customDate = document.getElementById('sel-assign-date').value;
+  const task = state.tasks.find(function(t){return t.id===state.selectedTask;});
+  if (!task||!assignee) return;
+  
+  const finalDueDate = customDate ? customDate : task.dueDate;
+  const btn = document.getElementById('btn-assign');
+  btn.disabled = true;
+  btn.textContent = 'กำลัง assign...';
+  
+  // OPTIMISTIC UI UPDATE
+  state.tasks = state.tasks.filter(function(t){return t.id!==task.id;});
+  const person = state.people.find(function(p){return p.name===assignee;});
+  if (person) {
+    person.open = Math.max(0,person.open+1);
+    if(!person.todayTasks) person.todayTasks = [];
+    person.todayTasks.push({
+      rowIndex: 9999, // Fake index
+      rawDate: finalDueDate || '',
+      dateStr: finalDueDate ? new Date(finalDueDate).toLocaleDateString('th-TH',{day:'numeric',month:'short'}) : '',
+      name: task.name,
+      brand: task.brandCode,
+      workType: task.workType,
+      jobNumber: task.jobNumber,
+      status: 'Not started'
+    });
+  }
+  state.selectedTask = null;
+  document.getElementById('sel-assignee').value = '';
+  document.querySelectorAll('.person-card').forEach(function(c){c.classList.remove('selected');});
+  renderPeople(); renderTasks(); updateBtn();
+  
+  google.script.run
+    .withSuccessHandler(function(res) {
+      btn.textContent = 'Assign';
+      if (res.ok) {
+        showToast('Assign "'+task.name+'" \u2192 '+assignee+' เสร็จแล้ว');
+        google.script.run
+          .withSuccessHandler(function(allData) {
+            if (allData.ok) {
+              state.people = allData.capacity.people;
+              renderPeople();
+            }
+          })
+          .getAllData();
+      } else {
+        showToast('Error: '+(res.errors||[]).join(', '));
+        btn.disabled = false;
+        // Revert UI on failure
+        fetchData();
+      }
+    })
+    .withFailureHandler(function(err) {
+      btn.textContent = 'Assign';
+      showToast('Error: '+err.message);
+      btn.disabled = false;
+    })
+    .handleAssign({
+      action: 'assign', taskId: task.id, taskName: task.name, taskUrl: task.url,
+      assignee: assignee, dueDate: finalDueDate, brand: task.brandCode,
+      workType: task.workType, owner: task.workBy, jobNumber: task.jobNumber,
+      originalDueDate: task.dueDate // Send this if needed later
+    });
+});
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(function(){t.classList.remove('show');}, 3000);
+}
+
+function markTaskDone(assignee, rowIndex, taskName, jobNumber, btn, e) {
+  e.stopPropagation();
+  btn.disabled = true;
+  btn.textContent = '...';
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res.ok) {
+        showToast('ทำเครื่องหมาย Done แล้ว!');
+        google.script.run
+          .withSuccessHandler(function(allData) {
+            if (allData.ok) {
+              state.people = allData.capacity.people;
+              state.tasks = allData.tasks.tasks;
+              renderPeople();
+              renderTasks();
+            }
+          })
+          .getAllData();
+      } else {
+        showToast('Error: ' + res.error);
+        btn.disabled = false;
+        btn.textContent = '✔';
+      }
+    })
+    .withFailureHandler(function(err) {
+      showToast('Error: ' + err.message);
+      btn.disabled = false;
+      btn.textContent = '✔';
+    })
+    .handleMarkDone({action:'markDone', assignee:assignee, rowIndex:rowIndex, taskName:taskName, jobNumber:jobNumber});
+}
+
+function handleAssignedDragStart(event, fromAssignee, rowIndex) {
+  event.dataTransfer.setData('source', 'assigned');
+  event.dataTransfer.setData('fromAssignee', fromAssignee);
+  event.dataTransfer.setData('rowIndex', rowIndex);
+}
+
+let pendingDragAssign = null;
+
+function assignTaskViaDrag(taskId, targetAssignee) {
+  const task = state.tasks.find(function(t){return t.id===taskId;});
+  if (!task || !targetAssignee) return;
+  
+  pendingDragAssign = { taskId: taskId, targetAssignee: targetAssignee, dueDate: task.dueDate };
+  
+  const dp = document.getElementById('drag-assign-date');
+  if (task.dueDate) {
+    const d = new Date(task.dueDate);
+    dp.value = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  } else {
+    dp.value = '';
+  }
+  
+  document.getElementById('drag-assign-text').innerHTML = 'คุณต้องการมอบหมายงาน <b>' + esc(task.name) + '</b><br>ให้ <b>' + esc(targetAssignee) + '</b> ใช่หรือไม่?';
+  document.getElementById('drag-assign-modal').classList.add('show');
+}
+
+function closeDragAssignModal() {
+  document.getElementById('drag-assign-modal').classList.remove('show');
+  pendingDragAssign = null;
+}
+
+function confirmDragAssign() {
+  if (!pendingDragAssign) return;
+  const taskId = pendingDragAssign.taskId;
+  const targetAssignee = pendingDragAssign.targetAssignee;
+  const task = state.tasks.find(function(t){return t.id===taskId;});
+  const customDate = document.getElementById('drag-assign-date').value;
+  
+  closeDragAssignModal();
+  
+  if (!task || !targetAssignee) return;
+  showToast('กำลังมอบหมายงาน...');
+  
+  const finalDueDate = customDate ? customDate : task.dueDate;
+  
+  // OPTIMISTIC UI UPDATE
+  state.tasks = state.tasks.filter(function(t){return t.id!==task.id;});
+  const person = state.people.find(function(p){return p.name===targetAssignee;});
+  if (person) {
+    person.open = Math.max(0, person.open + 1);
+    if(!person.todayTasks) person.todayTasks = [];
+    person.todayTasks.push({
+      rowIndex: 9999, // Fake index
+      rawDate: finalDueDate || '',
+      dateStr: finalDueDate ? new Date(finalDueDate).toLocaleDateString('th-TH',{day:'numeric',month:'short'}) : '',
+      name: task.name,
+      brand: task.brandCode,
+      workType: task.workType,
+      jobNumber: task.jobNumber,
+      status: 'Not started'
+    });
+  }
+  state.selectedTask = null;
+  renderTasks();
+  updateBtn();
+  renderPeople();
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res.ok) {
+        showToast('Assign "' + task.name + '" \u2192 ' + targetAssignee + ' เสร็จแล้ว');
+        google.script.run
+          .withSuccessHandler(function(allData) {
+            if (allData.ok) {
+              state.people = allData.capacity.people;
+              renderPeople();
+            }
+          })
+          .getAllData();
+      } else {
+        showToast('Error: ' + (res.error || (res.errors && res.errors.join(', ')) || 'Unknown error'));
+        fetchData(); // Revert on failure
+      }
+    })
+    .withFailureHandler(function(err) {
+      showToast('Error: ' + err.message);
+    })
+    .handleAssign({
+      action: 'assign', taskId: task.id, taskName: task.name, taskUrl: task.url,
+      assignee: targetAssignee, dueDate: finalDueDate, brand: task.brandCode,
+      workType: task.workType, owner: task.workBy, jobNumber: task.jobNumber,
+      originalDueDate: task.dueDate
+    });
+}
+
+function relocateTaskViaDrag(fromAssignee, rowIndex, targetAssignee) {
+  showToast('กำลังย้ายงาน...');
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res.ok) {
+        showToast('ย้ายงาน \u2192 ' + targetAssignee + ' สำเร็จ!');
+        google.script.run
+          .withSuccessHandler(function(allData) {
+            if (allData.ok) {
+              state.people = allData.capacity.people;
+              state.tasks = allData.tasks.tasks;
+              renderPeople();
+              renderTasks();
+            }
+          })
+          .getAllData();
+      } else {
+        showToast('Error: ' + res.error);
+      }
+    })
+    .withFailureHandler(function(err) {
+      showToast('Error: ' + err.message);
+    })
+    .handleRelocate({
+      action: 'relocate',
+      fromAssignee: fromAssignee,
+      rowIndex: rowIndex,
+      targetAssignee: targetAssignee
+    });
+}
+
+function parseToIsoDate(dStr) {
+  if (!dStr) return '';
+  dStr = String(dStr).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dStr)) return dStr;
+  const match = dStr.match(/^(\d{1,2})([A-Za-z]{3})(\d{2})$/);
+  if (match) {
+    const day = match[1].padStart(2, '0');
+    const mNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const mIdx = mNames.findIndex(m => m.toLowerCase() === match[2].toLowerCase());
+    if (mIdx >= 0) {
+      const month = String(mIdx + 1).padStart(2, '0');
+      const year = '20' + match[3];
+      return year + '-' + month + '-' + day;
+    }
+  }
+  const d = new Date(dStr);
+  if (!isNaN(d.getTime())) {
+    return d.toISOString().split('T')[0];
+  }
+  return '';
+}
+
+function openEditModal(assignee, rowIndex, name, brand, workType, rawDate, jobNumber, status) {
+  document.getElementById('edit-assignee').value = assignee;
+  document.getElementById('edit-row-index').value = rowIndex;
+  document.getElementById('edit-old-task-name').value = name;
+  document.getElementById('edit-old-job-number').value = jobNumber || '';
+  
+  document.getElementById('edit-task-name').value = name;
+  
+  document.getElementById('edit-brand').value = brand || '';
+  syncChipsState('edit-brand', 'chip-brand-container');
+  
+  document.getElementById('edit-work-type').value = workType || '';
+  syncChipsState('edit-work-type', 'chip-work-type-container');
+  
+  document.getElementById('edit-status').value = status || 'Not started';
+  syncChipsState('edit-status', 'chip-status-container');
+  
+  document.getElementById('edit-due-date').value = parseToIsoDate(rawDate);
+  
+  document.getElementById('edit-modal').classList.add('show');
+}
+
+function closeEditModal() {
+  document.getElementById('edit-modal').classList.remove('show');
+}
+
+function saveEditTask() {
+  const assignee = document.getElementById('edit-assignee').value;
+  const rowIndex = parseInt(document.getElementById('edit-row-index').value, 10);
+  const oldTaskName = document.getElementById('edit-old-task-name').value;
+  const oldJobNumber = document.getElementById('edit-old-job-number').value;
+  
+  const taskName = document.getElementById('edit-task-name').value;
+  const brand = document.getElementById('edit-brand').value;
+  const workType = document.getElementById('edit-work-type').value;
+  const status = document.getElementById('edit-status').value;
+  const dueDate = document.getElementById('edit-due-date').value;
+  
+  if (!taskName) {
+    showToast('กรุณากรอกชื่อชิ้นงาน');
+    return;
+  }
+  
+  const btn = document.getElementById('btn-save-edit');
+  btn.disabled = true;
+  btn.textContent = 'กำลังบันทึก...';
+  
+  if (!assignee) {
+    google.script.run
+      .withSuccessHandler(function(res) {
+        btn.disabled = false;
+        btn.textContent = 'บันทึก';
+        if (res.ok) {
+          showToast('แก้ไขข้อมูลงานใน Notion สำเร็จ!');
+          closeEditModal();
+          google.script.run
+            .withSuccessHandler(function(allData) {
+              if (allData.ok) {
+                state.people = allData.capacity.people;
+                state.tasks = allData.tasks.tasks;
+                renderPeople();
+                renderTasks();
+              }
+            })
+            .getAllData();
+        } else {
+          showToast('Error: ' + res.error);
+        }
+      })
+      .withFailureHandler(function(err) {
+        btn.disabled = false;
+        btn.textContent = 'บันทึก';
+        showToast('Error: ' + err.message);
+      })
+      .handleEditNotionTask({
+        action: 'editNotion',
+        pageId: oldTaskName,
+        taskName: taskName,
+        brand: brand,
+        workType: workType,
+        dueDate: dueDate,
+        status: status
+      });
+    return;
+  }
+  
+  google.script.run
+    .withSuccessHandler(function(res) {
+      btn.disabled = false;
+      btn.textContent = 'บันทึก';
+      if (res.ok) {
+        showToast('แก้ไขข้อมูลงานสำเร็จ!');
+        closeEditModal();
+        google.script.run
+          .withSuccessHandler(function(allData) {
+            if (allData.ok) {
+              state.people = allData.capacity.people;
+              state.tasks = allData.tasks.tasks;
+              renderPeople();
+              renderTasks();
+            }
+          })
+          .getAllData();
+      } else {
+        showToast('Error: ' + res.error);
+      }
+    })
+    .withFailureHandler(function(err) {
+      btn.disabled = false;
+      btn.textContent = 'บันทึก';
+      showToast('Error: ' + err.message);
+    })
+    .handleEditTask({
+      action: 'edit',
+      assignee: assignee,
+      rowIndex: rowIndex,
+      oldTaskName: oldTaskName,
+      oldJobNumber: oldJobNumber,
+      taskName: taskName,
+      brand: brand,
+      workType: workType,
+      dueDate: dueDate,
+      status: status
+    });
+}
+
+function returnTaskToPool(assignee, rowIndex, taskName, jobNumber, btn) {
+  if (!confirm('ต้องการตีงาน "' + taskName + '" กลับเข้าระบบใช่หรือไม่?\\n(งานจะถูกลบออกจากตารางดีไซเนอร์ และกลับไปอยู่ที่งานรอ Assign ใน Notion)')) {
+    return;
+  }
+  btn.disabled = true;
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res.ok) {
+        showToast('ตีงานกลับเข้าระบบเรียบร้อย!');
+        google.script.run
+          .withSuccessHandler(function(allData) {
+            if (allData.ok) {
+              state.people = allData.capacity.people;
+              state.tasks = allData.tasks.tasks;
+              renderPeople();
+              renderTasks();
+            }
+          })
+          .getAllData();
+      } else {
+        showToast('Error: ' + res.error);
+        btn.disabled = false;
+      }
+    })
+    .withFailureHandler(function(err) {
+      showToast('Error: ' + err.message);
+      btn.disabled = false;
+    })
+    .handleUnassignTask({
+      action: 'unassign',
+      assignee: assignee,
+      rowIndex: rowIndex,
+      taskName: taskName,
+      jobNumber: jobNumber
+    });
+}
+
+function deleteTaskPermanently(assignee, rowIndex, taskName, jobNumber, btn) {
+  if (!confirm('ต้องการลบงาน "' + taskName + '" ทิ้งถาวรใช่หรือไม่?\\n(งานจะถูกลบออกจากตารางดีไซเนอร์ และถูกส่งไปถังขยะใน Notion ด้วย)')) {
+    return false;
+  }
+  btn.disabled = true;
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res.ok) {
+        showToast('ลบงานถาวรเรียบร้อย!');
+        google.script.run
+          .withSuccessHandler(function(allData) {
+            if (allData.ok) {
+              state.people = allData.capacity.people;
+              state.tasks = allData.tasks.tasks;
+              renderPeople();
+              renderTasks();
+            }
+          })
+          .getAllData();
+      } else {
+        showToast('Error: ' + res.error);
+        btn.disabled = false;
+      }
+    })
+    .withFailureHandler(function(err) {
+      showToast('Error: ' + err.message);
+      btn.disabled = false;
+    })
+    .handleDeleteTaskPermanently({
+      action: 'deletePermanent',
+      assignee: assignee,
+      rowIndex: rowIndex,
+      taskName: taskName,
+      jobNumber: jobNumber
+    });
+}
+
+function openUnassignedEditModal(taskId, name, brand, workType, rawDate, status) {
+  document.getElementById('edit-assignee').value = '';
+  document.getElementById('edit-row-index').value = '';
+  document.getElementById('edit-old-task-name').value = taskId;
+  document.getElementById('edit-old-job-number').value = '';
+  
+  document.getElementById('edit-task-name').value = name;
+  document.getElementById('edit-brand').value = brand || '';
+  syncChipsState('edit-brand', 'chip-brand-container');
+  
+  document.getElementById('edit-work-type').value = workType || '';
+  syncChipsState('edit-work-type', 'chip-work-type-container');
+  
+  document.getElementById('edit-status').value = status || 'Not started';
+  syncChipsState('edit-status', 'chip-status-container');
+  
+  document.getElementById('edit-due-date').value = parseToIsoDate(rawDate);
+  
+  document.getElementById('edit-modal').classList.add('show');
+}
+
+function deleteUnassignedTask(taskId, taskName, btn) {
+  if (!confirm('ต้องการลบงาน "' + taskName + '" ใน Notion ใช่หรือไม่?\\n(งานชิ้นนี้จะถูกส่งไปที่ถังขยะและลบถาวรใน Notion)')) {
+    return false;
+  }
+  btn.disabled = true;
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res.ok) {
+        showToast('ลบงานใน Notion เรียบร้อย!');
+        google.script.run
+          .withSuccessHandler(function(allData) {
+            if (allData.ok) {
+              state.people = allData.capacity.people;
+              state.tasks = allData.tasks.tasks;
+              renderPeople();
+              renderTasks();
+            }
+          })
+          .getAllData();
+      } else {
+        showToast('Error: ' + res.error);
+        btn.disabled = false;
+      }
+    })
+    .withFailureHandler(function(err) {
+      showToast('Error: ' + err.message);
+      btn.disabled = false;
+    })
+    .handleDeleteNotionTask({
+      action: 'deleteNotion',
+      pageId: taskId
+    });
+}
+
+function deleteTaskFromModal() {
+  const btn = document.getElementById('btn-delete-in-modal');
+  const assignee = document.getElementById('edit-assignee').value;
+  let proceeded = false;
+  
+  if (assignee) {
+    const rowIndex = parseInt(document.getElementById('edit-row-index').value, 10);
+    const taskName = document.getElementById('edit-old-task-name').value;
+    const jobNumber = document.getElementById('edit-old-job-number').value;
+    proceeded = deleteTaskPermanently(assignee, rowIndex, taskName, jobNumber, btn);
+  } else {
+    const taskId = document.getElementById('edit-old-task-name').value;
+    const taskName = document.getElementById('edit-task-name').value;
+    proceeded = deleteUnassignedTask(taskId, taskName, btn);
+  }
+  
+  if (proceeded) {
+    closeEditModal();
+  }
+}
+
+init();
+</script>
+</body>
+</html>`;
+} 

@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>คู่มือการใช้งาน Meeting → Notion Agent Pro</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Sarabun', 'Segoe UI', Tahoma, sans-serif;
+            line-height: 1.7;
+            color: #2d3436;
+            background: #f0f2f5;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            padding: 50px 60px;
+            box-shadow: 0 0 30px rgba(0,0,0,0.08);
+        }
+
+        /* Header */
+        .cover {
+            text-align: center;
+            padding: 50px 40px;
+            background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 50%, #dfe6e9 100%);
+            border-radius: 16px;
+            margin-bottom: 40px;
+            color: white;
+        }
+        .cover h1 { font-size: 2.2em; margin-bottom: 15px; }
+        .cover .subtitle { font-size: 1.1em; opacity: 0.9; }
+        .cover .version { margin-top: 20px; font-size: 0.85em; opacity: 0.7; }
+
+        /* ปุ่มเข้าใช้งานระบบ */
+        .access-btn {
+            display: inline-block;
+            margin-top: 30px;
+            padding: 16px 35px;
+            background-color: #ffffff;
+            color: #6c5ce7;
+            font-weight: bold;
+            font-size: 1.15em;
+            text-decoration: none;
+            border-radius: 50px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+        .access-btn:hover {
+            background-color: #f8f9fa;
+            transform: translateY(-3px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            border-color: #ffffff;
+        }
+        .access-btn .icon {
+            margin-right: 8px;
+            font-size: 1.2em;
+        }
+
+        /* TOC */
+        .toc {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 30px 35px;
+            margin-bottom: 40px;
+            border: 1px solid #e9ecef;
+        }
+        .toc h2 { color: #6c5ce7; margin-bottom: 15px; font-size: 1.4em; }
+        .toc ul { list-style: none; margin-left: 0; }
+        .toc li { padding: 10px 0; border-bottom: 1px dashed #dee2e6; }
+        .toc li:last-child { border-bottom: none; }
+        .toc a { color: #6c5ce7; text-decoration: none; font-weight: 500; }
+        .toc a:hover { text-decoration: underline; }
+        .toc .step-num {
+            display: inline-block;
+            background: #6c5ce7;
+            color: white;
+            width: 28px; height: 28px;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 28px;
+            margin-right: 10px;
+            font-size: 0.85em;
+            font-weight: bold;
+        }
+
+        /* Sections */
+        .section { margin-bottom: 50px; page-break-inside: avoid; }
+        .section-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 25px;
+            padding-bottom: 12px;
+            border-bottom: 3px solid #6c5ce7;
+        }
+        .section-title .icon { font-size: 1.5em; }
+        .section-title h2 { color: #6c5ce7; font-size: 1.6em; }
+        .section-title .step-tag {
+            background: #6c5ce7;
+            color: white;
+            padding: 4px 14px;
+            border-radius: 20px;
+            font-size: 0.75em;
+            font-weight: bold;
+            margin-left: auto;
+        }
+
+        /* Step Cards */
+        .step-card {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 25px 30px;
+            margin: 20px 0;
+            border-left: 5px solid #6c5ce7;
+        }
+        .step-card h3 { color: #6c5ce7; margin-bottom: 12px; font-size: 1.15em; }
+        .step-card ol, .step-card ul { margin-left: 25px; }
+        .step-card li { margin-bottom: 8px; }
+
+        /* Screenshot */
+        .screenshot-wrapper {
+            margin: 25px 0;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            border: 2px solid #e9ecef;
+        }
+        .screenshot-wrapper img {
+            width: 100%;
+            display: block;
+        }
+        .screenshot-caption {
+            background: #6c5ce7;
+            color: white;
+            padding: 10px 20px;
+            font-size: 0.9em;
+            text-align: center;
+            font-weight: 500;
+        }
+
+        /* Result Tables */
+        .result-section {
+            background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+            border: 2px solid #28a745;
+            border-radius: 12px;
+            padding: 30px;
+            margin: 30px 0;
+        }
+        .result-section h3 {
+            color: #155724;
+            margin-bottom: 20px;
+            font-size: 1.4em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .task-table {
+            width: 100%;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            margin: 15px 0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .task-table th {
+            background: #6c5ce7;
+            color: white;
+            padding: 12px 15px;
+            text-align: left;
+            font-weight: 600;
+        }
+        .task-table td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .task-table tr:last-child td { border-bottom: none; }
+        .task-table tr:nth-child(even) { background: #f8f9fa; }
+
+        /* Badges */
+        .badge-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin: 20px 0;
+        }
+        .badge-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 18px;
+            border-radius: 8px;
+            font-size: 0.95em;
+            border: 2px solid;
+        }
+        .badge-item.exact { background: #d4edda; border-color: #28a745; color: #155724; }
+        .badge-item.uncertain { background: #fff3cd; border-color: #ffc107; color: #856404; }
+        .badge-item.new { background: #d1ecf1; border-color: #17a2b8; color: #0c5460; }
+
+        /* Alerts */
+        .alert {
+            padding: 18px 22px;
+            border-radius: 10px;
+            margin: 20px 0;
+            font-size: 0.95em;
+        }
+        .alert-warning { background: #fff3cd; border-left: 5px solid #ffc107; color: #856404; }
+        .alert-success { background: #d4edda; border-left: 5px solid #28a745; color: #155724; }
+        .alert-info { background: #d1ecf1; border-left: 5px solid #17a2b8; color: #0c5460; }
+        .alert strong { font-weight: 700; }
+
+        /* Code block */
+        .code-block {
+            background: #2d3436;
+            color: #dfe6e9;
+            padding: 25px 30px;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            line-height: 1.8;
+            overflow-x: auto;
+            margin: 20px 0;
+            white-space: pre-wrap;
+        }
+
+        /* Summary Box */
+        .summary-box {
+            background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+            color: white;
+            padding: 30px;
+            border-radius: 12px;
+            margin: 30px 0;
+        }
+        .summary-box h3 {
+            margin-bottom: 20px;
+            font-size: 1.3em;
+        }
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .summary-item {
+            background: rgba(255,255,255,0.15);
+            padding: 15px 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .summary-item .number {
+            font-size: 2em;
+            font-weight: bold;
+            display: block;
+        }
+        .summary-item .label {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+
+        /* Table */
+        .feature-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        .feature-table th {
+            background: #6c5ce7;
+            color: white;
+            padding: 12px 15px;
+            text-align: left;
+        }
+        .feature-table td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .feature-table tr:nth-child(even) { background: #f8f9fa; }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding: 30px;
+            margin-top: 40px;
+            border-top: 2px solid #e9ecef;
+            color: #636e72;
+            font-size: 0.9em;
+        }
+
+        /* Image placeholder */
+        .image-placeholder {
+            background: #f8f9fa;
+            border: 2px dashed #6c5ce7;
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            color: #636e72;
+            margin: 20px 0;
+        }
+        .image-placeholder strong {
+            color: #6c5ce7;
+            display: block;
+            margin-bottom: 10px;
+        }
+
+        /* Print */
+        @media print {
+            body { background: white; }
+            .container { box-shadow: none; padding: 20px 30px; }
+            .section { page-break-inside: avoid; }
+            .screenshot-wrapper { break-inside: avoid; }
+            .result-section { break-inside: avoid; }
+            .access-btn { display: none; } /* ซ่อนปุ่มตอนพิมพ์ PDF */
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <!-- COVER -->
+    <div class="cover">
+        <h1>📋 Meeting → Notion Agent Pro</h1>
+        <div class="subtitle">คู่มือการใช้งานระบบแปลงบันทึกการประชุมเป็นงานใน Notion</div>
+        <div class="version">Powered by Gemini AI & Google Apps Script | v1.0</div>
+        
+        <!-- ปุ่มเข้าใช้งานระบบ (เพิ่มใหม่) -->
+        <a href="https://script.google.com/macros/s/AKfycbwn0_W0mdzaZJY4B9GIi7yNmcSZ568Qjtomk1yySOzKToh4ezuAJ7AH5WQ1kUDzzWoo/exec" target="_blank" class="access-btn">
+            <span class="icon">🚀</span> เข้าใช้งานระบบ Meeting → Notion Agent Pro
+        </a>
+    </div>
+
+    <!-- TOC -->
+    <div class="toc">
+        <h2>📑 สารบัญ</h2>
+        <ul>
+            <li><span class="step-num">1</span><a href="#step1">การนำเข้าข้อมูล (01 INPUT)</a></li>
+            <li><span class="step-num">2</span><a href="#step2">การตรวจสอบและแก้ไข (02 REVIEW)</a></li>
+            <li><span class="step-num">3</span><a href="#step3">การยืนยันและซิงค์ (03 CONFIRM)</a></li>
+            <li><span class="step-num">4</span><a href="#results">📊 ผลลัพธ์การทำงานจริง</a></li>
+            <li><a href="#badges">คำอธิบาย Badge และสถานะ</a></li>
+            <li><a href="#tips">ตัวอย่างและเคล็ดลับ</a></li>
+        </ul>
+    </div>
+
+    <!-- STEP 1 -->
+    <div class="section" id="step1">
+        <div class="section-title">
+            <span class="icon">📝</span>
+            <h2>การนำเข้าข้อมูล</h2>
+            <span class="step-tag">01 INPUT</span>
+        </div>
+
+        <p>ขั้นตอนแรกคือการป้อนบันทึกการประชุม (Meeting Notes) ลงในระบบ เพื่อให้ AI (Gemini) วิเคราะห์และแยกข้อมูลอัตโนมัติ</p>
+
+        <div class="step-card">
+            <h3>🎯 วิธีใช้งาน</h3>
+            <ol>
+                <li><strong>ตรวจสอบการเชื่อมต่อ Notion:</strong> ดูมุมขวาบน หากขึ้น <code>🟢 Notion Connected</code> = พร้อมใช้งาน</li>
+                <li><strong>วางบันทึกการประชุม:</strong> คัดลอกข้อความสรุปการประชุม (Plain Text / Bullet points) ลงในช่อง <strong>MEETING NOTES</strong> ด้านซ้าย</li>
+                <li><strong>กดปุ่มวิเคราะห์:</strong> คลิกปุ่ม <strong>"▶ วิเคราะห์ด้วย Gemini"</strong> สีม่วงด้านล่าง</li>
+                <li><strong>รอระบบประมวลผล:</strong> AI จะแยกโปรเจกต์, ผู้รับผิดชอบ, วันส่งงาน, ประเภทงาน ให้อัตโนมัติ</li>
+            </ol>
+        </div>
+
+        <div class="alert alert-info">
+            <strong>💡 Tip:</strong> ระบบรองรับทั้งภาษาไทยและอังกฤษ สามารถใช้ bullet points แบบ <code>-</code>, <code>•</code>, หรือ <code>*</code> ได้
+        </div>
+
+        <!-- SCREENSHOT STEP 1 -->
+        <div class="screenshot-wrapper">
+            <img src="step1_input.png" alt="Step 01 INPUT" 
+                 onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'image-placeholder\'><strong>📸 ภาพที่ 1: Step 01 INPUT</strong>หน้าจอการกรอก Meeting Notes และปุ่มวิเคราะห์ด้วย Gemini<br><small>กรุณาแทรกรูปภาพ: step1_input.png</small></div>';">
+            <div class="screenshot-caption">📸 ภาพที่ 1 — หน้า 01 INPUT: ช่องกรอก Meeting Notes และปุ่มวิเคราะห์</div>
+        </div>
+    </div>
+
+    <!-- STEP 2 -->
+    <div class="section" id="step2">
+        <div class="section-title">
+            <span class="icon">🔍</span>
+            <h2>การตรวจสอบและแก้ไขข้อมูล</h2>
+            <span class="step-tag">02 REVIEW</span>
+        </div>
+
+        <p>หลัง AI วิเคราะห์เสร็จ ข้อมูลจะแสดงที่แผงขวา คุณต้องตรวจสอบความถูกต้องก่อนส่งเข้า Notion</p>
+
+        <!-- SCREENSHOT STEP 2 -->
+        <div class="screenshot-wrapper">
+            <img src="step2_review.png" alt="Step 02 REVIEW"
+                 onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'image-placeholder\'><strong>📸 ภาพที่ 2: Step 02 REVIEW</strong>หน้าจอแสดงโปรเจกต์ที่ AI วิเคราะห์ได้ พร้อมสถานะ exact match และ uncertain<br><small>กรุณาแทรกรูปภาพ: step2_review.png</small></div>';">
+            <div class="screenshot-caption">📸 ภาพที่ 2 — หน้า 02 REVIEW: แสดงโปรเจกต์ SPM (exact match) และ STAEDTLER (uncertain)</div>
+        </div>
+
+        <h3 style="color:#6c5ce7; margin: 30px 0 15px;">🏷️ สถานะการจับคู่โปรเจกต์ (Match Status)</h3>
+        <div class="badge-row">
+            <div class="badge-item exact"> <strong>Exact Match</strong> — ตรงกัน 100%</div>
+            <div class="badge-item uncertain">🟨 <strong>Uncertain</strong> — คล้ายกัน ต้องเลือก</div>
+            <div class="badge-item new">🟪 <strong>New Project</strong> — โปรเจกต์ใหม่</div>
+        </div>
+
+        <div class="step-card">
+            <h3>✏️ การจัดการข้อมูล</h3>
+            <ul>
+                <li><strong>แก้ไขรายโปรเจกต์:</strong> กดปุ่ม <strong>"✍️ แก้ไขข้อมูล"</strong> ด้านบน</li>
+                <li><strong>แก้ไขรายงานย่อย:</strong> กดไอคอนดินสอ <strong>✏️</strong> หลังงานนั้นๆ</li>
+                <li><strong>เพิ่มงานย่อย:</strong> กด <strong>"+ เพิ่มงานย่อย"</strong> ใต้โปรเจกต์</li>
+                <li><strong>ลบงาน:</strong> กดปุ่ม <strong>×</strong> สีแดง (มี Undo)</li>
+                <li><strong>จัดการ PM:</strong> กด <strong>"👥 จัดการ PM"</strong> เพิ่มรายชื่อทีมงาน</li>
+            </ul>
+        </div>
+
+        <div class="alert alert-warning">
+            <strong>⚠️ งานที่ยังไม่ได้มอบหมาย:</strong> หากงานย่อยไม่มีผู้รับผิดชอบ จะขึ้นป้าย <strong>"⚠️ รอมอบหมาย"</strong> สีส้ม ควรใส่ชื่อก่อนซิงค์
+        </div>
+    </div>
+
+    <!-- PROCESSING -->
+    <div class="section">
+        <div class="section-title">
+            <span class="icon">⏳</span>
+            <h2>ระหว่างประมวลผล</h2>
+            <span class="step-tag">PROCESSING</span>
+        </div>
+
+        <p>เมื่อกดปุ่ม "สร้างใน Notion" ระบบจะส่งข้อมูลผ่าน backend เพื่อความปลอดภัย ห้ามปิดหน้าต่างระหว่างนี้</p>
+
+        <!-- SCREENSHOT PROCESSING -->
+        <div class="screenshot-wrapper">
+            <img src="step3_processing.png" alt="Processing"
+                 onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'image-placeholder\'><strong>📸 ภาพที่ 3: Processing State</strong>หน้าจอแสดงสถานะกำลังส่งข้อมูลไปยัง Make.com<br><small>กรุณาแทรกรูปภาพ: step3_processing.png</small></div>';">
+            <div class="screenshot-caption">📸 ภาพที่ 3 — หน้า Processing: "กำลังส่งข้อมูลไปที่คิว Make..."</div>
+        </div>
+    </div>
+
+    <!-- STEP 3 -->
+    <div class="section" id="step3">
+        <div class="section-title">
+            <span class="icon">🚀</span>
+            <h2>การยืนยันและซิงค์</h2>
+            <span class="step-tag">03 CONFIRM</span>
+        </div>
+
+        <p>เมื่อตรวจสอบข้อมูลเรียบร้อย กดปุ่มซิงค์เพื่อส่งข้อมูลเข้า Notion</p>
+
+        <div class="step-card">
+            <h3>✅ ขั้นตอนการซิงค์</h3>
+            <ol>
+                <li><strong>เลือก Tasks:</strong> ติ๊กเครื่องหมาย <code>✓</code> หลังงานที่ต้องการส่ง (สามารถเอาออกได้หากยังไม่อยากส่ง)</li>
+                <li><strong>กดปุ่มซิงค์:</strong> คลิก <strong>"✓ สร้างใน Notion"</strong> สีเขียวมุมขวาล่าง</li>
+                <li><strong>รอระบบดำเนินการ:</strong> <em>ห้ามปิดหน้าต่าง!</em> จะแสดงสถานะ "กำลังส่งข้อมูล..."</li>
+                <li><strong>ตรวจสอบผล:</strong> เมื่อสำเร็จจะขึ้นแถบเขียว <strong>"✅ สร้าง/อัปเดต เรียบร้อย!"</strong></li>
+                <li><strong>ยืนยัน:</strong> ป้ายหลังงานจะเปลี่ยนเป็น <strong>"✅ ซิงค์แล้ว"</strong></li>
+            </ol>
+        </div>
+
+        <!-- SCREENSHOT STEP 3 -->
+        <div class="screenshot-wrapper">
+            <img src="step4_confirm.png" alt="Step 03 CONFIRM"
+                 onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'image-placeholder\'><strong>📸 ภาพที่ 4: Step 03 CONFIRM</strong>หน้าจอแสดงการซิงค์ข้อมูลสำเร็จ<br><small>กรุณาแทรกรูปภาพ: step4_confirm.png</small></div>';">
+            <div class="screenshot-caption">📸 ภาพที่ 4 — หน้า 03 CONFIRM: แสดง "✅ ซิงค์แล้ว" และ "✅ สร้าง/อัปเดต เรียบร้อย!"</div>
+        </div>
+
+        <div class="alert alert-success">
+            <strong>🎉 สำเร็จ!</strong> ข้อมูลทั้งหมดถูกส่งเข้าไปจัดเรียงใน Notion อย่างเป็นระเบียบเรียบร้อย หากพบข้อผิดพลาดหลังซิงค์ สามารถแก้ไขแล้วกดอัปเดตซ้ำได้
+        </div>
+    </div>
+
+    <!-- RESULTS SECTION -->
+    <div class="section" id="results">
+        <div class="section-title">
+            <span class="icon">📊</span>
+            <h2>ผลลัพธ์การทำงานจริงใน Notion</h2>
+            <span class="step-tag">SUCCESS</span>
+        </div>
+
+        <div class="result-section">
+            <h3>✅ งานที่สร้างสำเร็จใน Notion Tasks Database</h3>
+            <p style="margin-bottom: 20px;">หลังจากกดปุ่ม "สร้างใน Notion" ระบบจะสร้างงานตามข้อมูลที่ได้จากการวิเคราะห์ ดังนี้:</p>
+
+            <!-- Notion Screenshot 1 -->
+            <div class="screenshot-wrapper">
+                <img src="notion_task1.png" alt="Notion Task 1"
+                     onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'image-placeholder\'><strong>📸 ภาพที่ 5: Notion Task 1</strong>หน้าจอ Notion แสดงงานออกแบบ Banner + Standee<br><small>กรุณาแทรกรูปภาพ: notion_task1.png</small></div>';">
+                <div class="screenshot-caption">📸 ภาพที่ 5 — ผลลัพธ์ใน Notion: Task "ออกแบบ Banner + Standee"</div>
+            </div>
+
+            <!-- Task 1 Table -->
+            <h4 style="color: #6c5ce7; margin: 25px 0 15px; font-size: 1.2em;">🎨 Task 1: ออกแบบ Banner + Standee</h4>
+            <table class="task-table">
+                <tr><th width="30%">ฟิลด์</th><th>ค่า</th></tr>
+                <tr><td><strong>ชื่องาน</strong></td><td>ออกแบบ Banner + Standee สำหรับงาน Event มิ.ย.</td></tr>
+                <tr><td><strong>สถานะ</strong></td><td>⚪ Not started</td></tr>
+                <tr><td><strong>โปรเจกต์</strong></td><td>📁 SPM - Cat Lover - Event & P.O.P.- 2026</td></tr>
+                <tr><td><strong>เจ้าของงาน (Owner)</strong></td><td>👤 PM - อ้อ</td></tr>
+                <tr><td><strong>ผู้ปฏิบัติงาน (Work By)</strong></td><td>👤 PM - ยู่</td></tr>
+                <tr><td><strong>ประเภทงาน (Task Type)</strong></td><td>🏷️ Internal</td></tr>
+                <tr><td><strong>วันครบกำหนด (Due Date)</strong></td><td>📅 May 30, 2026</td></tr>
+                <tr><td><strong>ลักษณะงาน (Work Type)</strong></td><td>🎨 Graphic / Artwork</td></tr>
+            </table>
+
+            <!-- Notion Screenshot 2 -->
+            <div class="screenshot-wrapper" style="margin-top: 30px;">
+                <img src="notion_task2.png" alt="Notion Task 2"
+                     onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'image-placeholder\'><strong>📸 ภาพที่ 6: Notion Task 2</strong>หน้าจอ Notion แสดงงานทำ Content Plan<br><small>กรุณาแทรกรูปภาพ: notion_task2.png</small></div>';">
+                <div class="screenshot-caption">📸 ภาพที่ 6 — ผลลัพธ์ใน Notion: Task "ทำ Content Plan"</div>
+            </div>
+
+            <!-- Task 2 Table -->
+            <h4 style="color: #6c5ce7; margin: 25px 0 15px; font-size: 1.2em;">📝 Task 2: ทำ Content Plan</h4>
+            <table class="task-table">
+                <tr><th width="30%">ฟิลด์</th><th>ค่า</th></tr>
+                <tr><td><strong>ชื่องาน</strong></td><td>ทำ Content Plan เดือน มิ.ย.-ก.ค.</td></tr>
+                <tr><td><strong>สถานะ</strong></td><td>⚪ Not started</td></tr>
+                <tr><td><strong>โปรเจกต์</strong></td><td>📁 STAEDTLER</td></tr>
+                <tr><td><strong>เจ้าของงาน (Owner)</strong></td><td>👤 PM - อ้อ</td></tr>
+                <tr><td><strong>ผู้ปฏิบัติงาน (Work By)</strong></td><td>👤 PM - อ้อ</td></tr>
+                <tr><td><strong>ประเภทงาน (Task Type)</strong></td><td>🏷️ Internal</td></tr>
+                <tr><td><strong>วันครบกำหนด (Due Date)</strong></td><td>📅 May 25, 2026</td></tr>
+                <tr><td><strong>ลักษณะงาน (Work Type)</strong></td><td>📄 Content</td></tr>
+            </table>
+        </div>
+
+        <!-- Summary Box -->
+        <div class="summary-box">
+            <h3>📈 สรุปผลการดำเนินงาน</h3>
+            <div class="summary-grid">
+                <div class="summary-item">
+                    <span class="number">2</span>
+                    <span class="label">Tasks ที่สร้าง</span>
+                </div>
+                <div class="summary-item">
+                    <span class="number">2</span>
+                    <span class="label">Projects</span>
+                </div>
+                <div class="summary-item">
+                    <span class="number">100%</span>
+                    <span class="label">มอบหมายงาน</span>
+                </div>
+                <div class="summary-item">
+                    <span class="number">100%</span>
+                    <span class="label">มี Deadline</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="alert alert-success">
+            <strong>✅ ระบบ Color Coding ทำงานอัตโนมัติ:</strong>
+            <ul style="margin-top: 10px; margin-left: 20px;">
+                <li>🔴 <strong>สีแดง</strong> = เลย Due Date</li>
+                <li>🟡 <strong>สีเหลือง</strong> = Due Date ใน 7 วันข้างหน้า</li>
+                <li>🟢 <strong>สีเขียว</strong> = Due Date เกิน 7 วันขึ้นไป</li>
+                <li>⚪ <strong>ไม่มีสี</strong> = ยังไม่กำหนด Due Date</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- BADGES TABLE -->
+    <div class="section" id="badges">
+        <div class="section-title">
+            <span class="icon">🏷️</span>
+            <h2>คำอธิบาย Badge และสถานะ</h2>
+        </div>
+
+        <table class="feature-table">
+            <thead>
+                <tr>
+                    <th>Badge / สถานะ</th>
+                    <th>ความหมาย</th>
+                    <th>การดำเนินการ</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong style="color:#28a745">🟩 Exact Match</strong></td>
+                    <td>ชื่อโปรเจกต์ตรงกับ Notion 100%</td>
+                    <td>พร้อมซิงค์งานย่อยได้เลย</td>
+                </tr>
+                <tr>
+                    <td><strong style="color:#856404">🟨 Uncertain</strong></td>
+                    <td>คล้ายกับโปรเจกต์เดิม แต่ไม่แน่ใจ</td>
+                    <td>เลือกจาก Dropdown หรือสร้างใหม่</td>
+                </tr>
+                <tr>
+                    <td><strong style="color:#0c5460">🟪 New Project</strong></td>
+                    <td>โปรเจกต์ใหม่ไม่เคยมีในระบบ</td>
+                    <td>ระบบจะสร้างหน้าใหม่ให้ใน Notion</td>
+                </tr>
+                <tr>
+                    <td><strong style="color:#dc3545">⚠️ รอมอบหมาย</strong></td>
+                    <td>งานย่อยไม่มีผู้รับผิดชอบ</td>
+                    <td>ควรใส่ชื่อก่อนซิงค์</td>
+                </tr>
+                <tr>
+                    <td><strong style="color:#28a745">✅ ซิงค์แล้ว</strong></td>
+                    <td>งานถูกส่งเข้า Notion สำเร็จ</td>
+                    <td>ไม่ต้องดำเนินการเพิ่ม</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- TIPS -->
+    <div class="section" id="tips">
+        <div class="section-title">
+            <span class="icon">💡</span>
+            <h2>ตัวอย่างและเคล็ดลับ</h2>
+        </div>
+
+        <h3 style="color:#6c5ce7; margin-bottom:15px;">📝 รูปแบบบันทึกการประชุมที่แนะนำ</h3>
+        <div class="code-block">- SPM Cat Lover: ออกแบบ Banner + Standee สำหรับงาน Event มิ.ย. 
+  ให้เสร็จ 30 พ.ค. มอบหมาย Graphic Team
+
+- STAEDTLER: ทำ Content Plan เดือน มิ.ย.-ก.ค. — อ้อดูแล 
+  ส่งภายใน 25 พ.ค.
+
+- STD Creators Challenge: ติดตาม Influencer List ที่ยังไม่ตอบกลับ 
+  ด่วน
+
+- Bangmod Aesthetic: นัด Kick-off ใหม่ เดือนหน้า — ยู้ประสาน
+
+- งานใหม่: Neil's รีแบรนด์ Packaging Q3 — ยังไม่ confirm ราคา</div>
+
+        <div class="step-card">
+            <h3>📌 เคล็ดลับการเขียน Notes</h3>
+            <ul>
+                <li>✅ ระบุชื่อโปรเจกต์ให้ชัดเจน (เช่น SPM Cat Lover, STAEDTLER)</li>
+                <li>✅ ใส่ชื่อผู้รับผิดชอบหลังเครื่องหมาย <code>—</code> หรือ <code>:</code></li>
+                <li>✅ ระบุวันส่งงานชัดเจน (30 พ.ค., 25 พฤษภาคม 2026)</li>
+                <li>✅ แยกงานย่อยด้วย bullet points</li>
+                <li>✅ ระบุประเภทงานถ้าเป็นไปได้ (Graphic, Content, Event)</li>
+            </ul>
+        </div>
+
+        <div class="alert alert-info">
+            <strong>🔧 ฟีเจอร์พิเศษ:</strong>
+            <ul style="margin-top:10px; margin-left:20px;">
+                <li><strong>+ Project ใหม่:</strong> สร้างโปรเจกต์ใหม่ด้วยตนเอง</li>
+                <li><strong>👥 จัดการ PM:</strong> เพิ่ม/แก้ไขรายชื่อผู้รับผิดชอบ</li>
+                <li><strong>🔄 เลิกทำ (Undo):</strong> เรียกคืนงานที่ลบผิด</li>
+                <li><strong>Auto Detect:</strong> ตรวจจับวันและชื่อคนอัตโนมัติ</li>
+            </ul>
+        </div>
+
+        <div class="alert alert-success" style="margin-top: 25px;">
+            <strong>🎯 ประโยชน์ที่ได้รับ:</strong>
+            <ul style="margin-top:10px; margin-left:20px;">
+                <li>⚡ <strong>ประหยัดเวลา</strong> - ลดเวลาการคีย์งานจาก 15-20 นาที เหลือ 2-3 นาที</li>
+                <li>🎯 <strong>ความแม่นยำ</strong> - AI ช่วยแยกแยะข้อมูลได้ถูกต้อง</li>
+                <li>📋 <strong>ความเป็นระบบ</strong> - งานถูกจัดระเบียบใน Notion พร้อมติดตามผล</li>
+                <li>🔔 <strong>การแจ้งเตือน</strong> - ระบบ Color Coding ช่วยเตือนงานเร่งด่วน</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- FOOTER -->
+    <div class="footer">
+        <p>© 2026 Meeting → Notion Agent Pro</p>
+        <p>สร้างด้วย Gemini AI & Google Apps Script</p>
+        <p style="margin-top:10px; font-size:0.85em; color:#b2bec3;">
+            💾 บันทึกเป็น PDF: กด <kbd>Ctrl+P</kbd> (Windows) หรือ <kbd>Cmd+P</kbd> (Mac) → เลือก "Save as PDF"
+        </p>
+    </div>
+
+</div>
+</body>
+</html>

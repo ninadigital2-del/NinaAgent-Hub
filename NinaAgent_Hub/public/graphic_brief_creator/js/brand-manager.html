@@ -1,0 +1,188 @@
+<script>
+// ============================================
+// Graphic Brief System - Brand Manager
+// ============================================
+
+function renderBrandList() {
+    const container = document.getElementById('brand-list-container');
+    const countBadge = document.getElementById('brand-count');
+    container.innerHTML = '';
+
+    countBadge.innerText = clientBrands.length + ' แบรนด์';
+
+    clientBrands.forEach(function(brand) {
+        const isSelected = brand.id === selectedBrandId;
+        const btn = document.createElement('button');
+        btn.className = 'w-full text-left p-3 rounded-lg text-sm transition-all flex items-center justify-between group ' +
+            (isSelected
+                ? 'bg-indigo-100 text-indigo-900 font-bold border-l-4 border-indigo-600'
+                : 'bg-white hover:bg-slate-100 text-gray-700 border border-gray-200');
+        btn.onclick = function() { selectBrand(brand.id); };
+        btn.innerHTML = '<span class="flex items-center gap-2">' +
+            '<i class="fa-solid fa-briefcase ' + (isSelected ? 'text-indigo-600' : 'text-gray-400') + '"></i>' +
+            '<span>' + brand.name + '</span></span>' +
+            '<i class="fa-solid fa-chevron-right text-xs opacity-0 group-hover:opacity-100 transition-opacity"></i>';
+        container.appendChild(btn);
+    });
+
+    if (selectedBrandId) {
+        const currentBrand = clientBrands.find(function(b) { return b.id === selectedBrandId; });
+        if (currentBrand) {
+            showBrandEditForm(currentBrand);
+            updateCustomerFileList(currentBrand);
+        } else {
+            hideBrandEditForm();
+        }
+    } else {
+        hideBrandEditForm();
+    }
+}
+
+function selectBrand(id) {
+    selectedBrandId = id;
+    renderBrandList();
+}
+
+function showBrandEditForm(brand) {
+    document.getElementById('brand-edit-form').classList.remove('hidden');
+    document.getElementById('no-brand-selected-view').classList.add('hidden');
+    document.getElementById('btn-delete-brand').classList.remove('hidden');
+
+    document.getElementById('current-editing-title').innerText = brand.name;
+    document.getElementById('edit-brand-bg').value = brand.background || '';
+    document.getElementById('edit-brand-target').value = brand.target || '';
+    document.getElementById('edit-brand-pain').value = brand.pain || '';
+    document.getElementById('edit-brand-obj').value = brand.obj || '';
+    document.getElementById('edit-brand-mood').value = brand.mood || '';
+}
+
+function hideBrandEditForm() {
+    document.getElementById('brand-edit-form').classList.add('hidden');
+    document.getElementById('no-brand-selected-view').classList.remove('hidden');
+    document.getElementById('btn-delete-brand').classList.add('hidden');
+    document.getElementById('current-editing-title').innerText = "กรุณาเลือกหรือเพิ่มแบรนด์";
+}
+
+function addNewBrand() {
+    const input = document.getElementById('new-brand-name');
+    const name = input.value.trim();
+    if (!name) {
+        showAlert('กรุณากรอกชื่อแบรนด์', 'ไม่สามารถเว้นว่างชื่อแบรนด์ได้', 'warning');
+        return;
+    }
+
+    const newId = 'brand-' + Date.now();
+    const newBrand = {
+        id: newId,
+        name: name,
+        background: '',
+        target: '',
+        pain: '',
+        obj: '',
+        mood: '',
+        rule: '',
+        msg: '',
+        cta: '',
+        ref: '',
+        uploadedCustomerFiles: [],
+        uploadedBriefFiles: []
+    };
+
+    clientBrands.push(newBrand);
+    selectedBrandId = newId;
+    input.value = '';
+    renderBrandList();
+    saveDataToStorage();
+    showAlert('เพิ่มแบรนด์สำเร็จ', 'สร้างโปรไฟล์ใหม่สำหรับ ' + name + ' เรียบร้อยแล้ว (ไฟล์อัปโหลดเริ่มต้นจะว่างเปล่า)', 'success');
+}
+
+function deleteBrand() {
+    if (!selectedBrandId) return;
+    
+    // ดึงข้อมูลแบรนด์ที่เรากำลังจะลบขึ้นมาเตรียมไว้
+    const brandIdToDelete = selectedBrandId;
+    const currentBrand = clientBrands.find(function(b) { return b.id === brandIdToDelete; });
+    if (!currentBrand) return;
+
+    // 🚀 1. สั่งลบไฟล์ทั้งหมดของแบรนด์นี้ทิ้งจาก Google Drive
+    // รวบรวมไฟล์ทั้งฝั่งข้อมูลลูกค้า (Customer) และฝั่งบรีฟ (Brief)
+    const allBrandFiles = [
+        ...(currentBrand.uploadedCustomerFiles || []),
+        ...(currentBrand.uploadedBriefFiles || [])
+    ];
+    
+    // วนลูปยิงคำสั่งไปให้ Google Drive จับไฟล์ทั้งหมดของแบรนด์นี้โยนลงถังขยะ
+    allBrandFiles.forEach(function(file) {
+        if (file.driveUrl) {
+            google.script.run.deleteFileFromDriveByUrl(file.driveUrl);
+        }
+    });
+
+    // 2. ลบออกจากหน้าจอคอมพิวเตอร์และ LocalStorage
+    clientBrands = clientBrands.filter(function(b) { return b.id !== brandIdToDelete; });
+    selectedBrandId = clientBrands.length > 0 ? clientBrands[0].id : null;
+    renderBrandList();
+    saveDataToStorage();
+
+    // 🚀 3. ยิงคำสั่งไปลบแถวแบรนด์นี้ออกจากตาราง Google Sheets (แท็บ Customers) ทันที
+    google.script.run
+        .withSuccessHandler(function(res) {
+            if(res.success) {
+                showAlert('ลบแบรนด์และไฟล์เรียบร้อย', 'ลบโปรไฟล์แบรนด์ "' + currentBrand.name + '" พร้อมกวาดไฟล์แนบทั้งหมดลงถังขยะใน Google Drive แล้ว', 'success');
+            } else {
+                showAlert('ลบหน้าเว็บสำเร็จ', 'แต่ฝั่ง Sheets ขัดข้อง: ' + res.error, 'warning');
+            }
+        })
+        .withFailureHandler(function(err) {
+            console.error(err);
+            showAlert('ข้อผิดพลาด', 'เชื่อมต่อระบบลบหลังบ้านไม่สำเร็จ', 'warning');
+        })
+        .deleteCustomerFromSheets(brandIdToDelete);
+}
+
+function saveBrandData() {
+    if (!selectedBrandId) return;
+    const brand = clientBrands.find(function(b) { return b.id === selectedBrandId; });
+    if (brand) {
+        brand.background = document.getElementById('edit-brand-bg').value;
+        brand.target = document.getElementById('edit-brand-target').value;
+        brand.pain = document.getElementById('edit-brand-pain').value;
+        brand.obj = document.getElementById('edit-brand-obj').value;
+        brand.mood = document.getElementById('edit-brand-mood').value;
+
+        saveDataToStorage();
+        showAlert('บันทึกข้อมูลสำเร็จ', 'บันทึกข้อมูลของ ' + brand.name + ' และทำการอัปเดตบทสรุปบน Google Docs เรียบร้อยแล้ว!', 'success');
+    }
+}
+
+function fetchFromNotion() {
+    const originalText = document.getElementById('new-brand-name').placeholder;
+    document.getElementById('new-brand-name').placeholder = "กำลังดึงข้อมูลจาก Notion...";
+
+    setTimeout(function() {
+        const notionId = 'brand-notion-' + Date.now();
+        const newBrand = {
+            id: notionId,
+            name: "Notion Extracted Brand",
+            background: "ดึงข้อมูลจาก Workspace: เป็นแบรนด์ทดสอบที่ดึงผ่าน Notion Integration",
+            target: "กลุ่มลูกค้าวัยทำงาน (ข้อมูลจาก Notion Database)",
+            pain: "ขาดระบบจัดการที่ดี",
+            obj: "เพิ่มยอดขาย 20%",
+            mood: "Professional, Minimal",
+            rule: "อ้างอิง CI จาก Notion",
+            msg: "Smart Solution",
+            cta: "Contact Us",
+            ref: "https://notion.so/workspace/ref",
+            uploadedCustomerFiles: [],
+            uploadedBriefFiles: []
+        };
+        clientBrands.push(newBrand);
+        selectedBrandId = notionId;
+        renderBrandList();
+        saveDataToStorage();
+
+        document.getElementById('new-brand-name').placeholder = originalText;
+        showAlert('ดึงข้อมูลจาก Notion สำเร็จ', 'ซิงค์ข้อมูลลงฐานข้อมูลและสร้างโปรไฟล์แบรนด์เรียบร้อยแล้ว', 'success');
+    }, 1500);
+}
+</script>

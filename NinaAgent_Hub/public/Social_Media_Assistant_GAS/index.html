@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Social Media Content Creator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <?!= include('css/styles'); ?>
+</head>
+<body class="p-2 md:p-4">
+    <div class="w-full bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100">
+        <!-- Top Navigation Header -->
+        <div class="bg-slate-900 text-white px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-slate-800">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-gradient-to-tr from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                    <i class="fa-solid fa-wand-magic-sparkles text-white text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold tracking-wide">Social Media Content Creator</h1>
+                    <p class="text-xs text-slate-400">ระบบ AI อัจฉริยะวิเคราะห์ช่วยจัดร่าง Content และแคปชั่น</p>
+                </div>
+            </div>
+            
+            <!-- Action Buttons -->
+            <div class="flex items-center gap-2">
+                <button onclick="toggleTheme()" id="theme-toggle-btn" class="px-3.5 py-2 rounded-xl border flex items-center justify-center transition-all bg-slate-800 border-slate-700 text-yellow-400 hover:bg-slate-700">
+                    <i class="fa-solid fa-sun text-sm"></i>
+                    <span class="text-xs ml-2 font-bold">โหมดสว่าง</span>
+                </button>
+                <button onclick="clearAllData()" class="px-3.5 py-2 text-xs font-bold rounded-xl transition-all border flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-rose-400 border-rose-500/30">
+                    <i class="fa-solid fa-trash-can text-sm"></i>
+                    ล้างข้อมูล
+                </button>
+                <button onclick="loadDemoPreset()" class="px-3.5 py-2 text-xs font-bold rounded-xl transition-all border flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-indigo-300 border-indigo-500/30">
+                    <i class="fa-solid fa-rotate text-sm"></i>
+                    โหลดเดโม
+                </button>
+                <button onclick="showGraphicBriefModal()" class="px-3.5 py-2 border rounded-xl transition-all flex items-center gap-1.5 text-xs font-bold bg-pink-600 hover:bg-pink-500 text-white border-pink-500 shadow-lg shadow-pink-500/20">
+                    <i class="fa-solid fa-users text-sm"></i>
+                    ดึง Graphic Brief
+                </button>
+                <button onclick="showNotionModal()" class="px-3.5 py-2 border rounded-xl transition-all flex items-center gap-1.5 text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white border-indigo-500 shadow-lg shadow-indigo-500/20">
+                    <i class="fa-solid fa-database text-sm"></i>
+                    ดึง Notion
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Workspace -->
+        <div class="p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- LEFT COLUMN: Input Strategy Control -->
+            <section class="lg:col-span-5 border rounded-2xl p-6 flex flex-col gap-6 bg-slate-50 border-gray-200">
+                <div class="flex items-center justify-between border-b pb-3 border-gray-200">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-sliders text-indigo-600"></i>
+                        <h2 class="text-lg font-bold text-gray-800">กำหนดกลยุทธ์ Content (Inputs)</h2>
+                    </div>
+                    <span class="text-xs px-2.5 py-1 rounded-full border font-mono text-indigo-600 bg-indigo-50 border-indigo-200">
+                        Pro Version 2.0
+                    </span>
+                </div>
+
+                <!-- 1. Brand Information -->
+                <div class="space-y-2">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <label class="text-sm font-semibold flex items-center gap-1.5 text-gray-700">
+                            <span>1. ข้อมูลแบรนด์ / Brand Profile</span>
+                            <span class="text-red-400 text-xs">*</span>
+                        </label>
+                        <div class="flex items-center gap-2">
+                            <button onclick="showBrandHistoryModal()" id="btn-history" class="text-xs flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border transition-colors text-indigo-600 bg-indigo-50 border-indigo-200 hover:bg-indigo-100 shadow-sm hidden">
+                                <i class="fa-solid fa-clock-rotate-left text-xs"></i>
+                                <span>ประวัติบรีฟ</span>
+                            </button>
+                            <button onclick="document.getElementById('brand-file-input').click()" class="text-xs flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border transition-colors text-indigo-600 bg-slate-100 border-slate-200 hover:bg-slate-200 shadow-sm">
+                                <i class="fa-solid fa-upload text-xs"></i>
+                                <span>อัพโหลดแบรนด์บุก/รูปภาพ</span>
+                            </button>
+                        </div>
+                        <input type="file" id="brand-file-input" onchange="handleBrandFileUpload(this)" accept=".txt,.pdf,.doc,.docx,image/*" class="hidden">
+                    </div>
+                    <div class="relative">
+                        <textarea id="brand-info" class="w-full h-32 rounded-xl p-3 text-sm placeholder-slate-500 resize-none outline-none transition-all leading-relaxed bg-white border border-slate-300 focus:border-indigo-500 text-slate-800" placeholder="พิมพ์เอกลักษณ์คู่มือแบรนด์ของคุณเองตรงนี้ หรือคลิกอัปโหลดเอกสาร / ลากวางเพื่อสแกนด้วยพลัง AI..."></textarea>
+                        <div id="brand-file-loader" class="absolute inset-0 bg-indigo-500/10 backdrop-blur-[2px] rounded-xl flex flex-col items-center justify-center text-center gap-2 hidden">
+                            <i class="fa-solid fa-spinner fa-spin text-2xl text-indigo-500"></i>
+                            <p class="text-xs text-indigo-400 font-bold">กำลังสแกนและสกัดข้อมูลด้วย AI...</p>
+                        </div>
+                    </div>
+                    <p class="text-[10px] text-slate-500">* รองรับไฟล์ภาพแบรนด์บุก, แผ่นสไลด์สินค้า, เอกสาร PDF, สรุป Word, หรือ Text File โดยตรง</p>
+                </div>
+
+                <!-- 2. Business Type Selector -->
+                <div class="space-y-2">
+                    <div class="flex items-center justify-between">
+                        <label class="text-sm font-semibold text-gray-700">2. ประเภทธุรกิจ (Business Type)</label>
+                        <button onclick="toggleCustomInput('business')" class="text-xs text-indigo-500 hover:text-indigo-400 underline">พิมพ์ระบุเอง</button>
+                    </div>
+                    <div class="relative">
+                        <select id="business-type" class="w-full rounded-xl p-3 text-sm outline-none transition-all appearance-none cursor-pointer bg-white border border-slate-300 focus:border-indigo-500 text-slate-800">
+                            <option value="อาหารและเครื่องดื่ม (Food & Beverage)">อาหารและเครื่องดื่ม (Food & Beverage)</option>
+                            <option value="ความงามและเครื่องสำอาง (Beauty & Cosmetics)">ความงามและเครื่องสำอาง (Beauty & Cosmetics)</option>
+                            <option value="แฟชั่นและเสื้อผ้า (Fashion & Clothing)">แฟชั่นและเสื้อผ้า (Fashion & Clothing)</option>
+                            <option value="ท่องเที่ยวและโรงแรม (Travel & Leisure)">ท่องเที่ยวและโรงแรม (Travel & Leisure)</option>
+                            <option value="อสังหาริมทรัพย์ (Real Estate)">อสังหาริมทรัพย์ (Real Estate)</option>
+                            <option value="เทคโนโลยีและแกดเจ็ต (Tech & Gadgets)">เทคโนโลยีและแกดเจ็ต (Tech & Gadgets)</option>
+                            <option value="สุขภาพและการออกกำลังกาย (Health & Fitness)">สุขภาพและการออกกำลังกาย (Health & Fitness)</option>
+                            <option value="การศึกษาและคอร์สออนไลน์ (Education & E-Learning)">การศึกษาและคอร์สออนไลน์ (Education & E-Learning)</option>
+                            <option value="ยานยนต์และอุปกรณ์แต่งรถ (Automotive)">ยานยนต์และอุปกรณ์แต่งรถ (Automotive)</option>
+                            <option value="การเงินและการลงทุน (Finance & Investment)">การเงินและการลงทุน (Finance & Investment)</option>
+                        </select>
+                        <div class="absolute inset-y-0 right-3 flex items-center pointer-events-none text-slate-400">▼</div>
+                    </div>
+                    <input type="text" id="custom-business" class="w-full rounded-xl p-3 text-sm outline-none transition-all hidden bg-white border border-slate-300 focus:border-indigo-500 text-slate-800" placeholder="ระบุประเภทธุรกิจของคุณ เช่น แบรนด์โฮมคาเฟ่คูสติก...">
+                </div>
+
+                <!-- 3. Tone of Voice Selector -->
+                <div class="space-y-2">
+                    <div class="flex items-center justify-between">
+                        <label class="text-sm font-semibold text-gray-700">3. โทนเสียงโฆษณา (Tone of Voice)</label>
+                        <button onclick="toggleCustomInput('tone')" class="text-xs text-indigo-500 hover:text-indigo-400 underline">ระบุเองอิสระ</button>
+                    </div>
+                    <div class="relative">
+                        <select id="tone-voice" class="w-full rounded-xl p-3 text-sm outline-none transition-all appearance-none cursor-pointer bg-white border border-slate-300 focus:border-indigo-500 text-slate-800">
+                            <option value="เป็นกันเองและเข้าถึงง่าย (Friendly & Casual)">เป็นกันเองและเข้าถึงง่าย (Friendly & Casual)</option>
+                            <option value="มืออาชีพและน่าเชื่อถือ (Professional & Authoritative)">มืออาชีพและน่าเชื่อถือ (Professional & Authoritative)</option>
+                            <option value="ตื่นเต้นและมีพลัง (Exciting & Energetic)">ตื่นเต้นและมีพลัง (Exciting & Energetic)</option>
+                            <option value="อบอุ่นและใส่ใจ (Warm & Empathetic)">อบอุ่นและใส่ใจ (Warm & Empathetic)</option>
+                            <option value="หรูหราและพรีเมียม (Luxury & Premium)">หรูหราและพรีเมียม (Luxury & Premium)</option>
+                            <option value="สนุกสนานและกวนๆ (Humorous & Playful)">สนุกสนานและกวนๆ (Humorous & Playful)</option>
+                            <option value="ลึกลับและน่าค้นหา (Mysterious & Intriguing)">ลึกลับและน่าค้นหา (Mysterious & Intriguing)</option>
+                            <option value="ตรงไปตรงมาและจริงใจ (Direct & Bold)">ตรงไปตรงมาและจริงใจ (Direct & Bold)</option>
+                            <option value="สร้างแรงบันดาลใจและปลุกใจ (Inspirational & Motivating)">สร้างแรงบันดาลใจและปลุกใจ (Inspirational & Motivating)</option>
+                            <option value="มินิมอลและเรียบง่าย (Minimalist & Simple)">มินิมอลและเรียบง่าย (Minimalist & Simple)</option>
+                        </select>
+                        <div class="absolute inset-y-0 right-3 flex items-center pointer-events-none text-slate-400">▼</div>
+                    </div>
+                    <input type="text" id="custom-tone" class="w-full rounded-xl p-3 text-sm outline-none transition-all hidden bg-white border border-slate-300 focus:border-indigo-500 text-slate-800" placeholder="พิมพ์สไตล์เสียง เช่น วัยรุ่นมีสแลงสไตล์เน็ตไอดอล...">
+                </div>
+
+                <!-- 4. Gender Tone -->
+                <div class="space-y-2">
+                    <div class="flex items-center justify-between">
+                        <label class="text-sm font-semibold text-gray-700">4. เพศของโทนเสียง (Gender Tone)</label>
+                        <button onclick="toggleCustomInput('gender')" class="text-xs text-indigo-500 hover:text-indigo-400 underline">ระบุเองอิสระ</button>
+                    </div>
+                    <div class="relative">
+                        <select id="gender-tone" class="w-full rounded-xl p-3 text-sm outline-none transition-all appearance-none cursor-pointer bg-white border border-slate-300 focus:border-indigo-500 text-slate-800">
+                            <option value="ไม่ระบุเพศ (Neutral)">ไม่ระบุเพศ (Neutral)</option>
+                            <option value="ผู้หญิง (Feminine - ค่ะ/ขา)">ผู้หญิง (Feminine - ค่ะ/ขา)</option>
+                            <option value="ผู้ชาย (Masculine - ครับ/ผม)">ผู้ชาย (Masculine - ครับ/ผม)</option>
+                            <option value="LGBTQ+ (Expressive & Trendy - ตัวแม่/แกร์/ชี)">LGBTQ+ (Expressive & Trendy - ตัวแม่/แกร์/ชี)</option>
+                        </select>
+                        <div class="absolute inset-y-0 right-3 flex items-center pointer-events-none text-slate-400">▼</div>
+                    </div>
+                    <input type="text" id="custom-gender" class="w-full rounded-xl p-3 text-sm outline-none transition-all hidden bg-white border border-slate-300 focus:border-indigo-500 text-slate-800" placeholder="ระบุเพศวิถีของกลุ่มเสียงภาษาพูด เช่น ตัวมารดาวงการ...">
+                </div>
+
+                <!-- 5. Platform & Media Format -->
+                <div class="space-y-2">
+                    <label class="text-sm font-semibold text-gray-700">5. ช่องทางแชร์และรูปแบบสื่อ</label>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="space-y-1.5">
+                            <label class="text-xs font-semibold text-slate-400">ช่องทางแชร์ (Platform)</label>
+                            <select id="platform" class="w-full rounded-xl p-2.5 text-xs outline-none transition-all cursor-pointer bg-white border border-slate-300 focus:border-indigo-500 text-slate-800 shadow-sm">
+                                <option value="Facebook">👥 Facebook Post</option>
+                                <option value="IG">📸 IG Post / Story</option>
+                                <option value="TikTok">🎵 TikTok Caption</option>
+                                <option value="Youtube">📺 YouTube Intro/Post</option>
+                                <option value="Line">💬 Line Broadcast</option>
+                            </select>
+                        </div>
+                        <div class="space-y-1.5">
+                            <label class="text-xs font-semibold text-slate-400">รูปแบบสื่อ (Format)</label>
+                            <select id="media-format" class="w-full rounded-xl p-2.5 text-xs outline-none transition-all cursor-pointer bg-white border border-slate-300 focus:border-indigo-500 text-slate-800 shadow-sm">
+                                <option value="Single image">🖼️ Single Image (รูปเดี่ยว)</option>
+                                <option value="Album image">📚 Album / Carousel (เซ็ตสไลด์)</option>
+                                <option value="Video">🎥 Video / Reels (วิดีโอคลิป)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 6. Product Information -->
+                <div class="space-y-2">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <label class="text-sm font-semibold flex items-center gap-1.5 text-gray-700">
+                            <span>6. สินค้าหรือบริการเจาะจง (Product / Service)</span>
+                        </label>
+                        <button onclick="document.getElementById('product-file-input').click()" class="text-xs flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border transition-colors text-indigo-600 bg-slate-100 border-slate-200 hover:bg-slate-200 shadow-sm">
+                            <i class="fa-solid fa-upload text-xs"></i>
+                            <span>อัพโหลดข้อมูลสินค้า (เลือกหลายไฟล์ได้)</span>
+                        </button>
+                        <input type="file" id="product-file-input" onchange="handleProductFileUpload(this)" accept=".txt,.pdf,.doc,.docx,image/*" class="hidden" multiple>
+                    </div>
+                    <div class="relative">
+                        <textarea id="product-info" class="w-full h-24 rounded-xl p-3 text-sm placeholder-slate-500 resize-none outline-none transition-all leading-relaxed bg-white border border-slate-300 focus:border-indigo-500 text-slate-800" placeholder="ระบุชื่อสินค้า สรรพคุณ หรือโปรโมชั่นแบบเจาะจง เช่น อาหารสุนัขสูตรขนนุ่ม, ดินสอสีไม้รุ่น AB..."></textarea>
+                        <div id="product-file-loader" class="absolute inset-0 bg-indigo-500/10 backdrop-blur-[2px] rounded-xl flex flex-col items-center justify-center text-center gap-2 hidden">
+                            <i class="fa-solid fa-spinner fa-spin text-xl text-indigo-500"></i>
+                            <p class="text-xs text-indigo-400 font-bold">กำลังสแกนและดึงข้อมูลสินค้า...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 7. Content Psychology Objectives -->
+                <div class="space-y-2">
+                    <label class="text-sm font-semibold text-gray-700">7. วัตถุประสงค์จิตวิทยาคอนเทนต์ (Content Objective)</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="setContentType('educational')" data-type="educational" class="content-type-btn p-3 rounded-xl border text-left transition-all bg-white border-slate-200 hover:bg-slate-100 text-slate-600">
+                            <div class="text-xs font-bold block mb-1">🎓 Educational</div>
+                            <p class="text-[10px] leading-snug">ให้ข้อมูลความรู้ที่มีคุณค่าเพื่อประโยชน์</p>
+                        </button>
+                        <button onclick="setContentType('entertainment')" data-type="entertainment" class="content-type-btn p-3 rounded-xl border text-left transition-all bg-white border-slate-200 hover:bg-slate-100 text-slate-600">
+                            <div class="text-xs font-bold block mb-1">🎭 Entertainment</div>
+                            <p class="text-[10px] leading-snug">สร้างสรรค์ความฮา มุกขำ สนุกสนาน</p>
+                        </button>
+                        <button onclick="setContentType('inspirational')" data-type="inspirational" class="content-type-btn p-3 rounded-xl border text-left transition-all bg-white border-slate-200 hover:bg-slate-100 text-slate-600">
+                            <div class="text-xs font-bold block mb-1">✨ Inspirational</div>
+                            <p class="text-[10px] leading-snug">เติมเต็มกำลังใจ รีวิวเชิงลึกจากใจ</p>
+                        </button>
+                        <button onclick="setContentType('promotional')" data-type="promotional" class="content-type-btn p-3 rounded-xl border text-left transition-all bg-white border-slate-200 hover:bg-slate-100 text-slate-600">
+                            <div class="text-xs font-bold block mb-1">💰 Promotional</div>
+                            <p class="text-[10px] leading-snug">โปรโมชั่นปิดดีลเร่งซื้อทันที คุ้มค่า</p>
+                        </button>
+                        <button onclick="setContentType('fear')" data-type="fear" class="content-type-btn p-3 rounded-xl border text-left transition-all bg-white border-slate-200 hover:bg-slate-100 text-slate-600">
+                            <div class="text-xs font-bold block mb-1">🚨 ทำให้รู้สึกกลัว (FOMO)</div>
+                            <p class="text-[10px] leading-snug">กลัวตกเทรนด์ พลาดดีลสำคัญ</p>
+                        </button>
+                        <button onclick="setContentType('qa')" data-type="qa" class="content-type-btn p-3 rounded-xl border text-left transition-all bg-white border-slate-200 hover:bg-slate-100 text-slate-600">
+                            <div class="text-xs font-bold block mb-1">💬 Q&A Content</div>
+                            <p class="text-[10px] leading-snug">รวบรวมข้อสงสัย ตอบคำถามแบบฉลาด</p>
+                        </button>
+                        <button onclick="setContentType('realtime')" data-type="realtime" class="content-type-btn p-3 rounded-xl border text-left transition-all bg-white border-slate-200 hover:bg-slate-100 text-slate-600">
+                            <div class="text-xs font-bold block mb-1">⚡ Real-time Content</div>
+                            <p class="text-[10px] leading-snug">เล่นประเด็นฮิตยอดฮิต</p>
+                        </button>
+                        <button onclick="setContentType('branding')" data-type="branding" class="content-type-btn p-3 rounded-xl border text-left transition-all bg-white border-slate-200 hover:bg-slate-100 text-slate-600">
+                            <div class="text-xs font-bold block mb-1">💎 Branding Content</div>
+                            <p class="text-[10px] leading-snug">สื่อสารตัวตน ค่านิยม และจุดเด่น</p>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 8. Quantity -->
+                <div class="flex items-center justify-between border p-4 rounded-xl bg-white border-slate-200">
+                    <div class="space-y-0.5">
+                        <label class="text-sm font-semibold text-gray-700">8. จำนวนไอเดียคอนเทนต์ที่ต้องการ</label>
+                        <p class="text-xs text-slate-500">เลือกจำนวนทางเลือกที่ต้องการรวบรวม (สูงสุด 20 ไอเดีย)</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <button onclick="changeQuantity(-1)" class="w-8 h-8 rounded-lg font-bold transition-all bg-slate-200 hover:bg-slate-300 text-slate-800">-</button>
+                        <span id="quantity-display" class="text-lg font-bold text-indigo-500 font-mono w-8 text-center">2</span>
+                        <button onclick="changeQuantity(1)" class="w-8 h-8 rounded-lg font-bold transition-all bg-slate-200 hover:bg-slate-300 text-slate-800">+</button>
+                    </div>
+                </div>
+
+                <!-- SUBMIT BUTTON -->
+                <button onclick="createContent()" id="create-btn" class="w-full mt-2 py-4 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 hover:from-indigo-600 hover:to-pink-600 text-white font-bold rounded-xl shadow-lg tracking-wide transition-all duration-300 flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-wand-magic-sparkles text-yellow-300"></i>
+                    <span class="text-base">เริ่มสร้างสรรค์เนื้อหา (Create Content)</span>
+                </button>
+            </section>
+
+            <!-- RIGHT COLUMN: Output Creative Canvas -->
+            <section class="lg:col-span-7 flex flex-col gap-6">
+                <!-- Tab Switcher & Export Buttons -->
+                <div class="border p-4 rounded-2xl flex flex-wrap items-center justify-between gap-4 bg-white border-gray-200 shadow-md">
+                    <div class="flex items-center gap-1.5 p-1 rounded-xl border bg-slate-100 border-slate-200">
+                        <button onclick="switchTab('editor')" id="btn-editor" class="px-4 py-2 text-xs font-bold rounded-lg flex items-center gap-2 transition-all bg-indigo-500 text-white shadow">
+                            <i class="fa-solid fa-pen-to-square text-xs"></i>
+                            หน้าต่างบรีฟงานสด
+                        </button>
+                        <button onclick="switchTab('preview')" id="btn-preview" class="px-4 py-2 text-xs font-bold rounded-lg flex items-center gap-2 transition-all text-slate-400 hover:text-slate-600">
+                            <i class="fa-solid fa-eye text-xs"></i>
+                            พรีวิวแพลตฟอร์มจริง
+                        </button>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="exportToDoc()" class="px-3.5 py-2 rounded-xl transition-all text-xs font-bold flex items-center gap-2 border bg-white hover:bg-slate-50 text-slate-700 border-slate-300 shadow-sm">
+                            <i class="fa-solid fa-file-word text-emerald-500"></i>
+                            Export Word
+                        </button>
+                        <button onclick="exportToSlides()" class="px-3.5 py-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-500 border border-indigo-500/20 rounded-xl transition-all text-xs font-bold flex items-center gap-2">
+                            <i class="fa-solid fa-presentation-screen text-indigo-500"></i>
+                            Export Slide Deck
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Output Area -->
+                <div id="output-area">
+                    <!-- Empty State -->
+                    <div id="empty-state" class="border border-dashed rounded-3xl p-16 flex flex-col items-center justify-center text-center gap-4 min-h-[500px] bg-white border-slate-300 shadow-inner">
+                        <div class="w-16 h-16 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 text-3xl">
+                            🔮
+                        </div>
+                        <div class="max-w-md">
+                            <h3 class="text-lg font-bold text-slate-800">ยังไม่มีงานวิเคราะห์แคปชั่นจัดเก็บในเครื่อง</h3>
+                            <p class="text-sm text-slate-500 mt-2 leading-relaxed">
+                                ระบุสไตล์แบรนด์ของคุณที่ช่องข้อมูลแบรนด์ซ้ายมือ แล้วกดปุ่ม 
+                                <span class="text-indigo-500 font-bold">"เริ่มสร้างสรรค์เนื้อหา"</span> เพื่อดูบทคัดลอกโฆษณาที่เขียนโดย AI Strategy ขั้นเทพทันที!
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Editor View -->
+                    <div id="editor-view" class="space-y-6 hidden"></div>
+
+                    <!-- Preview View -->
+                    <div id="preview-view" class="space-y-6 hidden"></div>
+                </div>
+            </section>
+        </div>
+
+        <!-- Footer -->
+        <footer class="border-t px-6 py-6 text-center text-xs space-y-2 bg-slate-100 border-slate-200 text-slate-600">
+            <p>© 2026 AI Social Content Assistant Workspace</p>
+            <p class="text-slate-400">ขับเคลื่อนอย่างอัจฉริยะด้วยสมองกล Gemini 2.5 Flash ผสานระบบวิเคราะห์ภาพ/ไฟล์แบรนด์บุกอัพโหลดและวิจัยเทรนด์ไทยเรียลไทม์</p>
+        </footer>
+    </div>
+
+    <!-- Notion Modal -->
+    <div id="notion-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 hidden">
+        <div class="border rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl bg-white border-slate-200 text-slate-800 flex flex-col max-h-[80vh]">
+            <div class="p-6 border-b flex items-center justify-between border-slate-100 shrink-0">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-database text-indigo-400"></i>
+                    <h3 class="text-lg font-bold">เอกสารสรุปกลยุทธ์สินค้าบนฐานข้อมูล Notion</h3>
+                </div>
+                <button onclick="hideNotionModal()" class="text-lg font-bold text-slate-500 hover:text-slate-900">×</button>
+            </div>
+            <div class="p-6 space-y-4 overflow-y-auto grow">
+                <p class="text-xs text-slate-400 leading-relaxed">
+                    ระบบได้เชื่อมต่อกับ API บัญชี Notion ของคุณ และพบหน้าเอกสารกลยุทธ์แบรนด์ (Brand Book) และสเปกสินค้าที่จดสรุปไว้ 3 ไฟล์ สามารถคลิกเพื่อดึงข้อสรุปเข้ามาวางแผนแคมเปญได้ทันที:
+                </p>
+                <div class="space-y-3" id="notion-pages-list"></div>
+            </div>
+            <div class="p-4 flex justify-end border-t bg-slate-50 border-slate-100 shrink-0">
+                <button onclick="hideNotionModal()" class="px-4 py-2 rounded-xl text-xs font-semibold transition-colors bg-slate-200 hover:bg-slate-300 text-slate-700">ปิดหน้าต่าง</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Graphic Brief Modal -->
+    <div id="graphic-brief-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 hidden">
+        <div class="border rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl bg-white border-slate-200 text-slate-800 flex flex-col max-h-[80vh]">
+            <div class="p-6 border-b flex items-center justify-between border-slate-100 shrink-0">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-users text-pink-500"></i>
+                    <h3 class="text-lg font-bold">ข้อมูลลูกค้าจาก Graphic Brief</h3>
+                </div>
+                <button onclick="hideGraphicBriefModal()" class="text-lg font-bold text-slate-500 hover:text-slate-900">×</button>
+            </div>
+            <div class="p-6 space-y-4 overflow-y-auto grow">
+                <p class="text-xs text-slate-400 leading-relaxed">
+                    เลือกลูกค้าจากฐานข้อมูล Graphic Brief เพื่อนำข้อมูล Background, Target, Pain Point มาใช้วางแผนแคมเปญ:
+                </p>
+                <div class="space-y-3" id="graphic-brief-list"></div>
+            </div>
+            <div class="p-4 flex justify-end border-t bg-slate-50 border-slate-100 shrink-0">
+                <button onclick="hideGraphicBriefModal()" class="px-4 py-2 rounded-xl text-xs font-semibold transition-colors bg-slate-200 hover:bg-slate-300 text-slate-700">ปิดหน้าต่าง</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Brand History Modal -->
+    <div id="history-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 hidden">
+        <div class="border rounded-2xl max-w-2xl w-full overflow-hidden shadow-2xl bg-white border-slate-200 text-slate-800 flex flex-col max-h-[80vh]">
+            <div class="p-6 border-b flex items-center justify-between border-slate-100 shrink-0">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-clock-rotate-left text-indigo-500"></i>
+                    <h3 class="text-lg font-bold">ประวัติการสร้างบรีฟ (Version History)</h3>
+                </div>
+                <button onclick="hideBrandHistoryModal()" class="text-lg font-bold text-slate-500 hover:text-slate-900">×</button>
+            </div>
+            <div class="p-6 overflow-y-auto space-y-4 grow bg-slate-50" id="history-list-container">
+                <div class="flex flex-col items-center justify-center py-10 text-slate-400 gap-2">
+                    <i class="fa-solid fa-spinner fa-spin text-2xl"></i>
+                    <p class="text-sm">กำลังโหลดประวัติ...</p>
+                </div>
+            </div>
+            <div class="p-4 flex justify-end border-t bg-white border-slate-100 shrink-0">
+                <button onclick="hideBrandHistoryModal()" class="px-4 py-2 rounded-xl text-xs font-semibold transition-colors bg-slate-200 hover:bg-slate-300 text-slate-700">ปิดหน้าต่าง</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-4 rounded-xl border shadow-xl transition-all duration-300 hidden">
+        <i class="fa-solid fa-wand-magic-sparkles text-sm"></i>
+        <p id="toast-message" class="text-sm font-medium"></p>
+    </div>
+
+    <!-- Alert Modal -->
+    <div id="alert-modal" class="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-gray-100">
+            <div class="flex items-center gap-3 mb-3 text-indigo-600">
+                <i id="alert-icon" class="fa-solid fa-circle-check text-2xl"></i>
+                <h4 id="alert-title" class="text-lg font-bold">ดำเนินการสำเร็จ</h4>
+            </div>
+            <p id="alert-message" class="text-sm text-gray-600 leading-relaxed mb-6">เนื้อหาได้รับการประมวลผลเรียบร้อยแล้ว</p>
+            <div class="flex justify-end">
+                <button onclick="closeAlert()" class="bg-slate-900 hover:bg-slate-800 text-white font-semibold text-sm px-5 py-2.5 rounded-xl transition shadow">ตกลง</button>
+            </div>
+        </div>
+    </div>
+
+    <?!= include('js/constants'); ?>
+    <?!= include('js/ui-manager'); ?>
+    <?!= include('js/file-handler'); ?>
+    <?!= include('js/app'); ?>
+    <?!= include('js/sheets-handler'); ?>
+</body>
+</html>

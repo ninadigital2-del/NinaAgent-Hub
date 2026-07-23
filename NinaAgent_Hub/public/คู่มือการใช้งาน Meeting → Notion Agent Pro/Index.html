@@ -1,0 +1,1379 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Meeting → Notion Agent Pro</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Thai:wght@300;400;500;600&display=swap');
+
+  :root {
+    /* ☀️ LIGHT THEME COLORS */
+    --bg: #f1f5f9;
+    --surface: #ffffff;
+    --surface2: #f8fafc;
+    --border: #e2e8f0;
+    --accent: #6366f1; 
+    --accent2: #10b981; 
+    --warn: #f59e0b;
+    --danger: #ef4444;
+    --text: #1e293b;
+    --muted: #64748b;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans Thai', sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+  }
+
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 28px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+  }
+  .topbar-logo {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent);
+    letter-spacing: 0.08em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .topbar-logo .dot {
+    width: 8px; height: 8px;
+    background: var(--accent2);
+    border-radius: 50%;
+    animation: dotPulse 2s infinite;
+  }
+  @keyframes dotPulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.8); }
+  }
+  .topbar-steps {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-family: var(--mono);
+    font-size: 11px;
+  }
+  .step-pill {
+    padding: 4px 12px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    background: var(--surface2);
+    transition: all 0.2s;
+  }
+  .step-pill.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .step-pill.done { background: rgba(16, 185, 129, 0.1); border-color: var(--accent2); color: var(--accent2); }
+  .step-arrow { color: var(--border); font-size: 10px; }
+
+  .main { display: grid; grid-template-columns: 380px 1fr; flex: 1; overflow: hidden; height: calc(100vh - 53px); }
+  @media (max-width: 1024px) { .main { grid-template-columns: 1fr; height: auto; overflow-y: auto; } .left-panel { border-right: none; border-bottom: 1px solid var(--border); height: auto; } }
+
+  .left-panel { border-right: 1px solid var(--border); display: flex; flex-direction: column; background: var(--surface); }
+  .panel-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; background: var(--surface); }
+  .panel-title { font-family: var(--mono); font-size: 11px; font-weight: 600; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; }
+  .badge { font-family: var(--mono); font-size: 10px; padding: 2px 8px; border-radius: 4px; background: var(--surface2); border: 1px solid var(--border); color: var(--muted); }
+  .badge.green { border-color: var(--accent2); color: var(--accent2); background: rgba(16,185,129,0.08); }
+  .badge.purple { border-color: var(--accent); color: var(--accent); background: rgba(99,102,241,0.08); }
+
+  .textarea-wrap { flex: 1; padding: 16px 20px; display: flex; flex-direction: column; gap: 12px; background: var(--surface2); }
+  .meeting-meta { display: flex; gap: 8px; flex-wrap: wrap; }
+  .meta-chip { font-family: var(--mono); font-size: 10px; padding: 3px 10px; border-radius: 4px; border: 1px solid var(--border); background: var(--surface); color: var(--muted); display: flex; align-items: center; gap: 5px; }
+
+  textarea { min-height: 250px; flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: var(--sans); font-size: 13px; line-height: 1.7; padding: 14px; resize: none; outline: none; transition: all 0.2s; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02); }
+  textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
+  textarea::placeholder { color: #94a3b8; }
+
+  .action-row { padding: 14px 20px; border-top: 1px solid var(--border); background: var(--surface); display: flex; gap: 8px; }
+  .btn { font-family: var(--mono); font-size: 11px; font-weight: 500; padding: 9px 14px; border-radius: 6px; border: none; cursor: pointer; transition: all 0.2s; letter-spacing: 0.04em; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+  .btn-primary { background: var(--accent); color: #fff; flex: 1; }
+  .btn-primary:hover:not(:disabled) { background: #4f46e5; box-shadow: 0 4px 10px rgba(99,102,241,0.2); }
+  .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+  .btn-ghost { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); background: #fff; }
+  .btn-success { background: var(--accent2); color: #fff; flex: 1; font-weight: 600; }
+  .btn-success:hover:not(:disabled) { background: #059669; box-shadow: 0 4px 10px rgba(16,185,129,0.2); }
+  .btn-success:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  .right-panel { display: flex; flex-direction: column; overflow: hidden; background: var(--bg); }
+  .review-header { padding: 16px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; background: var(--surface); flex-wrap: wrap; gap: 12px; }
+  .review-stats { display: flex; gap: 16px; flex-wrap: wrap; }
+  .stat { font-family: var(--mono); font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  .stat-num { font-size: 16px; font-weight: 600; color: var(--text); }
+
+  .review-body { flex: 1; overflow-y: auto; padding: 20px 24px; display: flex; flex-direction: column; gap: 20px; }
+  .review-body::-webkit-scrollbar { width: 6px; }
+  .review-body::-webkit-scrollbar-track { background: transparent; }
+  .review-body::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+
+  .project-group { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--surface); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.03); transition: all 0.2s; position: relative; }
+  .project-group:hover { border-color: #cbd5e1; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05); }
+  .project-group.new-project { border-color: rgba(99,102,241,0.4); }
+  .project-group.uncertain { border-color: rgba(245,158,11,0.4); }
+
+  .project-bar { padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; background: var(--surface2); border-bottom: 1px solid var(--border); }
+  .project-bar-left { display: flex; align-items: center; gap: 10px; }
+  .project-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; background: #fff; border: 1px solid var(--border); }
+  .project-icon.existing { background: rgba(16,185,129,0.1); border-color: rgba(16,185,129,0.2); }
+  .project-icon.new { background: rgba(99,102,241,0.1); border-color: rgba(99,102,241,0.2); }
+  .project-icon.uncertain { background: rgba(245,158,11,0.1); border-color: rgba(245,158,11,0.2); }
+
+  .project-name { font-size: 14px; font-weight: 500; color: var(--text); }
+  .project-sub { font-family: var(--mono); font-size: 10px; color: var(--muted); margin-top: 2px; }
+  .project-bar-right { display: flex; align-items: center; gap: 12px; }
+  .task-count { font-family: var(--mono); font-size: 11px; color: var(--muted); font-weight: 500; }
+
+  .control-btns { display: flex; gap: 4px; }
+  .ctrl-btn { background: #fff; border: 1px solid var(--border); color: var(--muted); width: 26px; height: 26px; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; transition: all 0.15s; }
+  .ctrl-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); background: var(--surface2); }
+  .ctrl-btn:disabled { opacity: 0.3; cursor: not-allowed; background: var(--surface2); }
+
+  .uncertain-bar { padding: 10px 16px; background: #fffbeb; border-bottom: 1px solid #fde68a; display: flex; align-items: center; gap: 10px; font-size: 12px; color: #b45309; font-family: var(--mono); }
+  .uncertain-bar select { background: #fff; border: 1px solid #fcd34d; color: var(--text); font-family: var(--sans); font-size: 12px; padding: 6px 8px; border-radius: 6px; outline: none; flex: 1; cursor: pointer; }
+  .uncertain-bar select optgroup { font-family: var(--sans); font-weight: 600; color: var(--accent); }
+
+  .project-meta-form { padding: 14px 16px; border-bottom: 1px solid var(--border); background: var(--surface2); display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+  .meta-field { display: flex; flex-direction: column; gap: 4px; }
+  .meta-field label { font-family: var(--mono); font-size: 10px; color: var(--muted); text-transform: uppercase; font-weight: 500; }
+  .meta-field input, .meta-field select { background: #fff; border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; color: var(--text); font-size: 12px; outline: none; width: 100%; transition: border 0.2s; }
+  .meta-field input:focus, .meta-field select:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(99,102,241,0.1); }
+
+  .task-list { padding: 4px 0; }
+  .task-row { padding: 12px 16px; display: grid; grid-template-columns: 1fr auto auto auto auto auto; align-items: center; gap: 12px; border-bottom: 1px solid var(--border); transition: background 0.15s; }
+  .task-row:last-child { border-bottom: none; }
+  .task-row:hover { background: var(--surface2); }
+
+  .task-name-input { background: transparent; border: none; border-bottom: 1px solid transparent; color: var(--text); font-family: var(--sans); font-size: 13px; outline: none; width: 100%; padding: 2px 0; transition: all 0.2s; }
+  .task-name-input.editing { background: #fff; border: 1px solid var(--border); border-radius: 4px; padding: 6px 8px; }
+  .task-name-input:focus { border-bottom-color: var(--accent); }
+  .task-select { background: #fff; border: 1px solid var(--border); color: var(--text); font-size: 11px; padding: 4px 6px; border-radius: 4px; outline: none; }
+
+  .tag { font-family: var(--mono); font-size: 10px; padding: 4px 8px; border-radius: 6px; white-space: nowrap; font-weight: 500; }
+  .tag-worktype { background: #eef2ff; color: #4f46e5; border: 1px solid #c7d2fe; }
+  .tag-workby { background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; }
+  .tag-priority-high { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+  .tag-priority-med { background: #fffbeb; color: #d97706; border: 1px solid #fde68a; }
+  .tag-priority-low { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+  .due-date { font-family: var(--mono); font-size: 11px; color: var(--muted); white-space: nowrap; background: var(--surface2); padding: 4px 8px; border-radius: 6px; }
+
+  .row-check { width: 20px; height: 20px; border-radius: 6px; border: 2px solid #cbd5e1; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; flex-shrink: 0; background: #fff; }
+  .row-check.checked { background: var(--accent2); border-color: var(--accent2); color: #fff; font-size: 12px; font-weight: bold; }
+  .row-check:hover { border-color: var(--accent); }
+
+  .confirm-bar { padding: 16px 24px; border-top: 1px solid var(--border); background: var(--surface); display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; box-shadow: 0 -4px 10px rgba(0,0,0,0.02); }
+  .confirm-summary { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+  .confirm-summary span { color: var(--accent2); font-weight: 600; font-size: 14px; }
+
+  .status-line { padding: 10px 24px; background: #eef2ff; border-top: 1px solid #e0e7ff; font-family: var(--mono); font-size: 11px; color: var(--accent); display: flex; align-items: center; gap: 8px; }
+  .spinner { width: 12px; height: 12px; border: 2px solid rgba(99,102,241,0.3); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .empty-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: #94a3b8; padding: 40px; }
+  .empty-icon { font-size: 42px; opacity: 0.5; }
+  .empty-text { font-family: var(--mono); font-size: 13px; text-align: center; }
+
+  .notion-badge { display: flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 10px; color: var(--muted); padding: 4px 10px; border-radius: 20px; border: 1px solid var(--border); background: var(--surface2); }
+  .notion-dot { width: 6px; height: 6px; background: var(--accent2); border-radius: 50%; }
+
+  #toast-container { position: fixed; top: 24px; right: 24px; bottom: auto; z-index: 1000; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
+  .toast { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(0,0,0,0.05); border-left: 4px solid var(--accent); color: var(--text); padding: 14px 20px; border-radius: 10px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1); font-family: var(--sans); font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 12px; min-width: 300px; max-width: 450px; pointer-events: auto; animation: slideIn 0.3s ease-out; }
+  .toast.error { border-left-color: var(--danger); }
+  .toast.success { border-left-color: var(--accent2); }
+  .toast.warn { border-left-color: var(--warn); }
+  @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+  
+  .undo-toast { position: fixed; top: 24px; left: 24px; bottom: auto; z-index: 1000; background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid var(--border); color: var(--text); padding: 14px 20px; border-radius: 12px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 14px; font-family: var(--sans); font-size: 13px; font-weight: 500; animation: slideInLeft 0.3s ease-out; pointer-events: auto; }
+  @keyframes slideInLeft { from { transform: translateX(-100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+  .undo-btn { background: var(--accent); color: #fff; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-family: var(--mono); font-size: 11px; font-weight: 600; transition: background 0.2s; }
+  .undo-btn:hover { background: #4f46e5; }
+
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.3); backdrop-filter: blur(4px); z-index: 1100; display: flex; align-items: center; justify-content: center; padding: 20px; opacity: 0; pointer-events: none; transition: opacity 0.2s ease-out; }
+  .modal-overlay.active { opacity: 1; pointer-events: auto; }
+  .modal-content { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; width: 100%; max-width: 400px; overflow: hidden; transform: scale(0.95); transition: transform 0.2s ease-out; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); }
+  .modal-overlay.active .modal-content { transform: scale(1); }
+  .modal-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; background: var(--surface2); }
+  .modal-header h3 { font-size: 14px; font-family: var(--mono); font-weight: 600; }
+  .close-btn { background: transparent; border: none; color: var(--muted); font-size: 20px; cursor: pointer; }
+  .close-btn:hover { color: var(--danger); }
+  .modal-body { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+  .modal-input-row { display: flex; gap: 8px; }
+  .modal-input-row input { flex: 1; background: #fff; border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; color: var(--text); font-size: 13px; outline: none; }
+  .owner-list { max-height: 180px; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; background: var(--surface2); }
+  .owner-item { padding: 10px 12px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; font-size: 13px; }
+  .owner-item:last-child { border-bottom: none; }
+  .owner-item button { background: transparent; border: none; color: var(--danger); cursor: pointer; padding: 4px; border-radius: 4px; }
+  .owner-item button:hover { background: #fee2e2; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-logo">
+    <div class="dot"></div>
+    GEM / MEETING AGENT PRO
+  </div>
+  <div class="topbar-steps">
+    <div id="step1" class="step-pill active">01 INPUT</div>
+    <div class="step-arrow">›</div>
+    <div id="step2" class="step-pill">02 REVIEW</div>
+    <div class="step-arrow">›</div>
+    <div id="step3" class="step-pill">03 CONFIRM</div>
+  </div>
+  <div style="display:flex; align-items:center; gap: 12px;">
+    <button class="btn btn-ghost" style="padding: 4px 8px; font-size: 10px; height: 24px; border-color: var(--accent2); color: var(--accent2);" onclick="loadMockData()">🛠 โหลด Mock</button>
+    <div class="notion-badge" id="notionBadge">
+      <div class="notion-dot" id="notionDot" style="background: var(--muted);"></div>
+      <span id="notionStatusText">Notion Standby</span>
+    </div>
+  </div>
+</div>
+
+<div class="main">
+
+  <div class="left-panel">
+    <div class="panel-header">
+      <span class="panel-title">Meeting Notes</span>
+      <span class="badge green">Plain Text / Bullet</span>
+    </div>
+    <div class="textarea-wrap">
+      <div class="meeting-meta">
+        <div class="meta-chip"><span class="icon">📅</span> วันนี้</div>
+        <div class="meta-chip"><span class="icon">👥</span> ผู้ร่วมประชุม</div>
+        <div class="meta-chip"><span class="icon">⏱</span> Auto Detect</div>
+      </div>
+      <textarea id="notesInput" placeholder="วาง Meeting Notes ที่นี่...
+
+ตัวอย่าง:
+- SPM Cat Lover: ออกแบบ Banner สำหรับงาน Event เดือน มิ.ย. ให้เสร็จภายใน 30 พ.ค.
+- STAEDTLER: ทำ Content Plan เดือน มิ.ย.-ก.ค. มอบหมาย ยู้
+- โปรเจคใหม่ กับ Bangmod: เริ่ม Influencer Campaign Q3">- SPM Cat Lover: ออกแบบ Banner + Standee สำหรับงาน Event มิ.ย. ให้เสร็จ 30 พ.ค. มอบหมาย Graphic Team
+- STAEDTLER: ทำ Content Plan เดือน มิ.ย.-ก.ค. — อ้อดูแล ส่งภายใน 25 พ.ค.
+- STD Creators Challenge: ติดตาม Influencer List ที่ยังไม่ตอบกลับ ด่วน
+- Bangmod Aesthetic: นัด Kick-off ใหม่ เดือนหน้า — ยู้ประสาน
+- งานใหม่: Neil's รีแบรนด์ Packaging Q3 — ยังไม่ confirm ราคา</textarea>
+    </div>
+    <div class="action-row">
+      <button class="btn btn-ghost" onclick="clearText()">ล้าง</button>
+      <button id="analyzeBtn" class="btn btn-primary" onclick="showAnalyzing()">▶ วิเคราะห์ด้วย Gemini</button>
+    </div>
+  </div>
+
+  <div class="right-panel" id="rightPanel">
+    <div id="emptyState" class="empty-state">
+      <div class="empty-icon">🤖</div>
+      <div class="empty-text">กรุณากรอกข้อความและกดปุ่ม "วิเคราะห์ด้วย Gemini" ด้านซ้ายเพื่อเริ่มวิเคราะห์โปรเจกต์</div>
+    </div>
+
+    <div id="analyzingState" style="display:none; flex:1; flex-direction:column; align-items:center; justify-content:center; gap:16px;">
+      <div style="font-size:42px; animation: spin 2s linear infinite;">🤖</div>
+      <div style="font-family:var(--mono);font-size:14px;color:var(--accent); font-weight: 600;" id="analyzingMainText">กำลังเตรียมระบบ...</div>
+      <div style="font-family:var(--mono);font-size:11px;color:var(--muted);" id="analyzingSubText">เริ่มกระบวนการทำงาน</div>
+    </div>
+
+    <div id="reviewState" style="display:none; flex-direction:column; height:100%;">
+      <div class="review-header">
+        <div class="panel-title">Review & Confirm</div>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+          <button class="btn btn-ghost" style="padding: 6px 12px; font-size: 11px;" onclick="addNewProject()">+ Project ใหม่</button>
+          <button class="btn btn-ghost" style="padding: 6px 12px; font-size: 11px;" onclick="openSettingsModal()">👥 จัดการ PM</button>
+          <button id="editToggleBtn" class="btn btn-ghost" style="padding: 6px 12px; font-size: 11px; border-color: var(--accent); color: var(--accent); background:#fff;" onclick="toggleEditMode()">✍️ แก้ไขข้อมูล</button>
+        </div>
+        <div class="review-stats">
+          <div class="stat"><span class="stat-num" id="stat-total">0</span>&nbsp;Tasks</div>
+          <div class="stat"><span class="stat-num" style="color:var(--accent2)" id="stat-matched">0</span>&nbsp;Matched</div>
+          <div class="stat"><span class="stat-num" style="color:var(--warn)" id="stat-uncertain">0</span>&nbsp;Uncertain</div>
+          <div class="stat"><span class="stat-num" style="color:var(--accent)" id="stat-new">0</span>&nbsp;New Project</div>
+        </div>
+      </div>
+
+      <div class="review-body" id="reviewBody">
+      </div>
+
+      <div class="status-line" id="syncStatusLine">
+        <div class="spinner"></div>
+        <span id="statusText">เชื่อมโยงระบบสำเร็จ · ดึงข้อมูลโครงสร้างโปรเจกต์แบบเรียลไทม์</span>
+      </div>
+
+      <div class="confirm-bar">
+        <div class="confirm-summary" id="confirmSummary">
+          เลือกแล้ว <span>0/0</span> tasks
+        </div>
+        <div style="display:flex; gap:8px; flex-wrap: wrap;" id="confirmActionBtns">
+          <button class="btn btn-ghost" onclick="backToEdit()">← แก้ Notes</button>
+          <button id="syncBtn" class="btn btn-success" onclick="showSuccess()">✓ สร้างใน Notion</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
+<div id="undoToast" class="undo-toast" style="display:none; opacity:0; transition: opacity 0.3s;">
+  <span>ลบรายการเรียบร้อย</span>
+  <button onclick="handleUndo()" class="undo-btn">🔄 เลิกทำ (Undo)</button>
+  <button onclick="hideUndoToast()" style="background:transparent; border:none; color:var(--muted); cursor:pointer; font-size:18px;">&times;</button>
+</div>
+
+<div id="settingsModal" class="modal-overlay">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>👥 จัดการรายชื่อ PM</h3>
+      <button onclick="closeSettingsModal()" class="close-btn">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-input-row">
+        <input type="text" id="newOwnerInput" placeholder="ชื่อ PM คนใหม่...">
+        <button onclick="addOwner()" class="btn btn-primary" style="padding: 6px 12px;">+ เพิ่ม</button>
+      </div>
+      <div class="owner-list" id="modalOwnerList">
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="deleteModal" class="modal-overlay">
+  <div class="modal-content" style="max-width:320px;">
+    <div class="modal-header">
+      <h3>⚠️ ยืนยันการลบ?</h3>
+      <button onclick="closeDeleteModal()" class="close-btn">&times;</button>
+    </div>
+    <div class="modal-body" style="padding-bottom:15px;">
+      <p style="font-size:13px; color:var(--text); line-height:1.5;">คุณแน่ใจหรือไม่ที่จะลบรายการนี้? คุณสามารถใช้แถบเลิกทำ (Undo) เพื่อเรียกคืนงานกลับมาได้หากเปลี่ยนใจ</p>
+      <div style="display:flex; gap:8px; margin-top:10px;">
+        <button onclick="closeDeleteModal()" class="btn btn-ghost" style="flex:1; background:#fff;">ยกเลิก</button>
+        <button onclick="confirmDelete()" class="btn btn-primary" style="background:var(--danger); flex:1;">ยืนยันการลบ</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="assignmentWarningModal" class="modal-overlay">
+  <div class="modal-content" style="max-width: 440px; border-color: #fcd34d; box-shadow: 0 20px 25px -5px rgba(245, 158, 11, 0.1);">
+    <div class="modal-header" style="background: #fffbeb;">
+      <h3 style="color: #b45309;">⚠️ ตรวจพบงานยังไม่ได้มอบหมาย</h3>
+      <button onclick="closeAssignmentModal()" class="close-btn">&times;</button>
+    </div>
+    <div class="modal-body" style="padding-bottom: 20px;">
+      <p style="font-size: 13px; color: var(--text); line-height: 1.6; margin-bottom: 12px;">
+        มีงานย่อยบางส่วนที่ยังคงขึ้นสถานะ <span style="background: #fffbeb; color: #d97706; padding: 2px 6px; border-radius: 4px; font-weight: 600; border:1px dashed #fcd34d;">⚠️ รอมอบหมาย</span> 
+      </p>
+      <p style="font-size: 12px; color: var(--muted); line-height: 1.5; margin-bottom: 20px;">
+        หากปล่อยไว้เป็นเครื่องหมายขีด ระบบจะส่งค่านั้นไปสร้างเป็นแท็ก <span style="background: #e0f2fe; color: #0284c7; padding: 2px 6px; border-radius: 4px;">[-]</span> สีฟ้าใน Notion ครับ คุณต้องการให้ระบบจัดการอย่างไรดีครับ?
+      </p>
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <button onclick="resolveAndSync(true)" class="btn btn-success" style="width: 100%; font-size: 12px; justify-content: center; padding: 12px; font-weight: 600;">
+          🛡️ ให้ PM Owner ประจำโปรเจกต์รับงานแทนอัตโนมัติ
+        </button>
+        <button onclick="resolveAndSync(false)" class="btn btn-ghost" style="width: 100%; font-size: 12px; justify-content: center; padding: 12px; color: var(--text); border-color: var(--border); background: #fff;">
+          ⏩ ซิงค์แบบเว้นว่างไว้ก่อน (สร้างแท็ก [-] ใน Notion)
+        </button>
+        <button onclick="closeAssignmentModal()" class="btn btn-ghost" style="width: 100%; font-size: 12px; justify-content: center; padding: 12px; color: var(--muted); border-color: var(--border);">
+          ❌ ขอกลับไปกดเลือกรายชื่อผู้รับผิดชอบเองก่อน
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// --- GLOBAL STATE ---
+let state = {
+  tasks: [],
+  stats: null, 
+  owners: ['PM - อ้อ', 'PM - ยู้'],
+  isEditMode: false,
+  deletedItems: [],
+  undoTimeout: null,
+  notionProjects: [] 
+};
+
+function loadMockData() {
+  const mockData = [
+    {
+      project_id: "", 
+      project_name: "แคมเปญโปรโมตสินค้า Q3 - 2026",
+      owner: "PM - อ้อ",
+      deadline: "2026-09-30",
+      lead_status: "Qualified",
+      brand: "MoonRacle",
+      match_status: "new",
+      sub_tasks: [
+        {
+          name: "บรีฟงานทีม Graphic",
+          task_type: "Internal",
+          work_type: "Creative",
+          work_by: "PM - อ้อ",
+          due_date: "2026-07-15",
+          status: "Not started",
+          _syncId: "task_001",
+          checked: true,
+          editing: false
+        },
+        {
+          name: "ดราฟต์แคปชั่นโพสต์ Social Media",
+          task_type: "Internal",
+          work_type: "Content",
+          work_by: "Copywriter - นิก",
+          due_date: "2026-07-20",
+          status: "In progress",
+          _syncId: "task_002",
+          checked: true,
+          editing: false
+        }
+      ],
+      _projSyncId: "proj_001"
+    },
+    {
+      project_id: "existing_notion_page_id_12345", 
+      project_name: "ปรับปรุงเว็บไซต์บริษัท (เฟส 2)",
+      owner: "PM - แบงค์",
+      deadline: "2026-12-15",
+      lead_status: "In Progress",
+      brand: "MoonRacle",
+      match_status: "exact",
+      project_sub: "EXISTING · ID: existing_notion_page_id_12345",
+      sub_tasks: [
+        {
+          name: "อัปเดตหน้า About Us",
+          task_type: "Internal",
+          work_type: "Development",
+          work_by: "Dev - ภูมิ",
+          due_date: "2026-10-01",
+          status: "Not started",
+          notion_page_id: "existing_task_page_id_67890",
+          _syncId: "task_003",
+          checked: true,
+          editing: false
+        },
+        {
+          name: "เทสระบบส่งอีเมลฟอร์มติดต่อ",
+          task_type: "Internal",
+          work_type: "QA",
+          work_by: "-",
+          due_date: "2026-10-05",
+          status: "Not started",
+          _syncId: "task_004",
+          checked: true,
+          editing: false
+        }
+      ],
+      _projSyncId: "proj_002"
+    }
+  ];
+
+  state.stats = { tasks: 4, matched: 1, uncertain: 0, new: 1 };
+  state.tasks = mockData;
+  
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('analyzingState').style.display = 'none';
+  document.getElementById('reviewState').style.display = 'flex';
+  
+  document.getElementById('step1').className = 'step-pill done';
+  document.getElementById('step2').className = 'step-pill active';
+  
+  const syncBtn = document.getElementById('syncBtn');
+  if(syncBtn) {
+     syncBtn.disabled = false;
+     syncBtn.innerHTML = '✓ สร้างใน Notion';
+     syncBtn.style.background = 'var(--accent2)';
+  }
+  
+  render();
+  showToast('โหลด Mock Data สำหรับเทส UI เรียบร้อย', 'success');
+}
+
+
+let deleteConfig = { type: null, tIndex: null, sIndex: null };
+
+function runGoogleScript(serverFunctionName, ...args) {
+  return new Promise((resolve, reject) => {
+    google.script.run
+      .withSuccessHandler(resolve)
+      .withFailureHandler(reject)
+      [serverFunctionName](...args);
+  });
+}
+
+// --- FETCH PROJECTS FROM NOTION (REALTIME VIA GAS) ---
+async function loadNotionProjects() {
+  const badgeDot = document.getElementById('notionDot');
+  const badgeText = document.getElementById('notionStatusText');
+
+  try {
+    const parsedProjects = await runGoogleScript('getNotionProjects');
+    
+    if (parsedProjects && parsedProjects.length > 0) {
+      state.notionProjects = parsedProjects;
+      showToast('ดึงรายชื่อโปรเจกต์จาก Notion ปัจจุบันเรียบร้อยแล้ว', 'success');
+      
+      if (badgeDot && badgeText) {
+        badgeDot.style.background = 'var(--accent2)';
+        badgeText.textContent = 'Notion Connected';
+      }
+    } else {
+      throw new Error("ไม่พบโปรเจกต์ใน Notion Database");
+    }
+  } catch (error) {
+    console.warn("Notion project sync error:", error.message);
+    showToast(error.message, 'warn');
+    
+    state.notionProjects = [
+      { id: "staedtler_affiliate", name: "STAEDTLER - Affiliate Program - (2026)" },
+      { id: "nina_digital", name: "NINA DIGITAL - STAEDTLER TIKTOK SHOPEE SHOP - (2026)" },
+      { id: "mom_choice", name: "Mom Choice- Out of home media - (2026)" },
+      { id: "std_art", name: "STD - Art Workshop 1 - วาดใบไม้ 28/2/26" },
+      { id: "advance_driving", name: "Advance Driving School (Lead) - 2026" },
+      { id: "bi_video", name: "BI - Video Dr.Aui - 1 Clips - (2026)" },
+      { id: "spm_mimi", name: "SPM - Mimi VitaOne - Media Influencer OHANA (2026)" },
+      { id: "neils_bake", name: "Neil's Bake Shoppe - Packaging Design - (2026)" },
+      { id: "bangmod_aesthetic", name: "Bangmod Aesthetic (Lead) - 2026" },
+      { id: "neils_mkt", name: "Neil's Mkt Plan (Lead) - 2026" }
+    ];
+
+    if (badgeDot && badgeText) {
+      badgeDot.style.background = 'var(--warn)';
+      badgeText.textContent = 'Notion Fallback (Offline)';
+    }
+  }
+}
+
+function showToast(message, type = 'info') {
+  const container = document.getElementById('toast-container');
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  
+  let icon = 'ℹ️';
+  if (type === 'success') icon = '✅';
+  if (type === 'error') icon = '❌';
+  if (type === 'warn') icon = '⚠️';
+
+  toast.innerHTML = `<div style="font-size:16px;">${icon}</div><div>${message}</div>`;
+  container.appendChild(toast);
+
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateX(100%)';
+    toast.style.transition = 'all 0.3s ease-out';
+    setTimeout(() => { toast.remove(); }, 300);
+  }, 4000);
+}
+
+function clearText() {
+  document.getElementById('notesInput').value = '';
+  showToast('ล้างข้อความเรียบร้อยแล้ว', 'info');
+}
+
+function backToEdit() {
+  document.getElementById('step1').className = 'step-pill active';
+  document.getElementById('step2').className = 'step-pill';
+  document.getElementById('step3').className = 'step-pill';
+  showToast('ย้อนกลับมาที่ขั้นตอนแก้ไข Notes', 'info');
+}
+
+async function showAnalyzing() {
+  const notes = document.getElementById('notesInput').value.trim();
+  if (!notes) {
+    showToast('กรุณากรอกข้อความบันทึกการประชุมก่อนครับ', 'warn');
+    return;
+  }
+
+  const emptyState = document.getElementById('emptyState');
+  const analyzingState = document.getElementById('analyzingState');
+  const reviewState = document.getElementById('reviewState');
+  const analyzeBtn = document.getElementById('analyzeBtn');
+  
+  const analyzingMainText = document.getElementById('analyzingMainText');
+  const analyzingSubText = document.getElementById('analyzingSubText');
+
+  emptyState.style.display = 'none';
+  analyzingState.style.display = 'flex';
+  reviewState.style.display = 'none';
+  analyzeBtn.disabled = true;
+  analyzeBtn.innerHTML = 'กำลังประมวลผล...';
+
+  document.getElementById('step1').className = 'step-pill done';
+  document.getElementById('step2').className = 'step-pill active';
+
+  try {
+    analyzingMainText.textContent = "กำลังเชื่อมต่อ Notion...";
+    analyzingSubText.textContent = "กำลังดึงฐานข้อมูลโปรเจกต์ล่าสุดของคุณเพื่อเป็นฐานอ้างอิง";
+    await loadNotionProjects();
+
+    analyzingMainText.textContent = "กำลังให้ AI วิเคราะห์...";
+    analyzingSubText.textContent = "Gemini กำลังคัดแยกข้อมูลโปรเจกต์และจับคู่กับบอร์ด Notion";
+
+    const today = new Date();
+    const formattedToday = today.toISOString().split('T')[0];
+    const thaiDateStr = today.toLocaleDateString('th-TH', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+    const notionProjectsCtx = state.notionProjects.map(p => `- ${p.name} (ID: ${p.id})`).join('\n');
+
+    const systemPrompt = `คุณคือ PM Agent อัจฉริยะ ทำหน้าที่วิเคราะห์บันทึกการประชุมภาษาไทย คัดแยกแยกแยะโปรเจกต์ (Project) และงานย่อย (Sub Tasks) ตามโครงสร้าง JSON เสมอ
+
+รายชื่อโปรเจกต์ดั้งเดิมที่มีอยู่ในระบบ Notion ปัจจุบัน:
+${notionProjectsCtx}
+
+ข้อกำหนดการวิเคราะห์โครงสร้างข้อมูล:
+- วิเคราะห์ระดับความมั่นใจของโปรเจกต์ (match_status):
+  * "exact" คือระบุชื่อตรงกับข้อมูลโปรเจกต์ดั้งเดิมในระบบ Notion ข้างต้นอย่างชัดเจน
+  * "uncertain" คือข้อมูลมีคำคีย์เวิร์ดที่คล้ายคลึงหรือเกี่ยวข้องกับโปรเจกต์เดิมที่มีอยู่ใน Notion (เช่น ในบันทึกประชุมพูดถึงแบรนด์ "Neil's" หรือ "STAEDTLER" ซึ่งตรงหรือคล้ายกับชื่อโปรเจกต์ที่มีอยู่แล้ว) ให้จับคู่เป็น "uncertain" เพื่อให้หน้าเว็บทำการดึงตัวเลือกมาให้ผู้ใช้ยืนยันการจับคู่ ห้ามเดาและตั้งค่าเป็น "new" สุ่มสี่สุ่มห้าเด็ดขาด!
+  * "new" คือเป็นโปรเจกต์ที่ตั้งขึ้นมาใหม่ และไม่มีชื่อหรือคีย์เวิร์ดใดๆ เกี่ยวข้องกับโปรเจกต์เดิมใน Notion เลยจริงๆ
+- หากระบุเวลา ให้คำนวณจากวันประชุมปัจจุบันเสมอ วันประชุมนี้คือ: ${thaiDateStr} (${formattedToday})
+- owner (PM Owner หรือเจ้าของโปรเจกต์หลัก): ต้องระบุเป็นรายชื่อ PM จริงที่มีในระบบคนใดคนหนึ่งเท่านั้น (เลือกจากรายชื่อนี้: ${state.owners.join(', ')}) ห้ามใส่เครื่องหมาย "-" หรือ "Unassigned" หรือ "PM - อ้อ หรือ PM - ยู้" เด็ดขาด! แม้ในบันทึกประชุมจะไม่ระบุชื่อ PM ให้เดาจากบริบทหรือสุ่มมอบหมายให้ PM คนใดคนหนึ่งในรายชื่อด้านบนนี้ทันทีเพื่อเป็นเจ้าของโปรเจกต์
+- tags: ประเภทของงาน คั่นด้วยเครื่องหมายคอมม่า (comma) เสมอ เช่น "Content, Graphic"
+- status (สถานะงานปัจจุบันของโปรเจกต์และงานย่อย ให้ประเมินจากความคืบหน้าในที่ประชุม): "Not started" / "In progress" / "Done"
+- lead_status (สำคัญมาก เลือกเฉพาะที่มีจริงในระบบ Notion): "Lead - Initial Brief" / "Lead - Planning" / "Lead - Awaiting Presentaion" / "Lead - Presented" / "Lead - Pending Decision" / "Won" / "Lost" / "-"
+
+กติกาสำคัญสำหรับงานย่อย (sub_tasks):
+- **work_by (ผู้รับผิดชอบงานย่อย):** หากในบันทึกการประชุมไม่มีการกล่าวถึงคนรับผิดชอบงานย่อยชิ้นนั้นๆ อย่างชัดเจน ให้ใส่ค่าเป็น "-" เสมอ! ห้ามนำชื่อ PM Owner มาเดาใส่เด็ดขาด เพื่อให้หน้าแอปแสดงป้ายเตือน "⚠️ รอมอบหมาย" ให้ผู้ใช้เลือกมอบหมายงานหน้าเว็บด้วยตนเอง
+- **work_type (ประเภทงาน):** วิเคราะห์ให้ตรงกับประเภทงานจริง เช่น "Content", "Influencer / KOL", "Project Management", "Ads / Performance", "Graphic / Artwork", "Video"
+
+ตัวอย่างรูปแบบ JSON Schema ที่ต้องการ:
+{
+  "stats": {
+    "tasks": 5,
+    "matched": 3,
+    "uncertain": 1,
+    "new": 1
+  },
+  "projects": [
+    {
+      "project_name": "ชื่อโปรเจกต์ภาษาไทยกระชับ",
+      "brand": "ชื่อแบรนด์หรือบริษัท",
+      "owner": "PM - อ้อ", 
+      "match_status": "exact", 
+      "project_sub": "EXISTING · ID: dccd31a9",
+      "tags": "Graphic, Event",
+      "start_date": "${formattedToday}",
+      "deadline": "YYYY-MM-DD",
+      "status": "Not started",
+      "lead_status": "Lead - Initial Brief",
+      "notes": "บันทึกสรุปเพิ่มเติมที่สำคัญ",
+      "sub_tasks": [
+        {
+          "name": "ชื่องานย่อยที่จะทำ",
+          "work_type": "ประเภทงาน",
+          "work_by": "-",
+          "task_type": "Internal",
+          "status": "Not started",
+          "due_date": "YYYY-MM-DD"
+        }
+      ]
+    }
+  ]
+}`;
+
+    const rawResult = await runGoogleScript('callGeminiAPI', notes, systemPrompt);
+    const parsedData = JSON.parse(rawResult);
+    
+    state.stats = parsedData.stats || { tasks: 0, matched: 0, uncertain: 0, new: 0 };
+state.tasks = (parsedData.projects || []).map(p => {
+      let extId = "";
+      if (p.match_status === 'exact') {
+         // 🟢 ค้นหา ID จากฐานข้อมูลโปรเจกต์โดยตรง ป้องกัน Gemini ส่ง ID แหว่ง
+         let matchedProj = state.notionProjects.find(np => np.name === p.project_name);
+         if (matchedProj) {
+             extId = matchedProj.id;
+         } else if (p.project_sub) {
+             // แผนสำรองเผื่อชื่อไม่ตรงเป๊ะ
+             let match = p.project_sub.match(/ID:\s*([a-zA-Z0-9-]+)/);
+             if (match) {
+                 let idMatch = state.notionProjects.find(np => np.id.includes(match[1]));
+                 extId = idMatch ? idMatch.id : match[1];
+             }
+         }
+      }
+
+      return {
+        ...p,
+        status: p.status || "Not started",
+        project_id: extId,
+        _projSyncId: 'p_' + Math.random().toString(36).substr(2, 9),
+        sub_tasks: (p.sub_tasks || []).map(sub => ({ 
+          ...sub, 
+          _syncId: 't_' + Math.random().toString(36).substr(2, 9),
+          checked: true, 
+          editing: false,
+          synced: false // เพิ่มสถานะการซิงค์
+        }))
+      };
+    });
+    
+        render();
+    
+    const syncBtn = document.getElementById('syncBtn');
+    if(syncBtn) {
+       syncBtn.disabled = false;
+       syncBtn.innerHTML = '✓ สร้างใน Notion';
+       syncBtn.style.background = 'var(--accent2)';
+    }
+
+    analyzingState.style.display = 'none';
+    reviewState.style.display = 'flex';
+    showToast('วิเคราะห์และแปลงแยกงานเป็นเรียบร้อยแล้ว', 'success');
+  } catch (error) {
+    console.error(error);
+    showToast(`เกิดข้อผิดพลาด: ${error.message}`, 'error');
+    analyzingState.style.display = 'none';
+    emptyState.style.display = 'flex';
+    document.getElementById('step1').className = 'step-pill active';
+    document.getElementById('step2').className = 'step-pill';
+  } finally {
+    analyzeBtn.disabled = false;
+    analyzeBtn.innerHTML = '▶ วิเคราะห์ด้วย Gemini';
+  }
+}
+
+
+function getStatusClass(status) {
+  if (!status) return 'tag-priority-med';
+  const s = status.toLowerCase();
+  if (s === 'done' || s === 'completed') return 'tag-priority-low';
+  if (s === 'in progress') return 'tag-worktype';
+  return 'tag-priority-med';
+}
+
+function updateProjectField(projIdx, field, value) {
+  if (state.tasks[projIdx]) state.tasks[projIdx][field] = value;
+}
+
+function updateSubtaskField(projIdx, subIdx, field, value) {
+  if (state.tasks[projIdx] && state.tasks[projIdx].sub_tasks[subIdx]) {
+    state.tasks[projIdx].sub_tasks[subIdx][field] = value;
+  }
+}
+
+function toggleEditSubtask(projIdx, subIdx) {
+  const sub = state.tasks[projIdx].sub_tasks[subIdx];
+  sub.editing = !sub.editing;
+  render();
+  if (sub.editing) showToast('กำลังแก้ไขรายละเอียดงานย่อยชิ้นนี้', 'info');
+  else showToast('บันทึกรายละเอียดงานย่อยเรียบร้อยแล้ว', 'success');
+}
+
+function toggleEditMode() {
+  state.isEditMode = !state.isEditMode;
+  const btn = document.getElementById('editToggleBtn');
+  if (state.isEditMode) {
+    btn.innerHTML = '💾 บันทึกการแก้ไข';
+    btn.style.borderColor = 'var(--accent2)';
+    btn.style.color = 'var(--accent2)';
+    showToast('เข้าสู่โหมดแก้ไขโปรเจกต์และงานย่อยทั้งหมด', 'warn');
+  } else {
+    btn.innerHTML = '✍️ แก้ไขข้อมูล';
+    btn.style.borderColor = 'var(--accent)';
+    btn.style.color = 'var(--accent)';
+    showToast('บันทึกการปรับแก้ข้อมูลแล้ว', 'success');
+  }
+  render();
+}
+
+function toggleCheck(projIdx, subIdx, el) {
+  const isChecked = !state.tasks[projIdx].sub_tasks[subIdx].checked;
+  state.tasks[projIdx].sub_tasks[subIdx].checked = isChecked;
+  el.classList.toggle('checked');
+  el.textContent = isChecked ? '✓' : '';
+  updateSummary();
+}
+
+function updateSummary() {
+  let total = 0;
+  let checked = 0;
+  
+  state.tasks.forEach(proj => {
+    (proj.sub_tasks || []).forEach(sub => {
+      total++;
+      if (sub.checked !== false) checked++;
+    });
+  });
+
+  const summary = document.getElementById('confirmSummary');
+  if (summary) {
+    summary.innerHTML = `เลือกแล้ว <span>${checked}/${total}</span> tasks เพื่อจัดเตรียมซิงค์เข้าบอร์ด`;
+  }
+}
+
+function updateUncertainMap(projIdx, selectedOption, selectedId) {
+  if (state.tasks[projIdx]) {
+    state.stats = null; 
+    if (selectedOption === "NEW_PROJECT") {
+      state.tasks[projIdx].match_status = "new";
+      state.tasks[projIdx].project_id = "";
+      showToast("ปรับสถานะเป็นโปรเจกต์ใหม่เสร็จสิ้น", "info");
+    } else if (selectedOption !== "") {
+      state.tasks[projIdx].project_name = selectedOption;
+      state.tasks[projIdx].project_id = selectedId; 
+      state.tasks[projIdx].match_status = "exact";
+      state.tasks[projIdx].project_sub = `EXISTING · ID: ${selectedId}`;
+      showToast(`จับคู่ไปยัง ${selectedOption} สำเร็จ`, "success");
+    }
+    render();
+  }
+}
+
+function moveProject(index, direction) {
+  state.stats = null; 
+  const newIndex = index + direction;
+  if (newIndex < 0 || newIndex >= state.tasks.length) return;
+  const temp = state.tasks[index];
+  state.tasks[index] = state.tasks[newIndex];
+  state.tasks[newIndex] = temp;
+  render();
+}
+
+function moveSubTask(tIndex, sIndex, direction) {
+  state.stats = null; 
+  const newIndex = sIndex + direction;
+  if (newIndex < 0 || newIndex >= state.tasks[tIndex].sub_tasks.length) return;
+  const temp = state.tasks[tIndex].sub_tasks[sIndex];
+  state.tasks[tIndex].sub_tasks[sIndex] = state.tasks[tIndex].sub_tasks[newIndex];
+  state.tasks[tIndex].sub_tasks[newIndex] = temp;
+  render();
+}
+
+function duplicateProject(index) {
+  state.stats = null; 
+  const target = state.tasks[index];
+  const copy = JSON.parse(JSON.stringify(target));
+  copy.project_name = `${copy.project_name} (Copy)`;
+  state.tasks.splice(index + 1, 0, copy);
+  render();
+  showToast('คัดลอกโปรเจกต์เรียบร้อยแล้ว', 'success');
+}
+
+function addNewProject() {
+  state.stats = null; 
+  const today = new Date().toISOString().split('T')[0];
+  const newProj = {
+    project_name: "โปรเจกต์ใหม่",
+    brand: "-",
+    owner: state.owners[0] || "PM - อ้อ",
+    match_status: "new",
+    project_id: "",
+    project_sub: "NEW · ID: temp_" + Date.now().toString(16),
+    tags: "General",
+    notes: "เพิ่มสรุปรายละเอียดโปรเจกต์ตรงนี้",
+    start_date: today,
+    deadline: today,
+    status: "Not started",
+    lead_status: "Lead - Initial Brief", 
+    sub_tasks: []
+  };
+  state.tasks.unshift(newProj);
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('reviewState').style.display = 'flex';
+  render();
+  showToast('เพิ่มเทมเพลตโปรเจกต์ใหม่แล้ว', 'success');
+}
+
+function addNewSubtask(projIdx) {
+  state.stats = null; 
+  if (state.tasks[projIdx]) {
+    const today = new Date().toISOString().split('T')[0];
+    state.tasks[projIdx].sub_tasks.push({
+      name: "งานย่อยใหม่",
+      work_by: "-", 
+      work_type: "General",
+      task_type: "Internal",
+      due_date: today,
+      status: "Not started",
+      checked: true,
+      editing: false
+    });
+    render();
+    showToast('เพิ่มงานย่อยสำเร็จ', 'success');
+  }
+}
+
+function openDeleteModal(type, tIndex, sIndex = null) {
+  deleteConfig = { type, tIndex, sIndex };
+  document.getElementById('deleteModal').classList.add('active');
+}
+
+function closeDeleteModal() {
+  document.getElementById('deleteModal').classList.remove('active');
+}
+
+function confirmDelete() {
+  closeDeleteModal();
+  state.stats = null; 
+  if (deleteConfig.type === 'project') {
+    const deleted = state.tasks[deleteConfig.tIndex];
+    state.deletedItems.push({ type: 'project', index: deleteConfig.tIndex, data: deleted });
+    state.tasks.splice(deleteConfig.tIndex, 1);
+    showUndoToastNotification();
+  } else if (deleteConfig.type === 'subtask') {
+    const deleted = state.tasks[deleteConfig.tIndex].sub_tasks[deleteConfig.sIndex];
+    state.deletedItems.push({ type: 'subtask', tIndex: deleteConfig.tIndex, sIndex: deleteConfig.sIndex, data: deleted });
+    state.tasks[deleteConfig.tIndex].sub_tasks.splice(deleteConfig.sIndex, 1);
+    showUndoToastNotification();
+  }
+  render();
+}
+
+function showUndoToastNotification() {
+  const toast = document.getElementById('undoToast');
+  toast.style.display = 'flex';
+  setTimeout(() => { toast.style.opacity = '1'; }, 10);
+  
+  if (state.undoTimeout) clearTimeout(state.undoTimeout);
+  state.undoTimeout = setTimeout(() => {
+    hideUndoToast();
+  }, 5000);
+}
+
+function hideUndoToast() {
+  const toast = document.getElementById('undoToast');
+  toast.style.opacity = '0';
+  setTimeout(() => { toast.style.display = 'none'; }, 300);
+}
+
+function handleUndo() {
+  if (state.deletedItems.length === 0) return;
+  state.stats = null; 
+  const last = state.deletedItems.pop();
+  
+  if (last.type === 'project') {
+    state.tasks.splice(last.index, 0, last.data);
+  } else if (last.type === 'subtask' && state.tasks[last.tIndex]) {
+    state.tasks[last.tIndex].sub_tasks.splice(last.sIndex, 0, last.data);
+  }
+  
+  hideUndoToast();
+  render();
+  showToast('กู้คืนรายการลบแล้ว', 'success');
+}
+
+function openSettingsModal() {
+  document.getElementById('settingsModal').classList.add('active');
+  renderOwnerList();
+}
+
+function closeSettingsModal() {
+  document.getElementById('settingsModal').classList.remove('active');
+}
+
+function renderOwnerList() {
+  const list = document.getElementById('modalOwnerList');
+  list.innerHTML = '';
+  state.owners.forEach(owner => {
+    const el = document.createElement('div');
+    el.className = 'owner-item';
+    el.innerHTML = `
+      <span>${owner}</span>
+      <button onclick="removeOwner('${owner}')">&times;</button>
+    `;
+    list.appendChild(el);
+  });
+}
+
+function addOwner() {
+  const input = document.getElementById('newOwnerInput');
+  const val = input.value.trim();
+  if (val && !state.owners.includes(val)) {
+    state.owners.push(val);
+    input.value = '';
+    renderOwnerList();
+    render();
+    showToast(`เพิ่มรายชื่อ PM: ${val} แล้ว`, 'success');
+  }
+}
+
+function removeOwner(name) {
+  if (state.owners.length <= 1) {
+    showToast('ต้องเหลือชื่อ PM รับผิดชอบอย่างน้อย 1 คนในระบบ', 'warn');
+    return;
+  }
+  state.owners = state.owners.filter(o => o !== name);
+  renderOwnerList();
+  render();
+  showToast('ลบชื่อออกจากรายการแล้ว', 'info');
+}
+
+function closeAssignmentModal() {
+  document.getElementById('assignmentWarningModal').classList.remove('active');
+}
+
+function resolveAndSync(autoAssign) {
+  closeAssignmentModal();
+  
+  if (autoAssign) {
+    state.tasks.forEach(proj => {
+      const subTasks = proj.sub_tasks || [];
+      subTasks.forEach(sub => {
+        if (sub.checked !== false && (sub.work_by === '-' || !sub.work_by)) {
+          sub.work_by = proj.owner || 'PM - อ้อ';
+        }
+      });
+    });
+    render(); 
+    showToast('มอบหมายงานย่อยที่ยังรอมอบหมายให้กับ PM Owner ประจำโครงการเรียบร้อยแล้ว', 'success');
+  }
+  
+  executeSync();
+}
+
+async function showSuccess() {
+  if (state.tasks.length === 0) {
+    showToast('ไม่มีรายการสรุปโปรเจกต์จะใช้จัดส่ง', 'warn');
+    return;
+  }
+
+  let hasUnassigned = false;
+  state.tasks.forEach(proj => {
+    const subTasks = proj.sub_tasks || [];
+    subTasks.forEach(sub => {
+      if (sub.checked !== false && (sub.work_by === '-' || !sub.work_by)) {
+        hasUnassigned = true;
+      }
+    });
+  });
+
+  if (hasUnassigned) {
+    document.getElementById('assignmentWarningModal').classList.add('active');
+    return;
+  }
+
+  executeSync();
+}
+
+// ==============================================================
+// 🚀 SYNC INTO NOTION (อัปเดต: รองรับการ Patch แก้ไขข้อมูล)
+// ==============================================================
+async function executeSync() {
+  const syncBtn = document.getElementById('syncBtn');
+  const backBtn = document.querySelector('#confirmActionBtns .btn-ghost');
+  
+  if (syncBtn) {
+    syncBtn.disabled = true;
+    syncBtn.innerHTML = '<div class="spinner" style="border-width:2px; border-color: rgba(255,255,255,0.4); border-top-color: #fff; margin-right:8px;"></div> กำลังบันทึก...';
+  }
+  if (backBtn) backBtn.style.display = 'none';
+
+  const nestedTasksToSync = [];
+  
+  state.tasks.forEach(proj => {
+    let pOwner = proj.owner || 'PM - อ้อ';
+    if (pOwner === '-' || pOwner === 'Unassigned' || !state.owners.includes(pOwner)) pOwner = state.owners[0] || 'PM - อ้อ';
+
+    const allowedLeadStatuses = ["Lead - Initial Brief", "Lead - Planning", "Lead - Awaiting Presentaion", "Lead - Presented", "Lead - Pending Decision", "Won", "Lost", "-"];
+    let pLead = proj.lead_status || 'Lead - Initial Brief';
+    if (!allowedLeadStatuses.includes(pLead)) pLead = 'Lead - Initial Brief';
+
+    let validSubTasks = [];
+    if (proj.sub_tasks && proj.sub_tasks.length > 0) {
+        proj.sub_tasks.forEach(sub => {
+            // 🟢 ส่งงานเฉพาะที่มีติ๊กถูก (ไม่ว่าจะเป็นงานใหม่ หรืองานเก่าที่โดนแก้)
+            if (sub.checked !== false) {
+                let mappedWorkType = sub.work_type || 'General';
+                if (mappedWorkType === 'Graphic Design') mappedWorkType = 'Graphic / Artwork';
+                if (mappedWorkType === 'Influencer') mappedWorkType = 'Influencer / KOL';
+
+                validSubTasks.push({
+                    _syncId: sub._syncId, 
+                    notion_page_id: sub.notion_page_id || null, // 🟢 ส่ง Notion ID ไปด้วยเพื่อให้ระบบรู้ว่าต้องอัปเดต
+                    name: sub.name || 'Untitled Subtask',
+                    work_by: (sub.work_by && sub.work_by !== '-') ? sub.work_by : pOwner,
+                    work_type: mappedWorkType,
+                    task_type: sub.task_type || 'Internal',
+                    due_date: sub.due_date || '',
+                    status: sub.status || 'Not started'
+                });
+            }
+        });
+    }
+
+    if (validSubTasks.length > 0 || (!proj.project_id && (!proj.sub_tasks || proj.sub_tasks.length === 0))) {
+        nestedTasksToSync.push({
+            _projSyncId: proj._projSyncId,
+            project_name: proj.project_name || 'Untitled Project',
+            project_id: proj.project_id || '',
+            brand: proj.brand || '-',
+            owner: pOwner,
+            start_date: proj.start_date || '',
+            deadline: proj.deadline || '',
+            lead_status: pLead,
+            tags: proj.tags || 'General',
+            sub_tasks: validSubTasks
+        });
+    }
+  });
+
+  if (nestedTasksToSync.length === 0) {
+    showToast('โปรดติ๊กเลือกรายการที่ต้องการซิงค์ หรืออัปเดต', 'warn');
+    if (syncBtn) { syncBtn.disabled = false; syncBtn.innerHTML = '✓ สร้าง / อัปเดต'; }
+    if (backBtn) backBtn.style.display = 'inline-flex';
+    return;
+  }
+
+  try {
+    const result = await runGoogleScript('syncTasksToNotion', nestedTasksToSync);
+
+    if (result.updatedProjects) {
+        state.tasks.forEach(proj => {
+            if (result.updatedProjects[proj._projSyncId]) {
+                proj.project_id = result.updatedProjects[proj._projSyncId];
+                proj.match_status = "exact"; 
+            }
+        });
+    }
+
+    // 🟢 เก็บ Notion Page ID ที่สร้างเสร็จกลับเข้า State
+    if (result.taskIds) {
+        state.tasks.forEach(proj => {
+            if (proj.sub_tasks) {
+                proj.sub_tasks.forEach(sub => {
+                    if (result.taskIds[sub._syncId]) {
+                        sub.notion_page_id = result.taskIds[sub._syncId];
+                        sub.synced = true;  
+                        sub.checked = false; // เอาติ๊กถูกออก เพื่อไม่ให้ส่งซ้ำ
+                        sub.editing = false; 
+                    }
+                });
+            }
+        });
+    }
+    
+    render(); 
+
+    const statusLine = document.getElementById('syncStatusLine');
+
+    if (result.errors && result.errors.length > 0) {
+        showToast(`มีข้อผิดพลาด ${result.errors.length} รายการ`, 'warn');
+        alert("⚠️ บันทึกไม่ผ่านบางรายการ เนื่องจาก Notion ปฏิเสธข้อมูล:\n\n" + result.errors.join("\n\n") + "\n\n💡 คำแนะนำ: โปรดเช็คชื่อตัวเลือกให้สะกดตรงกับใน Notion เป๊ะๆ");
+        
+        if (syncBtn) {
+            syncBtn.disabled = false; 
+            syncBtn.innerHTML = '🔄 ซิงค์รายการที่ค้างอีกครั้ง';
+            syncBtn.style.background = 'var(--warn)';
+        }
+        if (backBtn) backBtn.style.display = 'inline-flex';
+    } else {
+        document.getElementById('step2').className = 'step-pill done';
+        document.getElementById('step3').className = 'step-pill active';
+
+        if (syncBtn) {
+            syncBtn.disabled = false; // 🟢 ปลดล็อกปุ่มไว้ เผื่อจะอัปเดตอีก
+            syncBtn.innerHTML = '✓ ซิงค์ข้อมูลครบถ้วน';
+            syncBtn.style.background = 'var(--accent2)';
+        }
+        
+        document.getElementById('confirmSummary').innerHTML = `<span style="color:var(--accent2); font-size:13px;">✅ สร้าง/อัปเดต ${result.count} Tasks เรียบร้อย!</span>`;
+
+        if (statusLine) {
+            statusLine.style.background = 'rgba(16, 185, 129, 0.1)';
+            statusLine.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+            statusLine.style.color = 'var(--accent2)';
+            statusLine.innerHTML = '✓ &nbsp;Sync เสร็จสิ้นเรียบร้อย — สามารถกดแก้ไขงานย่อยแล้วกดซิงค์เพื่ออัปเดตข้อมูลได้ตลอดเวลา';
+        }
+        
+        showToast(`สร้าง/อัปเดต Task เข้า Notion สำเร็จ ${result.count} รายการ!`, 'success');
+    }
+
+  } catch (error) {
+    console.error(error);
+    showToast(`ระบบขัดข้อง: ${error.message}`, 'error');
+    if (syncBtn) { syncBtn.disabled = false; syncBtn.innerHTML = '🔄 ลองใหม่อีกครั้ง'; syncBtn.style.background = 'var(--danger)'; }
+    if (backBtn) backBtn.style.display = 'inline-flex';
+  }
+}
+
+// 🟢 อัปเดตฟังก์ชันกดเซฟการแก้ไข
+function toggleEditSubtask(projIdx, subIdx) {
+  const sub = state.tasks[projIdx].sub_tasks[subIdx];
+  sub.editing = !sub.editing;
+  
+  if (!sub.editing) {
+      // ถ้ากดปิดโหมดแก้ ให้ติ๊กถูกงานนี้อัตโนมัติ เพื่อเตรียมส่งไปอัปเดตบน Notion
+      sub.checked = true;
+      if (sub.synced) {
+          showToast('เตรียมอัปเดตข้อมูลไปยัง Notion (กดปุ่มซิงค์เพื่อยืนยัน)', 'info');
+          const syncBtn = document.getElementById('syncBtn');
+          if(syncBtn) {
+              syncBtn.innerHTML = '🔄 อัปเดตไปที่ Notion';
+              syncBtn.style.background = 'var(--accent)';
+          }
+      } else {
+          showToast('บันทึกรายละเอียดงานย่อยเรียบร้อยแล้ว', 'success');
+      }
+  } else {
+      showToast('กำลังแก้ไขรายละเอียดงานย่อยชิ้นนี้', 'info');
+  }
+  render();
+}
+
+function render() {
+  const reviewBody = document.getElementById('reviewBody');
+  reviewBody.innerHTML = '';
+  // ... (ส่วนต้นของ render เหมือนเดิม)
+  let totalTasks = 0, matched = 0, uncertain = 0, sNew = 0;
+  if (state.stats) {
+    totalTasks = state.stats.tasks; matched = state.stats.matched; uncertain = state.stats.uncertain; sNew = state.stats.new;
+  } else {
+    totalTasks = state.tasks.reduce((sum, p) => sum + (p.sub_tasks ? p.sub_tasks.length : 0), 0);
+    matched = state.tasks.filter(p => p.match_status === 'exact').length;
+    uncertain = state.tasks.filter(p => p.match_status === 'uncertain').length;
+    sNew = state.tasks.filter(p => p.match_status === 'new').length;
+  }
+
+  document.getElementById('stat-total').textContent = totalTasks;
+  document.getElementById('stat-matched').textContent = matched;
+  document.getElementById('stat-uncertain').textContent = uncertain;
+  document.getElementById('stat-new').textContent = sNew;
+
+  if (state.tasks.length === 0) {
+    reviewBody.innerHTML = '<div class="empty-state">ไม่พบรายการโปรเจกต์ใดๆ ในปัจจุบัน</div>';
+    updateSummary(); return;
+  }
+
+  state.tasks.forEach((proj, projIdx) => {
+    let groupClass = "project-group"; let groupIcon = "📁"; let groupBadge = `<span class="badge green">exact match</span>`;
+
+    if (proj.match_status === 'uncertain') {
+      groupClass = "project-group uncertain"; groupIcon = "⚠️"; groupBadge = `<span class="badge" style="border-color:var(--warn);color:var(--warn); background:#fffbeb;">uncertain</span>`;
+    } else if (proj.match_status === 'new') {
+      groupClass = "project-group new-project"; groupIcon = "✨"; groupBadge = `<span class="badge purple">new</span>`;
+    }
+
+    const element = document.createElement('div');
+    element.className = groupClass;
+
+    let headerHTML = `
+      <div class="project-bar">
+        <div class="project-bar-left">
+          <div class="project-icon ${proj.match_status === 'exact' ? 'existing' : proj.match_status === 'new' ? 'new' : 'uncertain'}">${groupIcon}</div>
+          <div>
+            <div class="project-name">${proj.project_name}</div>
+            <div class="project-sub">BRAND: ${proj.brand || '-'} · PM: ${proj.owner || 'ไม่ระบุ'} · Status: ${proj.lead_status || 'Lead - Initial Brief'}</div>
+          </div>
+        </div>
+        <div class="project-bar-right">
+          <span class="task-count">${proj.sub_tasks ? proj.sub_tasks.length : 0} tasks</span>
+          ${groupBadge}
+          <div class="control-btns">
+            <button class="ctrl-btn" onclick="moveProject(${projIdx}, -1)" ${projIdx === 0 ? 'disabled' : ''} title="เลื่อนขึ้น">▲</button>
+            <button class="ctrl-btn" onclick="moveProject(${projIdx}, 1)" ${projIdx === state.tasks.length - 1 ? 'disabled' : ''} title="เลื่อนลง">▼</button>
+            <button class="ctrl-btn" onclick="duplicateProject(${projIdx})" title="คัดลอกโปรเจกต์">📋</button>
+            <button class="ctrl-btn" onclick="openDeleteModal('project', ${projIdx})" style="color:var(--danger); border-color:rgba(239,68,68,0.2);" title="ลบโปรเจกต์">&times;</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    let uncertainHTML = '';
+    if (proj.match_status === 'uncertain') {
+      let optionList = state.notionProjects.map(p => `<option value="${p.name}" data-id="${p.id}">${p.name}</option>`).join('');
+      uncertainHTML = `
+        <div class="uncertain-bar">
+          <span>จับคู่โปรเจกต์กับ:</span>
+          <select onchange="updateUncertainMap(${projIdx}, this.value, this.options[this.selectedIndex].getAttribute('data-id'))">
+            <option value="">— โปรดเลือกเพื่อยืนยัน —</option>
+            ${optionList}
+            <option value="NEW_PROJECT" data-id="">➕ สร้างโปรเจกต์ใหม่</option>
+          </select>
+        </div>
+      `;
+    }
+
+    // (ข้าม editFormHTML โครงสร้างยาวๆ เพื่อความกระชับ ให้ใช้โค้ด editFormHTML เดิมจากครั้งที่แล้ววางตรงนี้ได้เลย)
+    let editFormHTML = '';
+    if (state.isEditMode) {
+      let ownerOptions = state.owners.map(o => `<option value="${o}" ${proj.owner === o ? 'selected' : ''}>${o}</option>`).join('');
+      editFormHTML = `
+        <div class="project-meta-form">
+          <div class="meta-field"><label>ชื่อโปรเจกต์</label><input type="text" value="${proj.project_name}" oninput="updateProjectField(${projIdx}, 'project_name', this.value)"></div>
+          <div class="meta-field"><label>ผู้รับผิดชอบ (PM)</label><select onchange="updateProjectField(${projIdx}, 'owner', this.value)">${ownerOptions}</select></div>
+        </div>
+      `;
+    }
+
+    let subtasksHTML = '';
+    if (proj.sub_tasks && proj.sub_tasks.length > 0) {
+      proj.sub_tasks.forEach((sub, subIdx) => {
+        const statusClass = getStatusClass(sub.status);
+        let rowContent = '';
+        
+        // 🟢 ถ้าเข้าโหมดแก้
+        if (state.isEditMode || sub.editing) {
+          const allowedWorkByOptions = ["PM - อ้อ", "PM - ยู้", "Creative", "Copywriter", "Graphic Team", "Video Editor", "Ads Specialist", "CEO (Approval)", "Graphic Team & VDO Editor", "-"];
+          const allowedWorkTypeOptions = ["General", "Affiliate", "Influencer / KOL", "Project Management", "Ads / Performance", "Graphic / Artwork", "Content", "Video"];
+          let workBySelectOptions = allowedWorkByOptions.map(opt => `<option value="${opt}" ${sub.work_by === opt ? 'selected' : ''}>${opt}</option>`).join('');
+          let workTypeSelectOptions = allowedWorkTypeOptions.map(opt => `<option value="${opt}" ${sub.work_type === opt ? 'selected' : ''}>${opt}</option>`).join('');
+
+          rowContent = `
+            <input class="task-name-input editing" style="flex: 2;" value="${sub.name}" oninput="updateSubtaskField(${projIdx}, ${subIdx}, 'name', this.value)">
+            <select class="task-select" style="width: 110px;" onchange="updateSubtaskField(${projIdx}, ${subIdx}, 'work_by', this.value)">${workBySelectOptions}</select>
+            <select class="task-select" style="width: 100px;" onchange="updateSubtaskField(${projIdx}, ${subIdx}, 'work_type', this.value)">${workTypeSelectOptions}</select>
+            <input type="date" class="task-select" value="${sub.due_date || ''}" onchange="updateSubtaskField(${projIdx}, ${subIdx}, 'due_date', this.value)">
+            <select class="task-select" onchange="updateSubtaskField(${projIdx}, ${subIdx}, 'status', this.value)">
+              <option value="Not started" ${sub.status === 'Not started' || !sub.status ? 'selected' : ''}>Not started</option>
+              <option value="In progress" ${sub.status === 'In progress' ? 'selected' : ''}>In progress</option>
+              <option value="Done" ${sub.status === 'Done' ? 'selected' : ''}>Done</option>
+            </select>
+          `;
+        } else {
+          // โหมดแสดงผลปกติ เพิ่มการโชว์ป้ายเขียวเมื่ออัปเดต/ซิงค์แล้ว
+          let workByBadge = (sub.work_by === '-' || !sub.work_by) ? `<span class="tag" style="background:#fffbeb; color:#d97706; border:1px dashed #fcd34d;">⚠️ รอมอบหมาย</span>` : `<span class="tag tag-workby">${sub.work_by}</span>`;
+          let syncedBadge = sub.synced ? `<span class="tag" style="background:#ecfdf5; color:#059669; border:1px solid #a7f3d0; margin-left:8px;">✅ ซิงค์แล้ว</span>` : '';
+
+          rowContent = `
+            <div class="task-name">${sub.name} ${syncedBadge}</div>
+            ${workByBadge}
+            <span class="tag tag-worktype">${sub.work_type || 'General'}</span>
+            <span class="tag ${statusClass}">${sub.status || 'Not started'}</span>
+            <span class="due-date">${sub.due_date || '—'}</span>
+          `;
+        }
+
+        // 🟢 ปุ่มควบคุมแสดงให้เห็นตลอดเวลาแล้ว เพื่อให้กดแก้ได้
+        let actionBtns = `
+          <button class="ctrl-btn" onclick="moveSubTask(${projIdx}, ${subIdx}, -1)" ${subIdx === 0 ? 'disabled' : ''}>▲</button>
+          <button class="ctrl-btn" onclick="moveSubTask(${projIdx}, ${subIdx}, 1)" ${subIdx === proj.sub_tasks.length - 1 ? 'disabled' : ''}>▼</button>
+          <button class="ctrl-btn" onclick="toggleEditSubtask(${projIdx}, ${subIdx})" title="แก้ไขงานนี้" style="color: ${sub.editing ? 'var(--accent2)' : 'var(--accent)'}; border-color: ${sub.editing ? 'rgba(16,185,129,0.3)' : 'rgba(99,102,241,0.3)'}">${sub.editing ? '💾' : '✏️'}</button>
+          <button class="ctrl-btn" onclick="openDeleteModal('subtask', ${projIdx}, ${subIdx})" style="color:var(--danger); border-color:rgba(239,68,68,0.2);">&times;</button>
+          <div class="row-check ${sub.checked ? 'checked' : ''}" onclick="toggleCheck(${projIdx}, ${subIdx}, this)">${sub.checked ? '✓' : ''}</div>
+        `;
+
+        subtasksHTML += `<div class="task-row">${rowContent}<div style="display: flex; gap: 4px; align-items: center;">${actionBtns}</div></div>`;
+      });
+    }
+
+    element.innerHTML = `
+      ${headerHTML}
+      ${uncertainHTML}
+      ${editFormHTML}
+      <div style="padding: 10px 16px 4px; font-family:var(--mono); font-size:9px; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em; display:flex; justify-content:space-between; align-items:center;">
+        <span>งานย่อยทั้งหมด</span><button onclick="addNewSubtask(${projIdx})" style="background:transparent; border:none; color:var(--accent); font-family:var(--mono); cursor:pointer; font-weight:600;">+ เพิ่มงานย่อย</button>
+      </div>
+      <div class="task-list">${subtasksHTML}</div>
+    `;
+
+    reviewBody.appendChild(element);
+  });
+
+  updateSummary();
+}
+
+</script>
+
+</body>
+</html>
+

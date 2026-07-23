@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>คู่มือการใช้งาน GEM Graphic Capacity Board</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" rel="stylesheet">
+<style>
+  :root {
+    --primary: #378ADD;
+    --primary-light: #EBF4FD;
+    --success: #639922;
+    --success-light: #EAF3DE;
+    --warning: #EF9F27;
+    --warning-light: #FFF9E6;
+    --danger: #E24B4A;
+    --danger-light: #FCEBEB;
+    --bg-main: #f5f4f0;
+    --text-main: #1a1a18;
+    --text-muted: #888;
+    --border: #e5e3dd;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'IBM Plex Sans Thai', sans-serif;
+    background: var(--bg-main);
+    color: var(--text-main);
+    line-height: 1.6;
+    padding: 40px 20px;
+  }
+  .container {
+    max-width: 900px;
+    margin: 0 auto;
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.05);
+    overflow: hidden;
+  }
+  .header {
+    background: #fff;
+    padding: 40px 40px 30px;
+    border-bottom: 1px solid var(--border);
+    text-align: center;
+  }
+  .header h1 {
+    font-size: 28px;
+    font-weight: 600;
+    color: var(--text-main);
+    margin-bottom: 10px;
+  }
+  .header p {
+    color: var(--text-muted);
+    font-size: 15px;
+  }
+  .content {
+    padding: 40px;
+  }
+  .section {
+    margin-bottom: 50px;
+  }
+  .section-title {
+    font-size: 20px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 24px;
+    color: var(--primary);
+    border-bottom: 2px solid var(--primary-light);
+    padding-bottom: 10px;
+  }
+  .section-title i {
+    font-size: 24px;
+  }
+  
+  /* Feature Grid */
+  .grid-2 {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 24px;
+  }
+  
+  /* Mockup Cards */
+  .mockup-card {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    background: #fafaf8;
+  }
+  .mockup-card h3 {
+    font-size: 16px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .mockup-ui {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+    margin-bottom: 16px;
+  }
+  
+  /* UI Elements inside mockups */
+  .ui-task {
+    border: 1px solid var(--border);
+    padding: 10px;
+    border-radius: 6px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+    margin-bottom: 8px;
+  }
+  .ui-btn-group { display: flex; gap: 4px; }
+  .ui-btn {
+    width: 24px; height: 24px;
+    border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+  }
+  .ui-btn.done { background: var(--success-light); color: var(--success); border-color: var(--success); }
+  .ui-btn.edit { background: var(--primary-light); color: var(--primary); border-color: var(--primary); }
+  .ui-btn.return { background: var(--warning-light); color: var(--warning); border-color: var(--warning); }
+  .ui-btn.delete { background: var(--danger-light); color: var(--danger); border-color: var(--danger); }
+  
+  .ui-person {
+    display: flex; align-items: center; gap: 12px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 12px; margin-bottom: 12px;
+  }
+  .ui-avatar {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: #E6F1FB; color: #185FA5;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 600; font-size: 14px;
+  }
+  
+  /* Step list */
+  .step-list {
+    list-style: none;
+  }
+  .step-list li {
+    position: relative;
+    padding-left: 36px;
+    margin-bottom: 16px;
+  }
+  .step-list li::before {
+    content: counter(step-counter);
+    counter-increment: step-counter;
+    position: absolute;
+    left: 0;
+    top: 2px;
+    width: 24px; height: 24px;
+    background: var(--primary);
+    color: #fff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  body { counter-reset: step-counter; }
+  
+  /* Key Highlights */
+  .highlight-box {
+    background: var(--primary-light);
+    border-left: 4px solid var(--primary);
+    padding: 16px 20px;
+    border-radius: 0 8px 8px 0;
+    margin-bottom: 24px;
+  }
+  .highlight-box strong { color: var(--primary); }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <h1><i class="ti ti-layout-board-split" style="color:#378ADD; vertical-align: bottom;"></i> คู่มือการใช้งาน Graphic Capacity Board</h1>
+    <p>ระบบจัดการและกระจายงาน Graphic อัจฉริยะ (เชื่อมต่อ Notion & Google Sheets)</p>
+  </div>
+  
+  <div class="content">
+    
+    <div class="highlight-box">
+      <strong>💡 สรุปภาพรวม:</strong> ระบบนี้ถูกสร้างมาเพื่อให้ PM หรือหัวหน้าทีม สามารถเห็นภาพรวมว่า Graphic แต่ละคนมีงานล้นมือหรือไม่ (Capacity) และสามารถกระจายงานใหม่ที่เข้ามาจาก Notion ไปยัง Google Sheets ของ Graphic แต่ละคนได้อย่างรวดเร็วด้วยการ Drag & Drop
+    </div>
+
+    <!-- Section 1: โครงสร้างหน้าจอ -->
+    <div class="section">
+      <div class="section-title">
+        <i class="ti ti-layout-columns"></i> โครงสร้างหน้าจอ (Layout)
+      </div>
+      <p style="margin-bottom: 20px;">หน้าจอแบ่งออกเป็น 2 ฝั่งหลักๆ เพื่อความสะดวกในการลากวางงาน:</p>
+      
+      <div class="grid-2">
+        <div class="mockup-card">
+          <h3><i class="ti ti-users"></i> ฝั่งซ้าย: ทีม Graphic (60%)</h3>
+          <p style="font-size: 14px; margin-bottom:12px; color:#555;">แสดงรายชื่อ Graphic ในทีม พร้อมบอกสถานะว่าตอนนี้งานล้นมือหรือไม่ (แถบสีเขียว/แดง) และแสดงรายการงานที่รับผิดชอบอยู่</p>
+          <div class="mockup-ui">
+            <div class="ui-person">
+              <div class="ui-avatar">จ๊ะ</div>
+              <div>
+                <div style="font-weight:600; font-size:14px;">จ๊ะเอ๋</div>
+                <div style="font-size:11px; color:#888;">งานค้าง 2 งาน</div>
+              </div>
+              <div style="margin-left:auto; background:#EAF3DE; color:#3B6D11; font-size:10px; padding:2px 8px; border-radius:12px;">ว่าง</div>
+            </div>
+            <div class="ui-task" style="border-left:3px solid #378ADD;">
+              <span>• งาน Artwork A</span>
+              <div class="ui-btn-group">
+                <div class="ui-btn done">✔</div>
+                <div class="ui-btn edit">✎</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="mockup-card">
+          <h3><i class="ti ti-inbox"></i> ฝั่งขวา: งานรอ Assign (40%)</h3>
+          <p style="font-size: 14px; margin-bottom:12px; color:#555;">ดึงข้อมูลงานที่สถานะ "Not started" และยังไม่มี "Graphic Assignee" จาก Notion มาแสดงเรียงตามแบรนด์</p>
+          <div class="mockup-ui">
+            <div style="font-size:12px; font-weight:500; margin-bottom:8px; color:#378ADD;">แบรนด์ NINA AI</div>
+            <div class="ui-task">
+              <span>ทำภาพ Post FB</span>
+            </div>
+            <div class="ui-task">
+              <span>ตัดต่อ VDO Tiktok</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 2: การจ่ายงาน -->
+    <div class="section">
+      <div class="section-title">
+        <i class="ti ti-hand-click"></i> วิธีการจ่ายงาน (Assign Task)
+      </div>
+      <p style="margin-bottom: 20px;">คุณสามารถจ่ายงานให้ Graphic ได้ 2 วิธีที่แสนง่ายดาย:</p>
+      
+      <div class="grid-2">
+        <div class="mockup-card">
+          <h3 style="color:var(--primary)"><i class="ti ti-drag-drop"></i> วิธีที่ 1: Drag & Drop (แนะนำ)</h3>
+          <ol class="step-list" style="margin-top:16px;">
+            <li>คลิกค้างที่ "การ์ดงาน" จากฝั่งขวา</li>
+            <li>ลากมาวาง (Drop) ใส่กรอบชื่อ Graphic ฝั่งซ้าย</li>
+            <li>ระบบจะทำการเซฟลง Google Sheet และอัปเดตชื่อใน Notion ให้ทันที!</li>
+          </ol>
+        </div>
+        
+        <div class="mockup-card">
+          <h3><i class="ti ti-pointer"></i> วิธีที่ 2: เลือกจากแถบด้านล่าง</h3>
+          <ol class="step-list" style="margin-top:16px;">
+            <li>คลิกเลือก "การ์ดงาน" ฝั่งขวา (การ์ดจะขึ้นขอบสีฟ้า)</li>
+            <li>ดูที่แถบด้านล่างขวา เลือกชื่อ Graphic จาก Dropdown</li>
+            <li>กดปุ่ม <strong>Assign</strong></li>
+          </ol>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 3: การจัดการงานที่ Assign แล้ว -->
+    <div class="section">
+      <div class="section-title">
+        <i class="ti ti-settings"></i> การจัดการงานที่จ่ายไปแล้ว
+      </div>
+      <p style="margin-bottom: 16px;">เมื่อนำเมาส์ไปชี้ที่งานฝั่งซ้าย (งานที่อยู่ในมือ Graphic) จะมีปุ่มโผล่ขึ้นมา 4 ปุ่มให้จัดการ:</p>
+      
+      <div style="display:flex; flex-direction:column; gap:12px;">
+        <div class="mockup-card" style="display:flex; gap:16px; align-items:center;">
+          <div class="ui-btn done" style="width:40px; height:40px; font-size:20px; flex-shrink:0;">✔</div>
+          <div>
+            <strong>ปุ่ม "ทำเสร็จแล้ว" (Mark as Done)</strong><br>
+            <span style="font-size:14px; color:#555;">กดเมื่อ Graphic ทำงานเสร็จ ระบบจะติ๊ก Check ใน Google Sheet ว่า Done และเปลี่ยน Status ใน Notion เป็น Done ให้ทันที</span>
+          </div>
+        </div>
+        
+        <div class="mockup-card" style="display:flex; gap:16px; align-items:center;">
+          <div class="ui-btn edit" style="width:40px; height:40px; font-size:20px; flex-shrink:0;">✎</div>
+          <div>
+            <strong>ปุ่ม "แก้ไขข้อมูล" (Edit)</strong><br>
+            <span style="font-size:14px; color:#555;">ใช้สำหรับแก้ <u>ชื่อชิ้นงาน, แบรนด์, ประเภทงาน, และวันที่ส่งงาน</u> ข้อมูลที่แก้จะวิ่งไปอัปเดตให้ตรงกันทั้งใน Sheet และ Notion (Dropdown แบรนด์/ประเภทงาน ถ้าไม่มีในลิสต์ พิมพ์เพิ่มได้เลย!)</span>
+          </div>
+        </div>
+        
+        <div class="mockup-card" style="display:flex; gap:16px; align-items:center;">
+          <div class="ui-btn return" style="width:40px; height:40px; font-size:20px; flex-shrink:0;">↩</div>
+          <div>
+            <strong>ปุ่ม "ตีกลับเข้าระบบ" (Unassign / Return to Pool)</strong><br>
+            <span style="font-size:14px; color:#555;">ถ้ายกเลิกการจ่ายงานให้คนนี้ ระบบจะลบข้อมูลออกจาก Sheet ของ Graphic คนนั้น และปลดชื่อ Assignee ใน Notion ออก (งานจะเด้งกลับมาอยู่ฝั่งขวาเหมือนเดิม)</span>
+          </div>
+        </div>
+        
+        <div class="mockup-card" style="display:flex; gap:16px; align-items:center;">
+          <div class="ui-btn delete" style="width:40px; height:40px; font-size:20px; flex-shrink:0;">🗑</div>
+          <div>
+            <strong>ปุ่ม "ลบงานทิ้งถาวร" (Delete Permanently)</strong><br>
+            <span style="font-size:14px; color:#555;">ลบงานทิ้ง! ระบบจะเคลียร์ข้อมูลใน Sheet ทิ้ง และ Archive (ซ่อน/ลบ) หน้าต่างงานนั้นใน Notion ทิ้งด้วย (ใช้กรณีที่เป็นงานขยะ หรือสร้างผิด)</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Section 4: ย้ายงานข้ามคน -->
+    <div class="section">
+      <div class="section-title">
+        <i class="ti ti-arrows-right-left"></i> การย้ายงานให้คนอื่น (Relocate Task)
+      </div>
+      <div class="mockup-card">
+        <p style="margin-bottom: 12px; font-size: 15px;">หากน้อง Graphic คนแรกทำไม่ทัน คุณสามารถโอนงานให้คนอื่นได้ทันที!</p>
+        <ul style="padding-left: 20px; color:#444; line-height: 1.8; font-size:14px;">
+          <li>เพียงแค่ <strong>คลิกค้างที่งาน</strong> ของคนแรก (ฝั่งซ้าย)</li>
+          <li>ลากไป <strong>Drop ใส่พื้นที่การ์ดของ Graphic คนใหม่</strong> ที่ต้องการให้รับงานแทน</li>
+          <li>ระบบจะเคลียร์งานจาก Sheet คนเก่า นำไปใส่ Sheet คนใหม่ และแก้ชื่อ Assignee ใน Notion ให้เสร็จสรรพใน 1 วินาที!</li>
+        </ul>
+      </div>
+    </div>
+    
+    <!-- Footer -->
+    <div style="text-align:center; padding-top:20px; color:#aaa; font-size:12px; border-top:1px solid var(--border);">
+      Designed & Built by NINA Agent &middot; 2026
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>
