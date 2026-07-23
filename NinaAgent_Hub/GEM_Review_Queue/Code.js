@@ -571,7 +571,8 @@ function updateTaskFromWeb(taskId, newStatus, commentText) {
       }
 
       // Sync status to Graphic designer's personal sheet (Col A)
-      syncToIndividualSheet(taskId, taskName, ownerA, ownerN, newStatus);
+      const taskDateVal = data[i][5]; // Col F (วันที่ส่งงาน)
+      syncToIndividualSheet(taskId, taskName, ownerA, ownerN, newStatus, taskDateVal);
 
       // Invalidate Cache
       CacheService.getScriptCache().remove(CACHE_KEY);
@@ -587,7 +588,7 @@ function updateTaskFromWeb(taskId, newStatus, commentText) {
 
 // ============================================================
 // Sync Status back to Graphic Designer's Personal Sheet
-// Intelligent Bottom-Up Search prioritizing active 'Sent to P'Aof' rows
+// Intelligent Search matching Task Name + Date (Col F) + Job No
 // ============================================================
 function findTeamSheetId(ownerA, ownerN) {
   const strA = String(ownerA || '').trim();
@@ -604,7 +605,7 @@ function findTeamSheetId(ownerA, ownerN) {
   return null;
 }
 
-function syncToIndividualSheet(taskId, taskName, ownerA, ownerN, newStatus) {
+function syncToIndividualSheet(taskId, taskName, ownerA, ownerN, newStatus, taskDateVal) {
   const sheetId = findTeamSheetId(ownerA, ownerN);
   if (!sheetId) {
     console.error("syncToIndividualSheet: Sheet ID not found for ownerA='" + ownerA + "', ownerN='" + ownerN + "'");
@@ -617,6 +618,7 @@ function syncToIndividualSheet(taskId, taskName, ownerA, ownerN, newStatus) {
     const data = sheet.getDataRange().getValues();
     const targetIdStr = String(taskId || '').trim();
     const targetTaskNameStr = String(taskName || '').trim();
+    const targetDateStr = parseTaskDateString(taskDateVal);
 
     let graphicStatusValue = newStatus;
     if (newStatus === "มีปรับแก้") graphicStatusValue = "มีปรับแก้";
@@ -630,15 +632,23 @@ function syncToIndividualSheet(taskId, taskName, ownerA, ownerN, newStatus) {
       const currentColA = String(data[i][0] || '').trim();
       const rowText = data[i].join(' ');
       const jobNo = String(data[i][9] || '').trim();
+      const rowDateVal = data[i][5]; // Col F (วันที่ส่งงาน)
+      const rowDateStr = parseTaskDateString(rowDateVal);
       
       const isNameMatch = (jobNo !== '' && targetIdStr === jobNo) || 
                           (targetTaskNameStr !== '' && rowText.indexOf(targetTaskNameStr) !== -1);
                           
       if (isNameMatch) {
         const normColA = currentColA.toLowerCase().replace(/’/g, "'");
-        if (normColA === "sent to p'aof" || normColA === "รอรีวิว" || normColA === "มีปรับแก้") {
+
+        // If date matches strictly, prioritize this row
+        if (targetDateStr && rowDateStr && targetDateStr === rowDateStr) {
           bestMatchRow = rowNum;
           break;
+        }
+
+        if (normColA === "sent to p'aof" || normColA === "รอรีวิว" || normColA === "มีปรับแก้") {
+          if (bestMatchRow === -1) bestMatchRow = rowNum;
         } else if (bestMatchRow === -1) {
           bestMatchRow = rowNum;
         }
