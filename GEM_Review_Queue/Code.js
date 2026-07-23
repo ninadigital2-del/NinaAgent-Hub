@@ -543,6 +543,10 @@ function handleStatusUpdate(e) {
   }
 }
 
+function updateTaskFromWeb(taskId, newStatus, commentText) {
+  return updateTaskStatus(taskId, newStatus);
+}
+
 function updateTaskStatus(taskId, newStatus) {
   try {
     const sheet = getMasterRawDataSheet();
