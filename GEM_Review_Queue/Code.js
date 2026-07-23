@@ -504,7 +504,7 @@ function getTasksData() {
       // Show "รอรีวิว", "มีปรับแก้", or "อนุมัติแล้ว" of today
       if (reviewStatus === "รอรีวิว" || reviewStatus === "มีปรับแก้" || (reviewStatus === "อนุมัติแล้ว" && isToday)) {
         tasks.push({
-          id: String(row[CONFIG.MASTER_COL_JOB_NO] || `master_${i+1}`).trim(),
+          id: `master_${i+1}`,
           uniqueId: `master_${i+1}`,
           name: taskName,
           owner: workerName,
@@ -566,7 +566,7 @@ function updateTaskStatus(taskId, newStatus) {
       const uId = `master_${i+1}`;
       const jobNo = String(data[i][CONFIG.MASTER_COL_JOB_NO] || '').trim();
       
-      if (targetStr === uId || (jobNo !== '' && targetStr === jobNo)) {
+      if (targetStr === uId) {
         foundRow = i + 1;
         taskName = data[i][CONFIG.MASTER_COL_TASK_NAME] || 'ไม่ระบุชื่อ';
         ownerA = data[i][CONFIG.MASTER_COL_OWNER_A] || '';
