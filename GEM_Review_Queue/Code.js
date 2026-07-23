@@ -280,7 +280,10 @@ function ensureMasterHeaders() {
   if (hT.getValue() !== "Revision Round") hT.setValue("Revision Round");
   if (hU.getValue() !== "LINE Alert Sent") hU.setValue("LINE Alert Sent");
 
-  sheet.getRange("R5:S2000").setNumberFormat("dd/mm/yyyy hh:mm:ss");
+  const ss = SpreadsheetApp.openById(CONFIG.MASTER_SHEET_ID);
+  if (ss.getSpreadsheetTimeZone() !== "Asia/Bangkok") {
+    ss.setSpreadsheetTimeZone("Asia/Bangkok");
+  }
 }
 
 function parseDateValue(val) {
@@ -322,6 +325,7 @@ function syncMasterQueueStatus() {
     const data = sheet.getRange(1, 1, lastRow, 21).getValues();
     const now = new Date();
     const todayStr = Utilities.formatDate(now, "Asia/Bangkok", "yyyy-MM-dd");
+    const nowStr = Utilities.formatDate(now, "Asia/Bangkok", "dd/MM/yyyy HH:mm:ss");
     let hasChanges = false;
 
     // Header at row 4 (index 3), Data starts at row 5 (index 4)
@@ -354,7 +358,7 @@ function syncMasterQueueStatus() {
         if (currentReviewStatus !== "อนุมัติแล้ว") {
           sheet.getRange(rowNum, 17).setValue("อนุมัติแล้ว"); // Col Q
           if (!currentReviewedAt) {
-            sheet.getRange(rowNum, 19).setNumberFormat("dd/mm/yyyy hh:mm:ss").setValue(now); // Col S
+            sheet.getRange(rowNum, 19).setValue(nowStr); // Col S
           }
           sheet.getRange(rowNum, 21).setValue("REVIEWED"); // Col U
           hasChanges = true;
@@ -387,8 +391,8 @@ function syncMasterQueueStatus() {
 
         if (currentReviewStatus !== "รอรีวิว" || currentAlertSent !== alertKey) {
           sheet.getRange(rowNum, 17).setValue("รอรีวิว"); // Col Q
-          sheet.getRange(rowNum, 18).setNumberFormat("dd/mm/yyyy hh:mm:ss").setValue(now); // Col R
-          sheet.getRange(rowNum, 19).setValue("");         // Col S (Reviewed At cleared)
+          sheet.getRange(rowNum, 18).setValue(nowStr); // Col R
+          sheet.getRange(rowNum, 19).setValue("");     // Col S (Reviewed At cleared)
           sheet.getRange(rowNum, 20).setValue(newRound);   // Col T (Revision Round)
           sheet.getRange(rowNum, 21).setValue(alertKey);   // Col U (LINE Alert Sent)
           
@@ -397,13 +401,13 @@ function syncMasterQueueStatus() {
           }
           hasChanges = true;
         } else if (!currentSentAt) {
-          sheet.getRange(rowNum, 18).setNumberFormat("dd/mm/yyyy hh:mm:ss").setValue(now);
+          sheet.getRange(rowNum, 18).setValue(nowStr);
           hasChanges = true;
         }
       } else if (normVal === "มีปรับแก้") {
         if (currentReviewStatus !== "มีปรับแก้") {
           sheet.getRange(rowNum, 17).setValue("มีปรับแก้"); // Col Q
-          sheet.getRange(rowNum, 19).setNumberFormat("dd/mm/yyyy hh:mm:ss").setValue(now); // Col S
+          sheet.getRange(rowNum, 19).setValue(nowStr); // Col S
           sheet.getRange(rowNum, 21).setValue("REVIEWED"); // Col U
           hasChanges = true;
         }
@@ -586,6 +590,7 @@ function updateTaskStatus(taskId, newStatus) {
     
     if (foundRow > -1) {
       const now = new Date();
+      const nowStr = Utilities.formatDate(now, "Asia/Bangkok", "dd/MM/yyyy HH:mm:ss");
       const currentReviewStatus = String(sheet.getRange(foundRow, 17).getValue() || '').trim();
       const currentRound = parseInt(sheet.getRange(foundRow, 20).getValue()) || 1;
 
@@ -600,15 +605,15 @@ function updateTaskStatus(taskId, newStatus) {
 
       if (newStatus === "มีปรับแก้") {
         sheet.getRange(foundRow, 17).setValue("มีปรับแก้");      // Col Q (Review Status)
-        sheet.getRange(foundRow, 19).setNumberFormat("dd/mm/yyyy hh:mm:ss").setValue(now); // Col S (Reviewed At)
+        sheet.getRange(foundRow, 19).setValue(nowStr);           // Col S (Reviewed At)
         sheet.getRange(foundRow, 21).setValue("REVIEWED");      // Col U (LINE Alert Sent Status)
       } else if (newStatus === "อนุมัติแล้ว" || newStatus === "Done") {
         sheet.getRange(foundRow, 17).setValue("อนุมัติแล้ว");    // Col Q (Review Status)
-        sheet.getRange(foundRow, 19).setNumberFormat("dd/mm/yyyy hh:mm:ss").setValue(now); // Col S (Reviewed At)
+        sheet.getRange(foundRow, 19).setValue(nowStr);           // Col S (Reviewed At)
         sheet.getRange(foundRow, 21).setValue("REVIEWED");      // Col U (LINE Alert Sent Status)
       } else if (newStatus === "รอรีวิว" || newStatus === "Sent to P'Aof") {
         sheet.getRange(foundRow, 17).setValue("รอรีวิว");        // Col Q (Review Status)
-        sheet.getRange(foundRow, 18).setNumberFormat("dd/mm/yyyy hh:mm:ss").setValue(now); // Col R (Sent to Review At)
+        sheet.getRange(foundRow, 18).setValue(nowStr);           // Col R (Sent to Review At)
         sheet.getRange(foundRow, 19).setValue("");               // Col S (Reviewed At cleared)
         if (currentReviewStatus !== "รอรีวิว") {
           sheet.getRange(foundRow, 20).setValue(currentRound + 1); // Col T (Revision Round) + 1
