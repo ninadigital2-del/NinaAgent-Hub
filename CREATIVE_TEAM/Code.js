@@ -375,6 +375,21 @@ function syncMasterQueueStatus() {
           sheet.getRange(rowNum, 19).setNumberFormat("dd/mm/yyyy hh:mm:ss").setValue(now); // Col S
           hasChanges = true;
         }
+      } else if (normVal === "done" || normVal === "ok" || normVal === "อนุมัติแล้ว") {
+        // Strict Rule: If Col B is Done / OK, Col Q must be "อนุมัติแล้ว" (Never "รอรีวิว" or "มีปรับแก้")
+        if (currentReviewStatus === "รอรีวิว" || currentReviewStatus === "มีปรับแก้" || currentReviewStatus === "") {
+          sheet.getRange(rowNum, 17).setValue("อนุมัติแล้ว"); // Col Q
+          if (!currentReviewedAt) {
+            sheet.getRange(rowNum, 19).setNumberFormat("dd/mm/yyyy hh:mm:ss").setValue(now); // Col S
+          }
+          hasChanges = true;
+        }
+      } else if (normVal === "not start" || normVal === "") {
+        // If Col B is "Not Start", clear Col Q if it was previously "รอรีวิว" or "มีปรับแก้"
+        if (currentReviewStatus === "รอรีวิว" || currentReviewStatus === "มีปรับแก้") {
+          sheet.getRange(rowNum, 17).setValue(""); // Clear Col Q
+          hasChanges = true;
+        }
       }
     }
 
@@ -423,7 +438,17 @@ function getTasksData() {
       const graphicStatus = String(row[CONFIG.MASTER_COL_STATUS] || '').trim();
       const normVal = graphicStatus.toLowerCase().replace(/’/g, "'");
       let reviewStatus = String(row[CONFIG.MASTER_COL_REVIEW_STATUS] || '').trim();
-      
+
+      // Auto mapping & strict override: If Col B is Done / OK, reviewStatus MUST be "อนุมัติแล้ว"
+      if (normVal === "done" || normVal === "ok" || normVal === "อนุมัติแล้ว") {
+        reviewStatus = "อนุมัติแล้ว";
+      } else if (normVal === "not start" || normVal === "") {
+        reviewStatus = graphicStatus || "Not Start";
+      } else if (!reviewStatus) {
+        if (normVal === "sent to p'aof") reviewStatus = "รอรีวิว";
+        else if (graphicStatus === "มีปรับแก้") reviewStatus = "มีปรับแก้";
+      }
+
       const isActiveTask = (normVal === "sent to p'aof" || normVal === "มีปรับแก้" || reviewStatus === "รอรีวิว" || reviewStatus === "มีปรับแก้");
 
       // Filter: Skip past inactive tasks
@@ -431,13 +456,6 @@ function getTasksData() {
       const taskDateStr = parseTaskDateString(dateVal);
       if (taskDateStr && taskDateStr < todayStr && !isActiveTask) {
         continue;
-      }
-
-      // Auto mapping if Review Status is empty
-      if (!reviewStatus) {
-        if (normVal === "sent to p'aof") reviewStatus = "รอรีวิว";
-        else if (graphicStatus === "มีปรับแก้") reviewStatus = "มีปรับแก้";
-        else if (graphicStatus === "Done" || graphicStatus === "OK") reviewStatus = "อนุมัติแล้ว";
       }
 
       let sentToReviewAtRaw = row[CONFIG.MASTER_COL_SENT_AT];
