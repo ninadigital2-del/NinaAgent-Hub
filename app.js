@@ -52,6 +52,7 @@ if (sidebarOverlay) {
 }
 
 function showDashboard(element, skipHash = false) {
+    if (window.event && window.event.preventDefault) window.event.preventDefault();
     if (!skipHash) {
         if (window.location.hash !== '#dashboard') history.pushState(null, null, '#dashboard');
     }
@@ -68,11 +69,12 @@ function showDashboard(element, skipHash = false) {
     document.getElementById('tool-frame').src = '';
     
     // Close mobile sidebar if open
-    sidebar.classList.remove('open');
-    sidebarOverlay.classList.remove('active');
+    if (sidebar) sidebar.classList.remove('open');
+    if (sidebarOverlay) sidebarOverlay.classList.remove('active');
 }
 
 function loadToolInFrame(element, toolName, url, skipHash = false) {
+    if (window.event && window.event.preventDefault) window.event.preventDefault();
     if (!skipHash) {
         const hashId = '#' + toolName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
         if (window.location.hash !== hashId) history.pushState(null, null, hashId);
