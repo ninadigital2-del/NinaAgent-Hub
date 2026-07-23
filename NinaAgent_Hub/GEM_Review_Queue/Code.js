@@ -657,6 +657,7 @@ function syncToIndividualSheet(taskId, taskName, ownerA, ownerN, newStatus, task
 
     if (bestMatchRow > -1) {
       sheet.getRange(bestMatchRow, 1).setValue(graphicStatusValue); // Col A in Graphic's sheet
+      SpreadsheetApp.flush();
       console.log("Successfully updated individual sheet (" + sheetId + ") row " + bestMatchRow + " (Col A) to " + graphicStatusValue);
     } else {
       console.error("syncToIndividualSheet: No matching row found in sheet " + sheetId + " for task: " + taskName);
