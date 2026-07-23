@@ -340,15 +340,25 @@ function syncMasterQueueStatus() {
       const currentAlertSent = String(row[CONFIG.MASTER_COL_ALERT_SENT] || '').trim();
       const workerName = String(row[CONFIG.MASTER_COL_OWNER_A] || row[CONFIG.MASTER_COL_OWNER_N] || 'ไม่ระบุ').trim();
 
-      // Check if this task is actively in review / revision loop
-      const isActiveTask = (normVal === "sent to p'aof" || normVal === "มีปรับแก้" || currentReviewStatus === "รอรีวิว" || currentReviewStatus === "มีปรับแก้");
+      // 1. Strict Override Rule: If Col B is Done / OK / อนุมัติแล้ว, Col Q MUST be "อนุมัติแล้ว"
+      if (normVal === "done" || normVal === "ok" || normVal === "อนุมัติแล้ว") {
+        if (currentReviewStatus !== "อนุมัติแล้ว") {
+          sheet.getRange(rowNum, 17).setValue("อนุมัติแล้ว"); // Col Q
+          if (!currentReviewedAt) {
+            sheet.getRange(rowNum, 19).setNumberFormat("dd/mm/yyyy hh:mm:ss").setValue(now); // Col S
+          }
+          sheet.getRange(rowNum, 21).setValue("REVIEWED"); // Col U
+          hasChanges = true;
+        }
+        continue;
+      }
 
-      // Skip past dates BEFORE today IF the task was already reviewed (มีปรับแก้ / อนุมัติแล้ว)
+      // 2. Skip past dates BEFORE today IF already approved or inactive
       const dateVal = row[5]; // Col F (วันที่ส่งงาน)
       const taskDateStr = parseTaskDateString(dateVal);
       if (taskDateStr && taskDateStr < todayStr) {
-        if (currentReviewStatus === "มีปรับแก้" || currentReviewStatus === "อนุมัติแล้ว" || !isActiveTask) {
-          continue; // Skip past reviewed / inactive tasks
+        if (currentReviewStatus === "อนุมัติแล้ว" || !isActiveTask) {
+          continue; // Skip past inactive tasks
         }
       }
 
@@ -386,16 +396,6 @@ function syncMasterQueueStatus() {
         if (currentReviewStatus !== "มีปรับแก้") {
           sheet.getRange(rowNum, 17).setValue("มีปรับแก้"); // Col Q
           sheet.getRange(rowNum, 19).setNumberFormat("dd/mm/yyyy hh:mm:ss").setValue(now); // Col S
-          sheet.getRange(rowNum, 21).setValue("REVIEWED"); // Col U
-          hasChanges = true;
-        }
-      } else if (normVal === "done" || normVal === "ok" || normVal === "อนุมัติแล้ว") {
-        // Strict Rule: If Col B is Done / OK, Col Q must be "อนุมัติแล้ว" (Never "รอรีวิว" or "มีปรับแก้")
-        if (currentReviewStatus === "รอรีวิว" || currentReviewStatus === "มีปรับแก้" || currentReviewStatus === "") {
-          sheet.getRange(rowNum, 17).setValue("อนุมัติแล้ว"); // Col Q
-          if (!currentReviewedAt) {
-            sheet.getRange(rowNum, 19).setNumberFormat("dd/mm/yyyy hh:mm:ss").setValue(now); // Col S
-          }
           sheet.getRange(rowNum, 21).setValue("REVIEWED"); // Col U
           hasChanges = true;
         }
