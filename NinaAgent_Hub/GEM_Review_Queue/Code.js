@@ -347,15 +347,17 @@ function syncMasterQueueStatus() {
       }
 
       if (normVal === "sent to p'aof") {
-        // Strict Protection: If already reviewed (มีปรับแก้ or อนุมัติแล้ว), DO NOT re-trigger LINE alert automatically
-        if (currentReviewStatus === "มีปรับแก้" || currentReviewStatus === "อนุมัติแล้ว") {
+        // Skip approved tasks
+        if (currentReviewStatus === "อนุมัติแล้ว") {
           continue;
         }
 
         if (currentReviewStatus !== "รอรีวิว") {
           let newRound = currentRound;
-          if (currentReviewStatus !== "") {
+          if (currentReviewStatus === "มีปรับแก้") {
             newRound = currentRound + 1;
+          } else if (currentReviewStatus === "") {
+            newRound = 1;
           }
           
           sheet.getRange(rowNum, 17).setValue("รอรีวิว"); // Col Q
