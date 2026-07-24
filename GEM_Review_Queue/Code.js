@@ -1113,7 +1113,7 @@ function setupTrigger() {
       .everyDays(1)
       .create();
       
-    return ContentService.createTextOutput(`ตั้งค่า Trigger ระบบ Instant เรียบร้อยแล้ว! 🚀\n(1) ยกเลิกตัววน 1 นาทีออกแล้ว\n(2) ผูกระบบตอบสนองทันที (onChange & onEdit) บน Master Sheet\n(3) แจ้งเตือนสรุปงาน 09:30 และ 17:00`);
+    return ContentService.createTextOutput(`ตั้งค่า Trigger สำหรับ Master Sheet ใหม่ครบทั้งเซ็ตเรียบร้อยแล้ว! 🚀\n(1) ล้าง Trigger เก่าทั้งหมดออกเรียบร้อย\n(2) ระบบสแกนพื้นหลัง IMPORTRANGE & เด้ง LINE (ทุกๆ 1 นาที)\n(3) ระบบตอบสนองทันทีบนตาราง Master (onChange & onEdit)\n(4) สรุปงานประจำวัน 09:30 น. และ 17:00 น.`);
   } catch (err) {
     return ContentService.createTextOutput('Error: ' + err.message);
   }
