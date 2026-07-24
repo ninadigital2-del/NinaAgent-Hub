@@ -1081,13 +1081,19 @@ function setupTrigger() {
     
     const masterSheet = SpreadsheetApp.openById(CONFIG.MASTER_SHEET_ID);
 
-    // (1) Instant OnChange Trigger for direct master sheet updates
+    // (1) 1-Minute Time-driven Trigger for IMPORTRANGE status sync & LINE push
+    ScriptApp.newTrigger('syncMasterQueueStatus')
+      .timeBased()
+      .everyMinutes(1)
+      .create();
+
+    // (2) Instant OnChange Trigger for direct master sheet updates
     ScriptApp.newTrigger('onTaskStatusChange')
       .forSpreadsheet(masterSheet)
       .onChange()
       .create();
 
-    // (2) Instant OnEdit Trigger for manual user edits
+    // (3) Instant OnEdit Trigger for manual user edits
     ScriptApp.newTrigger('onTaskStatusChange')
       .forSpreadsheet(masterSheet)
       .onEdit()
