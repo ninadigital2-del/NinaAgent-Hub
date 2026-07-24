@@ -1067,7 +1067,7 @@ function getDebugData() {
 }
 
 // ============================================================
-// 9. Triggers Setup
+// 9. Triggers Setup (Instant Master Sheet & Web App Direct Triggers)
 // ============================================================
 function setupTrigger() {
   try {
@@ -1077,26 +1077,20 @@ function setupTrigger() {
     }
     
     const masterSheet = SpreadsheetApp.openById(CONFIG.MASTER_SHEET_ID);
-    
-    // (1) 1-Minute Time-driven Trigger for IMPORTRANGE status sync & Line alerts
-    ScriptApp.newTrigger('syncMasterQueueStatus')
-      .timeBased()
-      .everyMinutes(1)
-      .create();
 
-    // (2) OnChange Trigger for spreadsheet updates
-    ScriptApp.newTrigger('syncMasterQueueStatus')
+    // (1) Instant OnChange Trigger for direct master sheet updates
+    ScriptApp.newTrigger('onTaskStatusChange')
       .forSpreadsheet(masterSheet)
       .onChange()
       .create();
 
-    // (3) OnEdit Trigger for manual user edits
+    // (2) Instant OnEdit Trigger for manual user edits
     ScriptApp.newTrigger('onTaskStatusChange')
       .forSpreadsheet(masterSheet)
       .onEdit()
       .create();
     
-    // (4) Daily summary triggers at 09:30 and 17:00
+    // (3) Daily summary triggers at 09:30 and 17:00
     ScriptApp.newTrigger('pushDailySummary')
       .timeBased()
       .atHour(9)
@@ -1110,7 +1104,7 @@ function setupTrigger() {
       .everyDays(1)
       .create();
       
-    return ContentService.createTextOutput(`ตั้งค่า Trigger สำหรับ Master Sheet สำเร็จแล้ว! 🚀\n(1) ตั้งค่าระบบ Sync อัตโนมัติทุก 1 นาที (ไม่ข้ามงานที่เป็น Sent to P'Aof / มีปรับแก้)\n(2) ผูก Master Sheet (onChange & onEdit)\n(3) แจ้งเตือนสรุปงาน 09:30 และ 17:00`);
+    return ContentService.createTextOutput(`ตั้งค่า Trigger ระบบ Instant เรียบร้อยแล้ว! 🚀\n(1) ยกเลิกตัววน 1 นาทีออกแล้ว\n(2) ผูกระบบตอบสนองทันที (onChange & onEdit) บน Master Sheet\n(3) แจ้งเตือนสรุปงาน 09:30 และ 17:00`);
   } catch (err) {
     return ContentService.createTextOutput('Error: ' + err.message);
   }
