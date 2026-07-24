@@ -948,14 +948,17 @@ function updateSheetStatusFromPostback(replyToken, row, sheetId, newStatus) {
     }
 
     const now = new Date();
+    const nowStr = Utilities.formatDate(now, "Asia/Bangkok", "dd/MM/yyyy HH:mm:ss");
     const isApproved = (newStatus === "Done" || newStatus === "อนุมัติแล้ว");
 
     if (newStatus === "มีปรับแก้") {
       masterSheet.getRange(r, 17).setValue("มีปรับแก้");      // Col Q (Review Status)
-      masterSheet.getRange(r, 19).setNumberFormat("dd/mm/yyyy hh:mm:ss").setValue(now); // Col S (Reviewed At)
+      masterSheet.getRange(r, 19).setValue(nowStr);           // Col S (Reviewed At)
+      masterSheet.getRange(r, 21).setValue("REVIEWED");      // Col U (LINE Alert Sent Status)
     } else if (isApproved) {
       masterSheet.getRange(r, 17).setValue("อนุมัติแล้ว");    // Col Q (Review Status)
-      masterSheet.getRange(r, 19).setNumberFormat("dd/mm/yyyy hh:mm:ss").setValue(now); // Col S (Reviewed At)
+      masterSheet.getRange(r, 19).setValue(nowStr);           // Col S (Reviewed At)
+      masterSheet.getRange(r, 21).setValue("REVIEWED");      // Col U (LINE Alert Sent Status)
     }
 
     // Sync status back to Graphic designer's personal sheet (Col A)
