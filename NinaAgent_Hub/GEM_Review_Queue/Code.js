@@ -20,7 +20,7 @@ const CONFIG = {
   MASTER_SHEET_ID: '144OB0gy5dJ8MOnc5Te0k1KpltrDoG4ocnxcS3t4MR4g',
   
   // ตั้งค่า LINE
-  LINE_CHANNEL_ACCESS_TOKEN: 'REDACTED-LEAKED-LINE-TOKEN',
+  LINE_CHANNEL_ACCESS_TOKEN: PropertiesService.getScriptProperties().getProperty('LINE_CHANNEL_ACCESS_TOKEN'),
   LINE_GROUP_ID: 'C73656d16402ca46690a9ef39b9382bfd',
   
   // ตำแหน่งคอลัมน์ใน GEM_Graphic_Master (📥 RAW DATA sheet)

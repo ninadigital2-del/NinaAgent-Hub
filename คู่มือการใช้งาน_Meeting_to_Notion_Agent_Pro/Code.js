@@ -1,11 +1,13 @@
 // ==========================================
 // ⚙️ ตั้งค่าคงที่ (Hardcoded)
 // ==========================================
-const GEMINI_API_KEY = "REDACTED-LEAKED-GEMINI-KEY"; 
-const NOTION_API_KEY = "REDACTED-LEAKED-NOTION-KEY"; 
+const GEMINI_API_KEY = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+const NOTION_API_KEY = PropertiesService.getScriptProperties().getProperty('NOTION_API_KEY');
 
 const NOTION_PROJECTS_DB = "2e69dccd181d81fabee1e65a00e86e72";
 const NOTION_TASKS_DB    = "2e69dccd181d81df8919fbacf921c7d5";
+// Data source ID ของ database Projects (ใช้คู่กับ parent.type=data_source_id ตอนสร้างหน้าจาก template)
+const NOTION_PROJECTS_DATA_SOURCE = "2e69dccd-181d-81d0-83af-000b1fd9260b";
 
 function doGet(e) {
   return HtmlService.createHtmlOutputFromFile('Index')
@@ -136,10 +138,11 @@ function syncTasksToNotion(projectsData) {
   projectsData.forEach(proj => {
     let projPageId = proj.project_id; 
 
-    // 1️⃣ ถ้าไม่มี ID ให้สร้างหน้าโปรเจกต์ใหม่
+    // 1️⃣ ถ้าไม่มี ID ให้สร้างหน้าโปรเจกต์ใหม่ (ใช้ default page template ของ database แทนหน้าเปล่า)
     if (!projPageId) {
       const projPayload = {
-        parent: { database_id: NOTION_PROJECTS_DB },
+        parent: { type: "data_source_id", data_source_id: NOTION_PROJECTS_DATA_SOURCE },
+        template: { type: "default" },
         properties: {
           "Project Name": { title: [{ text: { content: proj.project_name || "Untitled Project" } }] },
           "Owner": { multi_select: [{ name: proj.owner || "PM - อ้อ" }] } 
@@ -149,7 +152,9 @@ function syncTasksToNotion(projectsData) {
       if (proj.deadline) projPayload.properties["Deadline"] = { date: { start: proj.deadline } };
       if (proj.lead_status && proj.lead_status !== "-") projPayload.properties["Lead Status"] = { status: { name: proj.lead_status } };
 
-      const resProj = UrlFetchApp.fetch(url, { method: "post", headers: headers, payload: JSON.stringify(projPayload), muteHttpExceptions: true });
+      // parent.type=data_source_id และ template ต้องใช้ Notion-Version ใหม่กว่า (ขั้นต่ำ 2025-09-03) เฉพาะ call นี้
+      const templateHeaders = Object.assign({}, headers, { "Notion-Version": "2025-09-03" });
+      const resProj = UrlFetchApp.fetch(url, { method: "post", headers: templateHeaders, payload: JSON.stringify(projPayload), muteHttpExceptions: true });
       const resProjData = JSON.parse(resProj.getContentText());
       
       if (resProjData.object === 'error') {

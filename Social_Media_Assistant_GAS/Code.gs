@@ -21,7 +21,7 @@ const SHEET_ID = '1F2zrQJfChJOqND_TNN5M_X8HmrwB7raUeuoJxeSQpTs'; // ใช้ Sh
 // ============================================
 // Notion API Configuration
 // ============================================
-const NOTION_API_KEY = "REDACTED-LEAKED-NOTION-KEY"; 
+const NOTION_API_KEY = PropertiesService.getScriptProperties().getProperty('NOTION_API_KEY');
 const NOTION_PROJECTS_DB = "2e69dccd181d81fabee1e65a00e86e72";
 
 // ============================================
@@ -295,8 +295,9 @@ function deleteFileFromDriveByUrl(fileUrl) {
 // ============================================
 function callGeminiUniversal(prompt, systemInstruction, fileUrls, schema, apiKey) {
   try {
+    apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
     if (!apiKey || apiKey.trim() === "") {
-      return { success: false, error: 'กรุณาใส่ GEMINI_API_KEY ในไฟล์ constants.html' };
+      return { success: false, error: 'ยังไม่ได้ตั้งค่า GEMINI_API_KEY ใน Script Properties (Project Settings)' };
     }
     
     var parts = [{ text: prompt }];
@@ -374,8 +375,9 @@ function callGeminiUniversal(prompt, systemInstruction, fileUrls, schema, apiKey
 // ============================================
 function generateSocialContent(promptData, apiKey) {
   try {
+    apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
     if (!apiKey || apiKey.trim() === "") {
-      return { success: false, error: 'กรุณาใส่ GEMINI_API_KEY ในไฟล์ constants.html' };
+      return { success: false, error: 'ยังไม่ได้ตั้งค่า GEMINI_API_KEY ใน Script Properties (Project Settings)' };
     }
 
     var contentTypesText = {
@@ -457,8 +459,9 @@ function generateSocialContent(promptData, apiKey) {
 // ============================================
 function refineContent(promptData, apiKey) {
   try {
+    apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
     if (!apiKey || apiKey.trim() === "") {
-      return { success: false, error: 'กรุณาใส่ GEMINI_API_KEY ในไฟล์ constants.html' };
+      return { success: false, error: 'ยังไม่ได้ตั้งค่า GEMINI_API_KEY ใน Script Properties (Project Settings)' };
     }
 
     var systemPrompt = 'คุณคือ AI Copywriter ขั้นเทพ หน้าที่ของคุณคือปรับแต่งแคปชั่นและคอนเทนต์ตามคำสั่งของผู้ใช้ โดยอิงจากโครงสร้างข้อมูลเดิมที่มีและแก้ไขให้ตรงโจทย์ที่ได้รับอย่างเป็นธรรมชาติที่สุด\nตอบกลับด้วย JSON โครงสร้างแบบเดิม:\n{\n  "id": "' + promptData.id + '",\n  "headline": "ปรับปรุงหัวข้อใหม่",\n  "caption": "ปรับปรุงแคปชั่นใหม่",\n  "hashtags": ["แฮชแท็กใหม่"],\n  "visual_suggestion": "ปรับปรุงคำแนะนำภาพหรือวิดีโอสับสไลด์/แบ่งซีนใหม่แบบละเอียด"\n}';
@@ -520,8 +523,9 @@ function refineContent(promptData, apiKey) {
 // ============================================
 function extractBrandFromFiles(promptData, apiKey) {
   try {
+    apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
     if (!apiKey || apiKey.trim() === "") {
-      return { success: false, error: 'กรุณาใส่ GEMINI_API_KEY ในไฟล์ constants.html' };
+      return { success: false, error: 'ยังไม่ได้ตั้งค่า GEMINI_API_KEY ใน Script Properties (Project Settings)' };
     }
 
     var systemPrompt = "คุณคือ AI ผู้ชำนาญการวิเคราะห์ข้อมูลแบรนด์และวางแผนกลยุทธ์เอกสาร Brand Book หน้าที่ของคุณคือการจับใจความสำคัญแล้วถอดบทสรุปโดยสรุปจุดขายที่โดดเด่น สไตล์แบรนด์ สินค้าหลัก และกลุ่มลูกค้าเป้าหมาย ให้อยู่ในข้อความย่อหน้ารวมสั้นๆ เพื่อนำไปป้อนให้ AI นำไปแต่งคำโฆษณาต่อ";
@@ -544,8 +548,9 @@ function extractBrandFromFiles(promptData, apiKey) {
 
 function extractProductFromFiles(promptData, apiKey) {
   try {
+    apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
     if (!apiKey || apiKey.trim() === "") {
-      return { success: false, error: 'กรุณาใส่ GEMINI_API_KEY ในไฟล์ constants.html' };
+      return { success: false, error: 'ยังไม่ได้ตั้งค่า GEMINI_API_KEY ใน Script Properties (Project Settings)' };
     }
 
     var systemPrompt = "คุณคือ AI ผู้ชำนาญการวิเคราะห์สเปกสินค้า โปรโมชั่น และข้อมูลบริการ หน้าที่ของคุณคือสกัดจุดเด่น สรรพคุณ ราคา เงื่อนไข หรือข้อมูลสำคัญของสินค้า/บริการนั้นๆ ออกมาเป็นข้อความสรุปสั้นๆ ที่เข้าใจง่าย เพื่อนำไปใช้เป็นข้อมูลประกอบการเขียนโฆษณา";

@@ -215,7 +215,7 @@ function doPost(e) {
 
 function getNotionWorkTypes() {
   const props = PropertiesService.getScriptProperties();
-  const key   = props.getProperty('NOTION_API_KEY') || 'REDACTED-LEAKED-NOTION-KEY';
+  const key   = props.getProperty('NOTION_API_KEY');
   const dbId  = '2e69dccd181d81df8919fbacf921c7d5';
 
   const res = notionFetch(`databases/${dbId}`, 'GET', null, key);
@@ -229,7 +229,7 @@ function getNotionWorkTypes() {
 
 function getNotionTasks() {
   const props = PropertiesService.getScriptProperties();
-  const key   = props.getProperty('NOTION_API_KEY') || 'REDACTED-LEAKED-NOTION-KEY';
+  const key   = props.getProperty('NOTION_API_KEY');
   const dbId  = '2e69dccd181d81df8919fbacf921c7d5';
 
   const payload = {
@@ -269,7 +269,7 @@ function getNotionTasks() {
 
 function getNotionBrands() {
   const props = PropertiesService.getScriptProperties();
-  const key   = props.getProperty('NOTION_API_KEY') || 'REDACTED-LEAKED-NOTION-KEY';
+  const key   = props.getProperty('NOTION_API_KEY');
   // ID ของ Database Brands
   const dbId  = '2eb9dccd181d808fb888cdf883503df6';
 
@@ -550,7 +550,7 @@ function handleEditTask(body) {
 }
 
 function updateNotionTaskDetails(pageId, details) {
-  const key = PropertiesService.getScriptProperties().getProperty('NOTION_API_KEY') || 'REDACTED-LEAKED-NOTION-KEY';
+  const key = PropertiesService.getScriptProperties().getProperty('NOTION_API_KEY');
   const cleanId = pageId.replace(/-/g, '');
   
   const workTypes = String(details.workType || '').split(',').map(s => s.trim()).filter(Boolean);
@@ -621,7 +621,7 @@ function handleUnassignTask(body) {
     // 2. ค้นหาใน Notion และลบ Assignee (ตีกลับเข้าระบบ)
     const pageId = findNotionPageId(taskName, jobNumber);
     if (pageId) {
-      const key = PropertiesService.getScriptProperties().getProperty('NOTION_API_KEY') || 'REDACTED-LEAKED-NOTION-KEY';
+      const key = PropertiesService.getScriptProperties().getProperty('NOTION_API_KEY');
       const cleanId = pageId.replace(/-/g, '');
       const res = notionFetch(`pages/${cleanId}`, 'PATCH', {
         properties: {
@@ -673,7 +673,7 @@ function handleDeleteTaskPermanently(body) {
     // 2. ค้นหาใน Notion และ Archive (ลบถาวร)
     const pageId = findNotionPageId(taskName, jobNumber);
     if (pageId) {
-      const key = PropertiesService.getScriptProperties().getProperty('NOTION_API_KEY') || 'REDACTED-LEAKED-NOTION-KEY';
+      const key = PropertiesService.getScriptProperties().getProperty('NOTION_API_KEY');
       const cleanId = pageId.replace(/-/g, '');
       const res = notionFetch(`pages/${cleanId}`, 'PATCH', { archived: true }, key);
       if (!res || res.object === 'error') {
@@ -700,7 +700,7 @@ function handleEditNotionTask(body) {
 function handleDeleteNotionTask(body) {
   const { pageId } = body;
   try {
-    const key = PropertiesService.getScriptProperties().getProperty('NOTION_API_KEY') || 'REDACTED-LEAKED-NOTION-KEY';
+    const key = PropertiesService.getScriptProperties().getProperty('NOTION_API_KEY');
     const cleanId = pageId.replace(/-/g, '');
     const res = notionFetch(`pages/${cleanId}`, 'PATCH', { archived: true }, key);
     if (!res || res.object === 'error') {
@@ -812,7 +812,7 @@ function handleRelocate(body) {
 
 function findNotionPageId(taskName, jobNumber) {
   const props = PropertiesService.getScriptProperties();
-  const key   = props.getProperty('NOTION_API_KEY') || 'REDACTED-LEAKED-NOTION-KEY';
+  const key   = props.getProperty('NOTION_API_KEY');
   const dbId  = '2e69dccd181d81df8919fbacf921c7d5';
 
   const payload = {
@@ -873,7 +873,7 @@ function handleAssign(body) {
 }
 
 function updateNotionAssignee(pageId, assigneeName) {
-  const key = PropertiesService.getScriptProperties().getProperty('NOTION_API_KEY') || 'REDACTED-LEAKED-NOTION-KEY';
+  const key = PropertiesService.getScriptProperties().getProperty('NOTION_API_KEY');
   const cleanId = pageId.replace(/-/g, '');
 
   const res = notionFetch(`pages/${cleanId}`, 'PATCH', {

@@ -1,8 +1,8 @@
 // ==========================================
 // ⚙️ ตั้งค่าคงที่ (Hardcoded)
 // ==========================================
-const GEMINI_API_KEY = "REDACTED-LEAKED-GEMINI-KEY"; 
-const NOTION_API_KEY = "REDACTED-LEAKED-NOTION-KEY"; 
+const GEMINI_API_KEY = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+const NOTION_API_KEY = PropertiesService.getScriptProperties().getProperty('NOTION_API_KEY');
 
 const NOTION_PROJECTS_DB = "2e69dccd181d81fabee1e65a00e86e72";
 const NOTION_TASKS_DB    = "2e69dccd181d81df8919fbacf921c7d5";

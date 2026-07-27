@@ -266,8 +266,9 @@ function deleteFileFromDriveByUrl(fileUrl) {
 // ==========================================
 function callGeminiUniversal(prompt, systemInstruction, fileUrls, schema, apiKey) {
   try {
+    apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
     if (!apiKey || apiKey.trim() === "") {
-      return { success: false, error: 'กรุณาใส่ GEMINI_API_KEY ในไฟล์ constants.html' };
+      return { success: false, error: 'ยังไม่ได้ตั้งค่า GEMINI_API_KEY ใน Script Properties (Project Settings)' };
     }
     
     var parts = [{ text: prompt }];
