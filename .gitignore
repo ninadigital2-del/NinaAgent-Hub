@@ -4,3 +4,13 @@
 credentials*.json
 token*.json
 node_modules/
+
+# Agent instruction files — local only.
+# Repo is PUBLIC and .github/workflows/deploy.yml publishes path '.' to GitHub Pages
+# (with .nojekyll, so even dotfiles are served). These contain deployment IDs and
+# open security issues; committing them publishes an attacker roadmap.
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+.agents/
+.claude/
