@@ -208,6 +208,9 @@ function doPost(e) {
   if (body.action === 'addSetting') {
     return jsonResponse(addDropdownSetting(body.type, body.newValue));
   }
+  if (body.action === 'createTask') {
+    return jsonResponse(handleCreateTask(body));
+  }
   return jsonResponse({ ok: false, error: 'Unknown action' });
 }
 
@@ -872,6 +875,93 @@ function handleAssign(body) {
   };
 }
 
+// ============================================================
+// สร้าง Task ใหม่จากหน้า Capacity Board (feature: Create Task)
+// ============================================================
+function getNotionProjects() {
+  const key = PropertiesService.getScriptProperties().getProperty('NOTION_API_KEY');
+  const dbId = '2e69dccd181d81fabee1e65a00e86e72'; // Projects DB
+  const res = notionFetch(`databases/${dbId}/query`, 'POST', { page_size: 100 }, key);
+  if (!res || !res.results) return [];
+  return res.results.map(p => {
+    const t = p.properties['Project Name'];
+    const name = (t && t.title && t.title[0] && t.title[0].plain_text) ? t.title[0].plain_text : 'Untitled';
+    return { id: p.id, name: name };
+  }).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function createNotionProject(name, brandName, key) {
+  const payload = {
+    parent: { type: 'data_source_id', data_source_id: '2e69dccd-181d-81d0-83af-000b1fd9260b' },
+    template: { type: 'default' },
+    properties: {
+      'Project Name': { title: [{ text: { content: name } }] },
+      'Owner': { multi_select: [{ name: 'PM - อ้อ' }] }
+    }
+  };
+  if (brandName) {
+    const brands = getNotionBrands();
+    if (brands.ok) {
+      const match = brands.brands.find(b => b.name === brandName);
+      if (match) payload.properties['Brand'] = { relation: [{ id: match.id }] };
+    }
+  }
+  // parent.type=data_source_id + template ต้องใช้ Notion-Version 2025-09-03 เฉพาะ call นี้
+  const res = notionFetch('pages', 'POST', payload, key, '2025-09-03');
+  if (!res || res.object === 'error') return { ok: false, error: (res && res.message) || 'Notion API error' };
+  return { ok: true, id: res.id };
+}
+
+function handleCreateTask(body) {
+  const key = PropertiesService.getScriptProperties().getProperty('NOTION_API_KEY');
+  if (!body || !body.taskName) return { ok: false, error: 'ไม่มีชื่อชิ้นงาน' };
+
+  // 1) หา / สร้าง Project
+  let projectId = body.projectId || '';
+  if (!projectId && body.newProjectName) {
+    const created = createNotionProject(body.newProjectName, body.newProjectBrand, key);
+    if (!created.ok) return { ok: false, error: 'สร้าง Project ไม่สำเร็จ: ' + created.error };
+    projectId = created.id;
+  }
+
+  // 2) สร้างหน้า Task ใน Notion
+  const properties = {
+    'Name': { title: [{ text: { content: body.taskName } }] },
+    'Status': { status: { name: 'Not started' } }
+  };
+  if (projectId) properties['Project'] = { relation: [{ id: projectId }] };
+  const workTypes = String(body.workType || '').split(',').map(s => s.trim()).filter(Boolean);
+  if (workTypes.length) properties['Work Type'] = { multi_select: workTypes.map(name => ({ name: name })) };
+  if (body.dueDate) properties['Due Date'] = { date: { start: body.dueDate } };
+  if (body.assignee) properties['Graphic Assignee'] = { select: { name: body.assignee } };
+
+  const res = notionFetch('pages', 'POST', {
+    parent: { database_id: '2e69dccd181d81df8919fbacf921c7d5' },
+    properties: properties
+  }, key);
+
+  if (!res || res.object === 'error') {
+    return { ok: false, error: (res && res.message) || 'Notion API error' };
+  }
+
+  // 3) ถ้าเลือกช่างไว้ → เขียนลงชีตของช่างคนนั้นด้วย (ให้ขึ้นบนบอร์ด)
+  if (body.assignee) {
+    const sheetRes = writeToPersonSheet(body.assignee, {
+      taskName: body.taskName,
+      dueDate: body.dueDate || '',
+      brand: body.newProjectBrand || '',
+      workType: body.workType || '',
+      owner: '',
+      jobNumber: ''
+    });
+    if (!sheetRes.ok) {
+      return { ok: true, taskId: res.id, assigned: false, warning: 'สร้าง Task ใน Notion แล้ว แต่ลงชีตช่างไม่สำเร็จ: ' + sheetRes.error };
+    }
+  }
+
+  return { ok: true, taskId: res.id, assigned: !!body.assignee };
+}
+
 function updateNotionAssignee(pageId, assigneeName) {
   const key = PropertiesService.getScriptProperties().getProperty('NOTION_API_KEY');
   const cleanId = pageId.replace(/-/g, '');
@@ -1002,12 +1092,12 @@ function writeToPersonSheet(assignee, task) {
 
 // ---------- NOTION HELPER ----------
 
-function notionFetch(endpoint, method, payload, key) {
+function notionFetch(endpoint, method, payload, key, version) {
   const options = {
     method,
     headers: {
       'Authorization': `Bearer ${key}`,
-      'Notion-Version': '2022-06-28',
+      'Notion-Version': version || '2022-06-28',
       'Content-Type': 'application/json',
     },
     muteHttpExceptions: true,
@@ -1171,20 +1261,63 @@ header{background:#fff;border-bottom:1px solid #e5e3dd;padding:10px 20px;display
     <div class="ph">
       <div class="ph-row">
         <span class="pt"><i class="ti ti-clipboard-list"></i> งานรอ assign</span>
-        <span class="pc" id="task-count"></span>
+        <span style="display:flex; align-items:center; gap:8px;">
+          <button id="btn-open-create" onclick="openCreateModal()" style="background:#22A06B; color:#fff; border:none; border-radius:6px; padding:5px 12px; font-size:12px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:4px;"><i class="ti ti-plus"></i> สร้าง Task</button>
+          <span class="pc" id="task-count"></span>
+        </span>
       </div>
       <div class="cond">Status = Not started · ยังไม่มี Graphic Assignee</div>
     </div>
     <div class="pb" id="task-panel"><div class="empty">กำลังดึงข้อมูล...</div></div>
     <div class="abar">
       <span style="font-size:12px; font-weight:500; color:#555; margin-right:4px;">วันทำงาน</span>
-      <input type="date" id="sel-assign-date" title="เลือกวันที่ลงงาน (เว้นว่างไว้เพื่อใช้วัน Due Date ปกติ)" style="padding:4px 8px; border:1px solid #ddd; border-radius:4px; font-size:12px;">
+      <input type="date" id="sel-assign-date" title="วันที่ให้ช่างทำงาน (เว้นว่างไว้จะใช้วัน Due Date เดิมของงาน)" style="padding:4px 8px; border:1px solid #ddd; border-radius:4px; font-size:12px;">
       <select id="sel-assignee"><option value="">เลือก graphic...</option></select>
       <button class="abtn" id="btn-assign" disabled>Assign</button>
     </div>
   </div>
 </div>
 <div class="toast" id="toast"></div>
+
+<!-- Create Task Modal -->
+<div class="modal-backdrop" id="create-modal">
+  <div class="modal-box">
+    <div class="modal-title"><i class="ti ti-plus" style="color:#22A06B"></i> สร้าง Task ใหม่</div>
+
+    <div class="modal-form-group">
+      <label for="ct-project">Project</label>
+      <select id="ct-project" onchange="onCtProjectChange()" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;"><option value="">— เลือก Project —</option></select>
+    </div>
+    <div id="ct-newproject-box" style="display:none; padding:10px 12px; margin-bottom:12px; border-left:3px solid #22A06B; background:#f6fdf9;">
+      <label for="ct-new-project-name" style="display:block; font-size:13px; font-weight:500; color:#555; margin-bottom:5px;">ชื่อ Project ใหม่</label>
+      <input type="text" id="ct-new-project-name" placeholder="ชื่อโปรเจกต์" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;">
+      <label for="ct-new-project-brand" style="display:block; font-size:13px; font-weight:500; color:#555; margin:8px 0 5px;">แบรนด์ / ลูกค้า (ถ้ามีในระบบ)</label>
+      <select id="ct-new-project-brand" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;"><option value="">— ไม่ระบุ —</option></select>
+    </div>
+
+    <div class="modal-form-group">
+      <label for="ct-task-name">ชื่อชิ้นงาน</label>
+      <input type="text" id="ct-task-name" placeholder="ชื่องาน">
+    </div>
+    <div class="modal-form-group">
+      <label for="ct-work-type">ประเภทงาน</label>
+      <select id="ct-work-type" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;"><option value="">— เลือกประเภท —</option></select>
+    </div>
+    <div class="modal-form-group">
+      <label for="ct-due-date">Due Date (วันส่งงาน)</label>
+      <input type="date" id="ct-due-date">
+    </div>
+    <div class="modal-form-group">
+      <label for="ct-assignee">Graphic Assignee <span style="color:#888;font-weight:normal;">(ไม่บังคับ — เว้นว่าง = เข้าคิวงานรอ assign)</span></label>
+      <select id="ct-assignee" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;"><option value="">— ยังไม่ระบุ —</option></select>
+    </div>
+
+    <div class="modal-actions">
+      <button class="modal-btn modal-btn-cancel" onclick="closeCreateModal()">ยกเลิก</button>
+      <button class="modal-btn modal-btn-save" id="ct-save-btn" onclick="submitCreateTask()">สร้าง Task</button>
+    </div>
+  </div>
+</div>
 
 <!-- Edit Modal -->
 <div class="modal-backdrop" id="edit-modal">
@@ -1746,6 +1879,108 @@ document.getElementById('btn-assign').addEventListener('click', function() {
       originalDueDate: task.dueDate // Send this if needed later
     });
 });
+
+// ---------- Create Task Modal ----------
+function openCreateModal() {
+  // ประเภทงาน
+  var wt = document.getElementById('ct-work-type');
+  wt.innerHTML = '<option value="">— เลือกประเภท —</option>';
+  ((state.settings && state.settings.workTypes) || []).forEach(function(w) {
+    var o = document.createElement('option'); o.value = w; o.textContent = w; wt.appendChild(o);
+  });
+  // ช่าง
+  var as = document.getElementById('ct-assignee');
+  as.innerHTML = '<option value="">— ยังไม่ระบุ —</option>';
+  (state.people || []).slice().sort(function(a,b){return a.open-b.open;}).forEach(function(p) {
+    var o = document.createElement('option'); o.value = p.name; o.textContent = p.name + ' (' + p.open + ' งานค้าง)'; as.appendChild(o);
+  });
+  // แบรนด์ (สำหรับ Project ใหม่)
+  var br = document.getElementById('ct-new-project-brand');
+  br.innerHTML = '<option value="">— ไม่ระบุ —</option>';
+  ((state.settings && state.settings.brands) || []).forEach(function(b) {
+    var o = document.createElement('option'); o.value = b; o.textContent = b; br.appendChild(o);
+  });
+  // reset
+  document.getElementById('ct-task-name').value = '';
+  document.getElementById('ct-due-date').value = '';
+  document.getElementById('ct-new-project-name').value = '';
+  document.getElementById('ct-newproject-box').style.display = 'none';
+  // Project (lazy load)
+  var pj = document.getElementById('ct-project');
+  if (!state.projects) {
+    pj.innerHTML = '<option value="">กำลังโหลด Project...</option>';
+    google.script.run
+      .withSuccessHandler(function(list) { state.projects = list || []; fillProjectSelect(); })
+      .withFailureHandler(function() { pj.innerHTML = '<option value="">(โหลด Project ไม่ได้)</option>'; })
+      .getNotionProjects();
+  } else {
+    fillProjectSelect();
+  }
+  document.getElementById('create-modal').classList.add('show');
+}
+function fillProjectSelect() {
+  var pj = document.getElementById('ct-project');
+  pj.innerHTML = '<option value="">— เลือก Project —</option>';
+  (state.projects || []).forEach(function(p) {
+    var o = document.createElement('option'); o.value = p.id; o.textContent = p.name; pj.appendChild(o);
+  });
+  var nw = document.createElement('option'); nw.value = '__new__'; nw.textContent = '+ สร้าง Project ใหม่'; pj.appendChild(nw);
+}
+function onCtProjectChange() {
+  document.getElementById('ct-newproject-box').style.display =
+    (document.getElementById('ct-project').value === '__new__') ? 'block' : 'none';
+}
+function closeCreateModal() {
+  document.getElementById('create-modal').classList.remove('show');
+}
+function submitCreateTask() {
+  var name = document.getElementById('ct-task-name').value.trim();
+  if (!name) { showToast('กรุณาใส่ชื่อชิ้นงาน'); return; }
+  var projectSel = document.getElementById('ct-project').value;
+  var payload = {
+    action: 'createTask',
+    taskName: name,
+    workType: document.getElementById('ct-work-type').value,
+    dueDate: document.getElementById('ct-due-date').value,
+    assignee: document.getElementById('ct-assignee').value
+  };
+  if (projectSel === '__new__') {
+    var pn = document.getElementById('ct-new-project-name').value.trim();
+    if (!pn) { showToast('กรุณาใส่ชื่อ Project ใหม่'); return; }
+    payload.newProjectName = pn;
+    payload.newProjectBrand = document.getElementById('ct-new-project-brand').value;
+  } else if (projectSel) {
+    payload.projectId = projectSel;
+  }
+  var btn = document.getElementById('ct-save-btn');
+  btn.disabled = true; btn.textContent = 'กำลังสร้าง...';
+  google.script.run
+    .withSuccessHandler(function(res) {
+      btn.disabled = false; btn.textContent = 'สร้าง Task';
+      if (res && res.ok) {
+        showToast('สร้าง Task "' + name + '" เรียบร้อย' + (payload.assignee ? (' → ' + payload.assignee) : ''));
+        if (res.warning) showToast(res.warning);
+        closeCreateModal();
+        state.projects = null; // โหลด Project ใหม่รอบหน้า (เผื่อเพิ่ง create project)
+        google.script.run
+          .withSuccessHandler(function(allData) {
+            if (allData.ok) {
+              state.people = allData.capacity.people;
+              state.tasks = allData.tasks.tasks;
+              renderPeople(); renderTasks();
+            }
+          })
+          .getAllData();
+      } else {
+        showToast('Error: ' + ((res && res.error) || 'สร้างไม่สำเร็จ'));
+      }
+    })
+    .withFailureHandler(function(err) {
+      btn.disabled = false; btn.textContent = 'สร้าง Task';
+      showToast('Error: ' + err.message);
+    })
+    .handleCreateTask(payload);
+}
 
 function showToast(msg) {
   const t = document.getElementById('toast');

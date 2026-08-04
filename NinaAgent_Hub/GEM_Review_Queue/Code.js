@@ -19,7 +19,7 @@ const CONFIG = {
   // Master Sheet สำหรับเก็บข้อมูลคิวงานทั้งหมด (GEM_Graphic_Master)
   MASTER_SHEET_ID: '144OB0gy5dJ8MOnc5Te0k1KpltrDoG4ocnxcS3t4MR4g',
   
-  // ตั้งค่า LINE
+  // ตั้งค่า LINE (ตั้งค่าจริงใน Script Properties: Project Settings > Script Properties > LINE_CHANNEL_ACCESS_TOKEN)
   LINE_CHANNEL_ACCESS_TOKEN: PropertiesService.getScriptProperties().getProperty('LINE_CHANNEL_ACCESS_TOKEN'),
   LINE_GROUP_ID: 'C73656d16402ca46690a9ef39b9382bfd',
   
@@ -74,7 +74,7 @@ function parseTaskDateString(dateVal) {
 // ============================================================
 function doGet(e) {
   const action = e && e.parameter && e.parameter.action;
-  
+
   if (action === 'getTasks') {
     return ContentService.createTextOutput(getTasksData())
       .setMimeType(ContentService.MimeType.JSON);
@@ -296,9 +296,8 @@ function parseDateValue(val) {
   const str = String(val).trim();
   if (!str) return null;
 
-  const parsed = new Date(str);
-  if (!isNaN(parsed.getTime())) return parsed;
-
+  // MUST check dd/MM/yyyy FIRST — new Date("04/08/2026") misreads as April 8 (US MM/DD)
+  // but our data is Thai dd/MM/yyyy (= August 4). Regex handles this correctly.
   const m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?$/);
   if (m) {
     const day = m[1].padStart(2, '0');
@@ -310,6 +309,11 @@ function parseDateValue(val) {
     const d = new Date(`${year}-${month}-${day}T${hh}:${mm}:${ss}+07:00`);
     if (!isNaN(d.getTime())) return d;
   }
+
+  // Fallback: ISO 8601, yyyy-MM-dd, etc. (formats new Date() handles correctly)
+  const parsed = new Date(str);
+  if (!isNaN(parsed.getTime())) return parsed;
+
   return null;
 }
 

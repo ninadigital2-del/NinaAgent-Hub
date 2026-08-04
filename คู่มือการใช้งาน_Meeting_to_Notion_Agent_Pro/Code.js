@@ -1,8 +1,7 @@
 // ==========================================
 // ⚙️ ตั้งค่าคงที่ (Hardcoded)
-// ==========================================
-const GEMINI_API_KEY = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
-const NOTION_API_KEY = PropertiesService.getScriptProperties().getProperty('NOTION_API_KEY');
+const GEMINI_API_KEY = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY') ? PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY').trim() : '';
+const NOTION_API_KEY = PropertiesService.getScriptProperties().getProperty('NOTION_API_KEY') ? PropertiesService.getScriptProperties().getProperty('NOTION_API_KEY').trim() : '';
 
 const NOTION_PROJECTS_DB = "2e69dccd181d81fabee1e65a00e86e72";
 const NOTION_TASKS_DB    = "2e69dccd181d81df8919fbacf921c7d5";
@@ -66,16 +65,19 @@ function getNotionProjects() {
   const data = JSON.parse(response.getContentText());
   
   if (data.error) throw new Error(data.error.message);
+  if (data.object === 'error') throw new Error(data.message);
 
   let projects = [];
-  data.results.forEach(page => {
-    let titleProp = page.properties["Project Name"]; 
-    let name = "Untitled";
-    if (titleProp && titleProp.title && titleProp.title.length > 0) {
-      name = titleProp.title[0].plain_text;
-    }
-    projects.push({ id: page.id, name: name });
-  });
+  if (data.results && Array.isArray(data.results)) {
+    data.results.forEach(page => {
+      let titleProp = page.properties["Project Name"]; 
+      let name = "Untitled";
+      if (titleProp && titleProp.title && titleProp.title.length > 0) {
+        name = titleProp.title[0].plain_text;
+      }
+      projects.push({ id: page.id, name: name });
+    });
+  }
   return projects;
 }
 // ==============================================================
@@ -355,4 +357,14 @@ function debugDatabase(dbId) {
   Object.keys(data.properties).forEach(name => {
     Logger.log(name + " | " + data.properties[name].type);
   });
+}
+
+function forceTestNotion() {
+  const key = PropertiesService.getScriptProperties().getProperty('NOTION_API_KEY');
+  const res = UrlFetchApp.fetch("https://api.notion.com/v1/users/me", {
+    headers: { "Authorization": "Bearer " + key, "Notion-Version": "2022-06-28" },
+    muteHttpExceptions: true
+  });
+  Logger.log("คีย์ที่เซิร์ฟเวอร์เห็น: " + (key ? key.substring(0,8) + "..." : "ว่างเปล่า!"));
+  Logger.log("Notion ตอบกลับมาว่า: " + res.getContentText());
 }

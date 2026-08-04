@@ -819,7 +819,7 @@ function switchTab(tabName) {
     document.getElementById('btn-preview').classList.remove('bg-indigo-500', 'text-white', 'shadow');
     document.getElementById('btn-preview').classList.add('text-slate-400', 'hover:text-slate-600');
     
-    if (generatedContents.length === 0) {
+    if (!generatedContents || !Array.isArray(generatedContents) || generatedContents.length === 0) {
         document.getElementById('empty-state').classList.remove('hidden');
         return;
     }
@@ -1395,7 +1395,7 @@ function renderEditorView() {
     const container = document.getElementById('editor-view');
     container.innerHTML = '';
 
-    if (generatedContents.length === 0) {
+    if (!generatedContents || !Array.isArray(generatedContents) || generatedContents.length === 0) {
         document.getElementById('empty-state').classList.remove('hidden');
         return;
     }
@@ -1429,11 +1429,15 @@ function renderEditorView() {
 // Render Hashtags
 function renderHashtags(item) {
     var html = '';
-    item.hashtags.forEach(function(tag, idx) {
-        html += '<div class="hashtag-tag"><span>#</span>'
-            + '<input type="text" value="' + escapeHtml(tag.replace(/^#/, '')) + '" onchange="updateHashtag(\'' + item.id + '\', ' + idx + ', this.value)" class="bg-transparent border-none text-xs w-20 outline-none font-semibold">'
-            + '<button onclick="removeHashtag(\'' + item.id + '\', ' + idx + ')" class="hover:text-red-500 transition-colors ml-1 font-bold">\u00d7</button></div>';
-    });
+    if (item && item.hashtags && Array.isArray(item.hashtags)) {
+        item.hashtags.forEach(function(tag, idx) {
+            html += '<div class="hashtag-tag"><span>#</span>'
+                + '<input type="text" value="' + escapeHtml(tag.replace(/^#/, '')) + '" onchange="updateHashtag(\'' + item.id + '\', ' + idx + ', this.value)" class="bg-transparent border-none text-xs w-20 outline-none font-semibold">'
+                + '<button onclick="removeHashtag(\'' + item.id + '\', ' + idx + ')" class="hover:text-red-500 transition-colors ml-1 font-bold">\u00d7</button></div>';
+        });
+    } else if (item) {
+        item.hashtags = [];
+    }
     html += '<button onclick="addHashtag(\'' + item.id + '\')" class="px-2.5 py-1 rounded-lg text-xs font-bold border bg-white hover:bg-slate-100 text-slate-600 border-slate-300 shadow-sm">+ เพิ่มคีย์เวิร์ดแฮชแท็ก</button>';
     return html;
 }
