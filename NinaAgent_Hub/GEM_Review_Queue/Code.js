@@ -93,11 +93,18 @@ function doGet(e) {
       .setMimeType(ContentService.MimeType.JSON);
   }
   
-  if (action === 'fixBackendDates') {
-    const res = fixBackendDates();
-    return ContentService.createTextOutput(res);
+  if (action === 'forceWriteV') {
+    return ContentService.createTextOutput(forceWriteV());
   }
 
+  if (action === 'wipeBackendState') {
+    const ss = SpreadsheetApp.openById(CONFIG.MASTER_SHEET_ID);
+    const st = getStateSheet(ss);
+    if (st.getLastRow() > 1) {
+      st.getRange(2, 1, st.getLastRow() - 1, st.getLastColumn()).clearContent();
+    }
+    return ContentService.createTextOutput('Backend_State wiped!');
+  }
   if (action === 'syncNow') {
     syncMasterQueueStatus();
     return ContentService.createTextOutput("Synced successfully! GEM_Graphic_Master status checked, updated, and LINE alerts sent.");
@@ -409,7 +416,11 @@ function syncMasterQueueStatus() {
 
       const jobId = String(row[CONFIG.MASTER_COL_JOB_NO] || '').trim();
       const workerName = String(row[CONFIG.MASTER_COL_OWNER_A] || row[CONFIG.MASTER_COL_OWNER_N] || 'ไม่ระบุ').trim();
-      const taskKey = `${jobId}::${taskName}::${workerName}`;
+      const dateValKey = row[5];
+      let dateStrKey = '';
+      if (dateValKey instanceof Date) dateStrKey = Utilities.formatDate(dateValKey, 'Asia/Bangkok', 'yyyy-MM-dd');
+      else if (dateValKey) dateStrKey = String(dateValKey).trim();
+      const taskKey = `${dateStrKey}::${jobId}::${taskName}::${workerName}`;
 
       let st = stateMap[taskKey];
       let isNewTask = false;
@@ -677,7 +688,11 @@ function getTasksData() {
       // Show "รอรีวิว", "มีปรับแก้", or "อนุมัติแล้ว" of today
       if (reviewStatus === "รอรีวิว" || reviewStatus === "มีปรับแก้" || (reviewStatus === "อนุมัติแล้ว" && isToday)) {
         const jId = String(row[CONFIG.MASTER_COL_JOB_NO] || '').trim();
-        const tKey = `${jId}::${taskName}::${workerName}`;
+        const dateValKey = row[5];
+        let dateStrKey = '';
+        if (dateValKey instanceof Date) dateStrKey = Utilities.formatDate(dateValKey, 'Asia/Bangkok', 'yyyy-MM-dd');
+        else if (dateValKey) dateStrKey = String(dateValKey).trim();
+        const tKey = `${dateStrKey}::${jId}::${taskName}::${workerName}`;
 
         tasks.push({
           id: `master_${i+1}`,
@@ -1480,4 +1495,27 @@ function fixCorruptDates() {
     CacheService.getScriptCache().remove(CACHE_KEY);
   }
   console.log("Fixed " + changes + " corrupted dates.");
+}
+
+﻿function forceWriteV() {
+  const ss = SpreadsheetApp.openById(CONFIG.MASTER_SHEET_ID);
+  const sheet = ss.getSheetByName(CONFIG.MASTER_SHEET_NAME) || ss.getSheets()[0];
+  const lastRow = sheet.getLastRow();
+  const data = sheet.getRange(1, 1, lastRow, 21).getValues();
+  let count = 0;
+  for (let i = 4; i < data.length; i++) {
+    const row = data[i];
+    const taskName = String(row[12] || '').trim();
+    if (!taskName) continue;
+    const workerName = String(row[0] || row[13] || 'ไม่ระบุ').trim();
+    const jId = String(row[10] || '').trim();
+    const dateValKey = row[5];
+    let dateStrKey = '';
+    if (dateValKey instanceof Date) dateStrKey = Utilities.formatDate(dateValKey, 'Asia/Bangkok', 'yyyy-MM-dd');
+    else if (dateValKey) dateStrKey = String(dateValKey).trim();
+    const taskKey = `${dateStrKey}::${jId}::${taskName}::${workerName}`;
+    sheet.getRange(i+1, 22).setValue(taskKey);
+    count++;
+  }
+  return "Forced " + count + " rows";
 }
