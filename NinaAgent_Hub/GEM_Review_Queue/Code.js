@@ -361,9 +361,15 @@ function syncMasterQueueStatus() {
     const lastRow = sheet.getLastRow();
     if (lastRow < 5) return;
     
-    const data = sheet.getRange(1, 1, lastRow, 21).getValues();
+    const data = sheet.getRange(1, 1, lastRow, 22).getValues();
     const ss = SpreadsheetApp.openById(CONFIG.MASTER_SHEET_ID);
     const stateSheet = getStateSheet(ss);
+
+    // Get today and yesterday for filtering TaskKey display in Col V
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
     const stateData = stateSheet.getDataRange().getValues();
     
     // Map existing state
@@ -508,26 +514,36 @@ function syncMasterQueueStatus() {
         stateSheetChanges = true;
       }
 
-      // Repaint Col Q-U in Master Sheet
+      // Repaint Col Q-V in Master Sheet
       const currentQ = String(row[16] || '');
       const currentR = String(row[17] || '');
       const currentS = String(row[18] || '');
       const currentT = String(row[19] || '');
       const currentU = String(row[20] || '');
+      const currentV = String(row[21] || '');
 
       const newQ = st.reviewStatus;
       const newR = (st.sentAt && st.sentAt instanceof Date) ? Utilities.formatDate(st.sentAt, "Asia/Bangkok", "dd/MM/yyyy HH:mm:ss") : st.sentAt;
       const newS = (st.reviewedAt && st.reviewedAt instanceof Date) ? Utilities.formatDate(st.reviewedAt, "Asia/Bangkok", "dd/MM/yyyy HH:mm:ss") : st.reviewedAt;
       const newT = String(st.round);
       const newU = st.alertSent;
+      
+      let shouldShowId = false;
+      const taskDateVal = row[5];
+      if (taskDateVal && taskDateVal instanceof Date && taskDateVal >= yesterday) shouldShowId = true;
+      else if (st.sentAt && st.sentAt instanceof Date && st.sentAt >= yesterday) shouldShowId = true;
+      else if (!taskDateVal && !st.sentAt) shouldShowId = true;
 
-      if (currentQ !== newQ || currentR !== newR || currentS !== newS || currentT !== newT || currentU !== newU) {
-        sheet.getRange(rowNum, 17, 1, 5).setValues([[
+      const newV = shouldShowId ? taskKey : "";
+
+      if (currentQ !== newQ || currentR !== newR || currentS !== newS || currentT !== newT || currentU !== newU || currentV !== newV) {
+        sheet.getRange(rowNum, 17, 1, 6).setValues([[
           newQ, 
           st.sentAt || "", 
           st.reviewedAt || "", 
           newT, 
-          newU
+          newU,
+          newV
         ]]);
         hasChanges = true;
       }
@@ -597,7 +613,7 @@ function getTasksData() {
     const lastRow = sheet.getLastRow();
     if (lastRow < 5) return JSON.stringify({ success: true, tasks: [] });
     
-    const data = sheet.getRange(1, 1, lastRow, 21).getValues();
+    const data = sheet.getRange(1, 1, lastRow, 22).getValues();
     const tasks = [];
     const todayStr = Utilities.formatDate(new Date(), "Asia/Bangkok", "yyyy-MM-dd");
 
