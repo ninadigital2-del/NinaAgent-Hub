@@ -93,6 +93,11 @@ function doGet(e) {
       .setMimeType(ContentService.MimeType.JSON);
   }
   
+  if (action === 'fixBackendDates') {
+    const res = fixBackendDates();
+    return ContentService.createTextOutput(res);
+  }
+
   if (action === 'syncNow') {
     syncMasterQueueStatus();
     return ContentService.createTextOutput("Synced successfully! GEM_Graphic_Master status checked, updated, and LINE alerts sent.");
@@ -417,7 +422,15 @@ function syncMasterQueueStatus() {
       if (normVal === "done" || normVal === "ok" || normVal === "อนุมัติแล้ว") {
         if (st.reviewStatus !== "อนุมัติแล้ว") {
           st.reviewStatus = "อนุมัติแล้ว";
-          if (!st.reviewedAt) st.reviewedAt = now;
+          if (!st.reviewedAt) {
+            // Fix: Don't use "now" for old tasks, use sentAt or fallback to past date
+            const dateVal = row[5];
+            if (dateVal && dateVal instanceof Date) {
+              st.reviewedAt = dateVal;
+            } else {
+              st.reviewedAt = now;
+            }
+          }
           st.alertSent = "REVIEWED";
           updatedSt = true;
         }
@@ -647,9 +660,13 @@ function getTasksData() {
 
       // Show "รอรีวิว", "มีปรับแก้", or "อนุมัติแล้ว" of today
       if (reviewStatus === "รอรีวิว" || reviewStatus === "มีปรับแก้" || (reviewStatus === "อนุมัติแล้ว" && isToday)) {
+        const jId = String(row[CONFIG.MASTER_COL_JOB_NO] || '').trim();
+        const tKey = `${jId}::${taskName}::${workerName}`;
+
         tasks.push({
           id: `master_${i+1}`,
           uniqueId: `master_${i+1}`,
+          taskKey: tKey,
           name: taskName,
           owner: workerName,
           status: reviewStatus,
@@ -1147,6 +1164,55 @@ function replyReviewResultFlex(replyToken, taskName, workerName, brand, isApprov
 
   } catch (err) {
     replyText(replyToken, `❌ เกิดข้อผิดพลาดในการอัปเดต: ${err.message}`);
+  }
+}
+
+function fixBackendDates() {
+  try {
+    const ss = SpreadsheetApp.openById(CONFIG.MASTER_SHEET_ID);
+    const stateSheet = getStateSheet(ss);
+    const stateData = stateSheet.getDataRange().getValues();
+    const masterSheet = getMasterRawDataSheet();
+    const masterData = masterSheet.getDataRange().getValues();
+    
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    
+    let fixedCount = 0;
+    
+    for (let i = 1; i < stateData.length; i++) {
+      const status = stateData[i][1];
+      if (status === "อนุมัติแล้ว" || status === "Done") {
+        const reviewedAt = stateData[i][3];
+        if (reviewedAt && reviewedAt instanceof Date && reviewedAt >= today) {
+          const tKey = stateData[i][0];
+          let realSentAt = null;
+          for (let r = 4; r < masterData.length; r++) {
+             const jId = String(masterData[r][10] || '').trim();
+             const tName = String(masterData[r][12] || '').trim();
+             const wName = String(masterData[r][0] || masterData[r][13] || '').trim();
+             if (`${jId}::${tName}::${wName}` === tKey) {
+                realSentAt = masterData[r][5];
+                break;
+             }
+          }
+          if (realSentAt && realSentAt instanceof Date && realSentAt < yesterday) {
+             stateSheet.getRange(i + 1, 4).setValue(realSentAt);
+             fixedCount++;
+          } else if (!realSentAt) {
+             const pastDate = new Date(); pastDate.setDate(pastDate.getDate() - 10);
+             stateSheet.getRange(i + 1, 4).setValue(pastDate);
+             fixedCount++;
+          }
+        }
+      }
+    }
+    CacheService.getScriptCache().remove(CACHE_KEY);
+    return "Fixed " + fixedCount + " rows";
+  } catch(e) {
+    return e.message;
   }
 }
 
