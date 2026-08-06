@@ -56,6 +56,8 @@ function showDashboard(element, skipHash = false) {
     if (!skipHash) {
         if (window.location.hash !== '#dashboard') history.pushState(null, null, '#dashboard');
     }
+    document.body.classList.remove('tool-only-mode');
+
     // Update active state in sidebar
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
     if (element) element.classList.add('active');
@@ -75,10 +77,14 @@ function showDashboard(element, skipHash = false) {
 
 function loadToolInFrame(element, toolName, url, skipHash = false) {
     if (window.event && window.event.preventDefault) window.event.preventDefault();
+    let targetHash = window.location.hash;
     if (!skipHash) {
         const hashId = '#' + toolName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
         if (window.location.hash !== hashId) history.pushState(null, null, hashId);
+        targetHash = hashId;
     }
+    document.body.classList.toggle('tool-only-mode', targetHash === '#gem-');
+
     // Update active state in sidebar
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
     if (element) element.classList.add('active');

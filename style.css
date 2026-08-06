@@ -236,6 +236,37 @@ body {
     padding: 3rem 4rem;
 }
 
+body.tool-only-mode {
+    background: #fff;
+    overflow: hidden;
+}
+
+body.tool-only-mode .bg-orb,
+body.tool-only-mode .mobile-header,
+body.tool-only-mode .sidebar,
+body.tool-only-mode .sidebar-overlay {
+    display: none !important;
+}
+
+body.tool-only-mode .layout-wrapper,
+body.tool-only-mode .main-content,
+body.tool-only-mode .content-scroll,
+body.tool-only-mode #iframe-view,
+body.tool-only-mode #tool-frame {
+    width: 100vw !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+}
+
+body.tool-only-mode #tool-frame {
+    display: block;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+}
+
 .section-header {
     margin-bottom: 2.5rem;
 }
