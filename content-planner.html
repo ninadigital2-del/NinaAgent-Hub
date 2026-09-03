@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Content Planner</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #f1f1f1; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+.cp-tab { color: #64748b; border-bottom: 2px solid transparent; }
+.cp-tab.active { color: #4f46e5; border-bottom-color: #4f46e5; font-weight: 600; }
+
+.status-pill { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
+.status-Draft { background: #f1f5f9; color: #475569; }
+.status-Review { background: #fef9c3; color: #854d0e; }
+.status-Revision { background: #fee2e2; color: #b91c1c; }
+.status-Approved { background: #dbeafe; color: #1d4ed8; }
+.status-Ready { background: #e0e7ff; color: #4338ca; }
+.status-Posted { background: #dcfce7; color: #15803d; }
+.status-Cancelled { background: #f3f4f6; color: #9ca3af; }
+
+.flag-overdue { color: #dc2626; }
+.flag-soon { color: #d97706; }
+.flag-incomplete { color: #b91c1c; }
+
+.platform-chip { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 6px; }
+.plat-Facebook { background: #dbeafe; color: #1d4ed8; }
+.plat-Instagram { background: #fce7f3; color: #be185d; }
+.plat-TikTok { background: #f3f4f6; color: #111827; }
+.plat-LINE { background: #dcfce7; color: #15803d; }
+
+.modal-mask { background: rgba(15, 23, 42, 0.5); }
+.form-input { border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px; width: 100%; font-family: inherit; font-size: 14px; }
+.form-input:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
+.form-label { font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px; display: block; }
+
+.caption-tab { padding: 6px 14px; border-radius: 8px 8px 0 0; font-size: 13px; font-weight: 500; color: #64748b; cursor: pointer; border: 1px solid transparent; }
+.caption-tab.active { background: #fff; color: #4f46e5; border: 1px solid #e2e8f0; border-bottom-color: #fff; }
+
+.check-ok { color: #16a34a; }
+.check-missing { color: #cbd5e1; }
+
+.day-cell { min-height: 90px; border: 1px solid #e5e7eb; padding: 6px; vertical-align: top; }
+.day-cell.today { background: #eef2ff; }
+.cal-item { font-size: 10.5px; padding: 2px 5px; border-radius: 5px; margin-top: 3px; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+</style>
+</head>
+<body class="text-slate-800">
+
+<div class="max-w-7xl mx-auto p-4 md:p-6">
+
+  <!-- Header -->
+  <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-5">
+    <div>
+      <h1 class="text-xl md:text-2xl font-bold flex items-center gap-2">
+        <i class="fa-solid fa-calendar-check text-indigo-600"></i> Content Planner
+      </h1>
+      <p class="text-sm text-slate-500">วางแผนคอนเทนต์และแจ้งเตือนสำหรับทุกแบรนด์และแพลตฟอร์ม</p>
+    </div>
+    <div class="flex items-center gap-2">
+      <span class="text-xs px-3 py-1.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+        <i class="fa-solid fa-flask"></i> Phase 1 · ข้อมูลจำลอง (ยังไม่บันทึกจริง)
+      </span>
+      <button onclick="openForm()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2 rounded-lg flex items-center gap-2">
+        <i class="fa-solid fa-plus"></i> สร้างคอนเทนต์
+      </button>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="flex gap-6 border-b border-slate-200 mb-5 text-sm">
+    <div class="cp-tab active pb-2 cursor-pointer" data-tab="dashboard" onclick="switchTab('dashboard')"><i class="fa-solid fa-gauge"></i> หน้ารวมงานวันนี้</div>
+    <div class="cp-tab pb-2 cursor-pointer" data-tab="calendar" onclick="switchTab('calendar')"><i class="fa-regular fa-calendar"></i> Calendar</div>
+    <div class="cp-tab pb-2 cursor-pointer" data-tab="list" onclick="switchTab('list')"><i class="fa-solid fa-list"></i> รายการทั้งหมด</div>
+    <div class="cp-tab pb-2 cursor-pointer" data-tab="report" onclick="switchTab('report')"><i class="fa-solid fa-chart-simple"></i> รายงาน</div>
+  </div>
+
+  <!-- ============ DASHBOARD VIEW ============ -->
+  <div id="view-dashboard">
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+      <div class="bg-white rounded-xl border border-slate-200 p-4">
+        <div class="text-2xl font-bold text-indigo-600" id="stat-today">0</div>
+        <div class="text-xs text-slate-500 mt-1">ต้องโพสต์วันนี้</div>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 p-4">
+        <div class="text-2xl font-bold text-amber-600" id="stat-soon">0</div>
+        <div class="text-xs text-slate-500 mt-1">กำลังจะถึงกำหนด</div>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 p-4">
+        <div class="text-2xl font-bold text-blue-600" id="stat-review">0</div>
+        <div class="text-xs text-slate-500 mt-1">รอตรวจ / รออนุมัติ</div>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 p-4">
+        <div class="text-2xl font-bold text-red-600" id="stat-incomplete">0</div>
+        <div class="text-xs text-slate-500 mt-1">ข้อมูลยังไม่ครบ</div>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 p-4">
+        <div class="text-2xl font-bold text-rose-700" id="stat-overdue">0</div>
+        <div class="text-xs text-slate-500 mt-1">เลยกำหนด</div>
+      </div>
+    </div>
+
+    <div id="dash-lists" class="grid md:grid-cols-2 gap-4"></div>
+  </div>
+
+  <!-- ============ CALENDAR VIEW ============ -->
+  <div id="view-calendar" class="hidden">
+    <div class="flex items-center justify-between mb-3">
+      <button onclick="shiftMonth(-1)" class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-sm"><i class="fa-solid fa-chevron-left"></i></button>
+      <div class="font-semibold" id="cal-title"></div>
+      <button onclick="shiftMonth(1)" class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-sm"><i class="fa-solid fa-chevron-right"></i></button>
+    </div>
+    <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      <table class="w-full text-xs border-collapse">
+        <thead>
+          <tr class="bg-slate-50">
+            <th class="p-2 border border-slate-200">อา</th><th class="p-2 border border-slate-200">จ</th><th class="p-2 border border-slate-200">อ</th><th class="p-2 border border-slate-200">พ</th><th class="p-2 border border-slate-200">พฤ</th><th class="p-2 border border-slate-200">ศ</th><th class="p-2 border border-slate-200">ส</th>
+          </tr>
+        </thead>
+        <tbody id="cal-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ============ LIST VIEW ============ -->
+  <div id="view-list" class="hidden">
+    <div class="bg-white rounded-xl border border-slate-200 p-3 mb-4 flex flex-wrap gap-2">
+      <select id="f-brand" class="form-input !w-auto" onchange="renderList()"><option value="">ทุกแบรนด์</option></select>
+      <select id="f-platform" class="form-input !w-auto" onchange="renderList()">
+        <option value="">ทุกแพลตฟอร์ม</option>
+        <option>Facebook</option><option>Instagram</option><option>TikTok</option><option>LINE</option>
+      </select>
+      <select id="f-owner" class="form-input !w-auto" onchange="renderList()"><option value="">ทุกผู้รับผิดชอบ</option></select>
+      <select id="f-status" class="form-input !w-auto" onchange="renderList()">
+        <option value="">ทุกสถานะ</option>
+        <option>Draft</option><option>Review</option><option>Revision</option><option>Approved</option><option>Ready</option><option>Posted</option><option>Cancelled</option>
+      </select>
+      <input id="f-search" class="form-input !w-48" placeholder="ค้นหาหัวข้อ..." oninput="renderList()">
+    </div>
+    <div class="bg-white rounded-xl border border-slate-200 overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 text-slate-500 text-xs">
+          <tr>
+            <th class="p-3 text-left">แบรนด์ / แคมเปญ</th>
+            <th class="p-3 text-left">หัวข้อ</th>
+            <th class="p-3 text-left">แพลตฟอร์ม</th>
+            <th class="p-3 text-left">กำหนดโพสต์</th>
+            <th class="p-3 text-left">ผู้รับผิดชอบ</th>
+            <th class="p-3 text-left">สถานะ</th>
+            <th class="p-3 text-left"></th>
+          </tr>
+        </thead>
+        <tbody id="list-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ============ REPORT VIEW ============ -->
+  <div id="view-report" class="hidden">
+    <div class="grid md:grid-cols-3 gap-4">
+      <div class="bg-white rounded-xl border border-slate-200 p-4">
+        <h4 class="font-semibold text-sm mb-3">จำนวนงานแยกตามแพลตฟอร์ม</h4>
+        <div id="rep-platform" class="space-y-2 text-sm"></div>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 p-4">
+        <h4 class="font-semibold text-sm mb-3">จำนวนงานแยกตามแบรนด์</h4>
+        <div id="rep-brand" class="space-y-2 text-sm"></div>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 p-4">
+        <h4 class="font-semibold text-sm mb-3">สรุปภาพรวม</h4>
+        <div id="rep-summary" class="space-y-2 text-sm"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ============ FORM MODAL (Create / Edit) ============ -->
+<div id="form-modal" class="fixed inset-0 modal-mask hidden items-center justify-center z-50 p-4">
+  <div class="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+    <div class="flex items-center justify-between p-4 border-b border-slate-100 sticky top-0 bg-white">
+      <h3 class="font-semibold" id="form-title">สร้างคอนเทนต์ใหม่</h3>
+      <button onclick="closeForm()" class="text-slate-400 hover:text-slate-700"><i class="fa-solid fa-xmark text-lg"></i></button>
+    </div>
+    <div class="p-5 space-y-4">
+      <div class="grid md:grid-cols-2 gap-3">
+        <div><label class="form-label">แบรนด์ / ลูกค้า</label><input id="fld-brand" class="form-input" placeholder="เช่น Nina Cosmetics"></div>
+        <div><label class="form-label">แคมเปญ</label><input id="fld-campaign" class="form-input" placeholder="เช่น September Launch"></div>
+      </div>
+      <div><label class="form-label">หัวข้อคอนเทนต์</label><input id="fld-title" class="form-input" placeholder="หัวข้อ / concept"></div>
+      <div><label class="form-label">รายละเอียด / หมายเหตุสำหรับทีม</label><textarea id="fld-note" class="form-input" rows="2"></textarea></div>
+
+      <div class="grid md:grid-cols-3 gap-3">
+        <div>
+          <label class="form-label">แพลตฟอร์ม</label>
+          <div class="flex flex-wrap gap-2" id="fld-platforms">
+            <label class="flex items-center gap-1 text-sm border border-slate-200 rounded-lg px-2 py-1"><input type="checkbox" value="Facebook"> Facebook</label>
+            <label class="flex items-center gap-1 text-sm border border-slate-200 rounded-lg px-2 py-1"><input type="checkbox" value="Instagram"> Instagram</label>
+            <label class="flex items-center gap-1 text-sm border border-slate-200 rounded-lg px-2 py-1"><input type="checkbox" value="TikTok"> TikTok</label>
+            <label class="flex items-center gap-1 text-sm border border-slate-200 rounded-lg px-2 py-1"><input type="checkbox" value="LINE"> LINE OA</label>
+          </div>
+        </div>
+        <div><label class="form-label">วันและเวลาที่กำหนดโพสต์</label><input id="fld-schedule" type="datetime-local" class="form-input"></div>
+        <div><label class="form-label">ลิงก์สื่อ (รูป/วิดีโอ/Drive)</label><input id="fld-media" class="form-input" placeholder="https://drive.google.com/..."></div>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-3">
+        <div><label class="form-label">ผู้รับผิดชอบ</label><input id="fld-owner" class="form-input" placeholder="ชื่อผู้รับผิดชอบ"></div>
+        <div><label class="form-label">ผู้ตรวจ / ผู้อนุมัติ</label><input id="fld-reviewer" class="form-input" placeholder="ชื่อผู้อนุมัติ"></div>
+      </div>
+
+      <!-- Per-platform captions -->
+      <div>
+        <label class="form-label">ข้อความแยกตามแพลตฟอร์ม</label>
+        <div class="flex gap-1 border-b border-slate-200" id="caption-tabs"></div>
+        <div id="caption-panels" class="border border-slate-200 border-t-0 rounded-b-lg p-3"></div>
+      </div>
+
+      <!-- Checklist preview -->
+      <div class="bg-slate-50 rounded-lg p-3">
+        <div class="text-xs font-semibold text-slate-500 mb-2">Checklist ความพร้อมก่อนโพสต์</div>
+        <div id="checklist-preview" class="grid grid-cols-2 gap-1 text-sm"></div>
+      </div>
+
+      <div>
+        <label class="form-label">สถานะ</label>
+        <select id="fld-status" class="form-input !w-48">
+          <option>Draft</option><option>Review</option><option>Revision</option><option>Approved</option><option>Ready</option><option>Posted</option><option>Cancelled</option>
+        </select>
+      </div>
+    </div>
+    <div class="p-4 border-t border-slate-100 flex justify-end gap-2 sticky bottom-0 bg-white">
+      <button onclick="closeForm()" class="px-4 py-2 rounded-lg border border-slate-200 text-sm">ยกเลิก</button>
+      <button onclick="saveContent()" class="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium">บันทึก (จำลอง)</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ DETAIL / COPY MODAL ============ -->
+<div id="detail-modal" class="fixed inset-0 modal-mask hidden items-center justify-center z-50 p-4">
+  <div class="bg-white rounded-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto">
+    <div id="detail-body" class="p-5"></div>
+  </div>
+</div>
+
+<script>
+const PLATFORMS = ['Facebook', 'Instagram', 'TikTok', 'LINE'];
+const STATUS_FLOW = ['Draft','Review','Revision','Approved','Ready','Posted'];
+
+// ---------- Mock data ----------
+let items = [
+  mk(1,'Nina Cosmetics','September Launch','เปิดตัวลิปสติกคอลเลกชันใหม่',['Facebook','Instagram'],'today+5h','ปาน','แนน','Ready',{Facebook:{caption:'ลิปสติกใหม่มาแล้ว! เนื้อแมทท์ ติดทนทั้งวัน 💄',cta:'ช้อปเลย -> link.co/nina'},Instagram:{caption:'New drop 💄✨ #NinaCosmetics #ลิปสติกใหม่',hashtag:'#NinaCosmetics #Makeup'}},'https://drive.google.com/mock1'),
+  mk(2,'Nina Cosmetics','September Launch','Behind the scene ถ่ายภาพสินค้า',['TikTok'],'today+8h','เอิร์ธ','แนน','Review',{TikTok:{caption:'',guide:''}},''),
+  mk(3,'GreenLeaf Cafe','Weekly Promo','โปรโมชั่นกาแฟลด 20%',['Facebook','LINE'],'tomorrow','มายด์','ปาน','Approved',{Facebook:{caption:'กาแฟลด 20% วันนี้ถึงอาทิตย์นี้เท่านั้น ☕',cta:'แวะมาชิม'},LINE:{message:'โปรกาแฟลด 20% วันนี้-อาทิตย์นี้',link:'https://line.me/mock'}},'https://drive.google.com/mock3'),
+  mk(4,'GreenLeaf Cafe','Weekly Promo','เมนูใหม่ Cold Brew',['Instagram','TikTok'],'+2d','มายด์','ปาน','Draft',{},''),
+  mk(5,'Urban Fit Studio','Membership Drive','โปรสมัครสมาชิกรายปี',['Facebook','Instagram','LINE'],'-1d','เอิร์ธ','แนน','Revision',{Facebook:{caption:'สมัครสมาชิกรายปี รับส่วนลด 30%'}},'https://drive.google.com/mock5'),
+  mk(6,'Urban Fit Studio','Membership Drive','คลิปรีวิวจากลูกค้า',['TikTok'],'-3h','ปาน','แนน','Posted',{TikTok:{caption:'รีวิวจริงจากสมาชิก 💪'}},'https://drive.google.com/mock6',{Facebook:'',TikTok:'https://tiktok.com/@mock/video/123'}),
+  mk(7,'Nina Cosmetics','September Launch','โพสต์ขอบคุณลูกค้า',['Facebook'],'+5d','เอิร์ธ','ปาน','Draft',{},''),
+  mk(8,'GreenLeaf Cafe','Weekly Promo','ไลฟ์สไตล์ร้าน',['Instagram'],'+1d3h','มายด์','แนน','Ready',{Instagram:{caption:'บรรยากาศชิลๆ ที่ GreenLeaf ☕🍃',hashtag:'#GreenLeafCafe'}},'https://drive.google.com/mock8'),
+];
+
+function mk(id,brand,campaign,title,platforms,when,owner,reviewer,status,captions,media,published){
+  return {
+    id, brand, campaign, title, platforms,
+    scheduledAt: resolveWhen(when),
+    owner, reviewer, status,
+    captions: captions || {},
+    media: media || '',
+    published: published || {},
+  };
+}
+function resolveWhen(token){
+  const now = new Date();
+  if (token === 'today+5h') return new Date(now.getTime() + (5-now.getHours()%5)*0); // placeholder, replaced below
+  const d = new Date(now);
+  if (token.startsWith('today')) {
+    const h = parseInt(token.split('+')[1]) || 3;
+    d.setHours(h,0,0,0);
+  } else if (token === 'tomorrow') {
+    d.setDate(d.getDate()+1); d.setHours(10,0,0,0);
+  } else if (token.startsWith('+')) {
+    const m = token.match(/\+(\d+)d(?:(\d+)h)?/);
+    d.setDate(d.getDate()+parseInt(m[1])); d.setHours(m[2]?parseInt(m[2]):10,0,0,0);
+  } else if (token.startsWith('-')) {
+    const m = token.match(/-(\d+)([dh])/);
+    if (m[2]==='d') d.setDate(d.getDate()-parseInt(m[1])); else d.setHours(d.getHours()-parseInt(m[1]));
+  }
+  return d;
+}
+
+let editingId = null;
+let calCursor = new Date();
+
+// ---------- Derived status ----------
+function computeFlags(item){
+  const now = new Date();
+  const flags = [];
+  const hasCaption = item.platforms.every(p => item.captions[p] && (item.captions[p].caption || item.captions[p].message));
+  const hasMedia = !!item.media;
+  const incomplete = !hasCaption || !hasMedia || item.platforms.length===0;
+  if (incomplete && !['Posted','Cancelled'].includes(item.status)) flags.push('incomplete');
+  if (item.status !== 'Posted' && item.status !== 'Cancelled') {
+    const diffH = (item.scheduledAt - now) / 3600000;
+    if (diffH < 0) flags.push('overdue');
+    else if (diffH <= 24) flags.push('soon');
+  }
+  return flags;
+}
+
+// ---------- Tabs ----------
+function switchTab(tab){
+  document.querySelectorAll('.cp-tab').forEach(t=>t.classList.toggle('active', t.dataset.tab===tab));
+  ['dashboard','calendar','list','report'].forEach(v=>{
+    document.getElementById('view-'+v).classList.toggle('hidden', v!==tab);
+  });
+  if (tab==='calendar') renderCalendar();
+  if (tab==='list') renderList();
+  if (tab==='report') renderReport();
+}
+
+// ---------- Dashboard ----------
+function renderDashboard(){
+  const now = new Date();
+  const todayStr = now.toDateString();
+  const today = items.filter(i => i.scheduledAt.toDateString()===todayStr && !['Posted','Cancelled'].includes(i.status));
+  const soon = items.filter(i => computeFlags(i).includes('soon') && !today.includes(i));
+  const review = items.filter(i => i.status==='Review' || i.status==='Revision');
+  const incomplete = items.filter(i => computeFlags(i).includes('incomplete'));
+  const overdue = items.filter(i => computeFlags(i).includes('overdue'));
+
+  document.getElementById('stat-today').textContent = today.length;
+  document.getElementById('stat-soon').textContent = soon.length;
+  document.getElementById('stat-review').textContent = review.length;
+  document.getElementById('stat-incomplete').textContent = incomplete.length;
+  document.getElementById('stat-overdue').textContent = overdue.length;
+
+  const sections = [
+    ['ต้องโพสต์วันนี้', today, 'fa-calendar-day', 'text-indigo-600'],
+    ['เลยกำหนด', overdue, 'fa-triangle-exclamation', 'text-rose-700'],
+    ['รอตรวจ / รออนุมัติ', review, 'fa-magnifying-glass', 'text-blue-600'],
+    ['ข้อมูลยังไม่ครบ', incomplete, 'fa-circle-exclamation', 'text-red-600'],
+  ];
+  const wrap = document.getElementById('dash-lists');
+  wrap.innerHTML = sections.map(([label, arr, icon, color]) => `
+    <div class="bg-white rounded-xl border border-slate-200 p-4">
+      <h4 class="font-semibold text-sm mb-3 ${color}"><i class="fa-solid ${icon}"></i> ${label} (${arr.length})</h4>
+      ${arr.length ? arr.map(itemRow).join('') : '<div class="text-xs text-slate-400">ไม่มีรายการ</div>'}
+    </div>
+  `).join('');
+}
+function itemRow(i){
+  return `<div class="flex items-center justify-between py-2 border-b border-slate-50 last:border-0 cursor-pointer" onclick="viewDetail(${i.id})">
+    <div class="min-w-0">
+      <div class="text-sm font-medium truncate">${i.title}</div>
+      <div class="text-xs text-slate-400">${i.brand} · ${fmtDate(i.scheduledAt)} · ${i.owner}</div>
+    </div>
+    <span class="status-pill status-${i.status}">${i.status}</span>
+  </div>`;
+}
+
+// ---------- List ----------
+function populateFilters(){
+  const brands = [...new Set(items.map(i=>i.brand))];
+  const owners = [...new Set(items.map(i=>i.owner))];
+  document.getElementById('f-brand').innerHTML = '<option value="">ทุกแบรนด์</option>' + brands.map(b=>`<option>${b}</option>`).join('');
+  document.getElementById('f-owner').innerHTML = '<option value="">ทุกผู้รับผิดชอบ</option>' + owners.map(o=>`<option>${o}</option>`).join('');
+}
+function renderList(){
+  const brand = document.getElementById('f-brand').value;
+  const platform = document.getElementById('f-platform').value;
+  const owner = document.getElementById('f-owner').value;
+  const status = document.getElementById('f-status').value;
+  const search = document.getElementById('f-search').value.toLowerCase();
+
+  const filtered = items.filter(i =>
+    (!brand || i.brand===brand) &&
+    (!platform || i.platforms.includes(platform)) &&
+    (!owner || i.owner===owner) &&
+    (!status || i.status===status) &&
+    (!search || i.title.toLowerCase().includes(search))
+  ).sort((a,b)=>a.scheduledAt-b.scheduledAt);
+
+  document.getElementById('list-body').innerHTML = filtered.map(i => `
+    <tr class="border-t border-slate-100 hover:bg-slate-50 cursor-pointer" onclick="viewDetail(${i.id})">
+      <td class="p-3"><div class="font-medium">${i.brand}</div><div class="text-xs text-slate-400">${i.campaign}</div></td>
+      <td class="p-3">${i.title}</td>
+      <td class="p-3">${i.platforms.map(p=>`<span class="platform-chip plat-${p}">${p}</span>`).join(' ')}</td>
+      <td class="p-3 text-xs">${fmtDate(i.scheduledAt)} ${flagBadge(i)}</td>
+      <td class="p-3">${i.owner}</td>
+      <td class="p-3"><span class="status-pill status-${i.status}">${i.status}</span></td>
+      <td class="p-3 text-right"><button onclick="event.stopPropagation();editContent(${i.id})" class="text-indigo-600 text-xs"><i class="fa-solid fa-pen"></i></button></td>
+    </tr>
+  `).join('') || `<tr><td colspan="7" class="p-6 text-center text-slate-400 text-sm">ไม่พบรายการ</td></tr>`;
+}
+function flagBadge(i){
+  const flags = computeFlags(i);
+  if (flags.includes('overdue')) return '<span class="flag-overdue">· เลยกำหนด</span>';
+  if (flags.includes('soon')) return '<span class="flag-soon">· ใกล้ถึงกำหนด</span>';
+  return '';
+}
+function fmtDate(d){
+  return d.toLocaleString('th-TH', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
+}
+
+// ---------- Calendar ----------
+function shiftMonth(n){ calCursor.setMonth(calCursor.getMonth()+n); renderCalendar(); }
+function renderCalendar(){
+  const y = calCursor.getFullYear(), m = calCursor.getMonth();
+  document.getElementById('cal-title').textContent = calCursor.toLocaleDateString('th-TH', { month:'long', year:'numeric' });
+  const first = new Date(y,m,1);
+  const startDow = first.getDay();
+  const daysInMonth = new Date(y,m+1,0).getDate();
+  const today = new Date();
+
+  let html = '';
+  let day = 1 - startDow;
+  for (let row=0; row<6 && day<=daysInMonth; row++){
+    html += '<tr>';
+    for (let c=0;c<7;c++,day++){
+      if (day<1 || day>daysInMonth){ html += '<td class="day-cell" style="background:#fafafa"></td>'; continue; }
+      const cellDate = new Date(y,m,day);
+      const isToday = cellDate.toDateString()===today.toDateString();
+      const dayItems = items.filter(i=>i.scheduledAt.toDateString()===cellDate.toDateString());
+      html += `<td class="day-cell ${isToday?'today':''}">
+        <div class="text-xs font-semibold ${isToday?'text-indigo-600':'text-slate-500'}">${day}</div>
+        ${dayItems.map(i=>`<span class="cal-item status-${i.status}" onclick="viewDetail(${i.id})" title="${i.title}">${i.title}</span>`).join('')}
+      </td>`;
+    }
+    html += '</tr>';
+  }
+  document.getElementById('cal-body').innerHTML = html;
+}
+
+// ---------- Report ----------
+function renderReport(){
+  const byPlatform = {};
+  PLATFORMS.forEach(p=>byPlatform[p]=0);
+  items.forEach(i=>i.platforms.forEach(p=>byPlatform[p]++));
+  document.getElementById('rep-platform').innerHTML = Object.entries(byPlatform).map(([p,c])=>
+    `<div class="flex justify-between"><span class="platform-chip plat-${p}">${p}</span><span class="font-semibold">${c}</span></div>`).join('');
+
+  const byBrand = {};
+  items.forEach(i=>byBrand[i.brand]=(byBrand[i.brand]||0)+1);
+  document.getElementById('rep-brand').innerHTML = Object.entries(byBrand).map(([b,c])=>
+    `<div class="flex justify-between"><span>${b}</span><span class="font-semibold">${c}</span></div>`).join('');
+
+  const posted = items.filter(i=>i.status==='Posted').length;
+  const total = items.length;
+  const onTime = items.filter(i=>i.status==='Posted').length; // mock: assume all posted are on-time in this sample
+  document.getElementById('rep-summary').innerHTML = `
+    <div class="flex justify-between"><span>ทั้งหมด</span><span class="font-semibold">${total}</span></div>
+    <div class="flex justify-between"><span>โพสต์แล้ว</span><span class="font-semibold text-emerald-600">${posted}</span></div>
+    <div class="flex justify-between"><span>ยังไม่โพสต์</span><span class="font-semibold text-slate-600">${total-posted}</span></div>
+    <div class="flex justify-between"><span>อัตราโพสต์ตรงเวลา</span><span class="font-semibold">${posted?Math.round(onTime/posted*100):0}%</span></div>
+  `;
+}
+
+// ---------- Form ----------
+function openForm(){
+  editingId = null;
+  document.getElementById('form-title').textContent = 'สร้างคอนเทนต์ใหม่';
+  ['fld-brand','fld-campaign','fld-title','fld-note','fld-schedule','fld-media','fld-owner','fld-reviewer'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('fld-status').value = 'Draft';
+  document.querySelectorAll('#fld-platforms input').forEach(cb=>{ cb.checked=false; cb.onchange=renderCaptionTabs; });
+  renderCaptionTabs();
+  document.getElementById('form-modal').classList.remove('hidden');
+  document.getElementById('form-modal').classList.add('flex');
+}
+function editContent(id){
+  const i = items.find(x=>x.id===id);
+  editingId = id;
+  document.getElementById('form-title').textContent = 'แก้ไขคอนเทนต์';
+  document.getElementById('fld-brand').value = i.brand;
+  document.getElementById('fld-campaign').value = i.campaign;
+  document.getElementById('fld-title').value = i.title;
+  document.getElementById('fld-note').value = i.note || '';
+  document.getElementById('fld-schedule').value = toLocalInput(i.scheduledAt);
+  document.getElementById('fld-media').value = i.media;
+  document.getElementById('fld-owner').value = i.owner;
+  document.getElementById('fld-reviewer').value = i.reviewer;
+  document.getElementById('fld-status').value = i.status;
+  document.querySelectorAll('#fld-platforms input').forEach(cb=>{ cb.checked = i.platforms.includes(cb.value); cb.onchange=renderCaptionTabs; });
+  window.__editCaptions = JSON.parse(JSON.stringify(i.captions));
+  renderCaptionTabs();
+  document.getElementById('form-modal').classList.remove('hidden');
+  document.getElementById('form-modal').classList.add('flex');
+}
+function toLocalInput(d){
+  const pad = n=>String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function closeForm(){
+  document.getElementById('form-modal').classList.add('hidden');
+  document.getElementById('form-modal').classList.remove('flex');
+  window.__editCaptions = null;
+}
+function selectedPlatforms(){
+  return [...document.querySelectorAll('#fld-platforms input:checked')].map(cb=>cb.value);
+}
+let activeCapTab = null;
+function renderCaptionTabs(){
+  const platforms = selectedPlatforms();
+  if (!platforms.includes(activeCapTab)) activeCapTab = platforms[0] || null;
+  document.getElementById('caption-tabs').innerHTML = platforms.map(p =>
+    `<div class="caption-tab ${p===activeCapTab?'active':''}" onclick="activeCapTab='${p}';renderCaptionTabs()">${p}</div>`
+  ).join('') || '<div class="text-xs text-slate-400 py-2">เลือกแพลตฟอร์มก่อน</div>';
+  renderCaptionPanel();
+  renderChecklistPreview();
+}
+function renderCaptionPanel(){
+  const panel = document.getElementById('caption-panels');
+  if (!activeCapTab){ panel.innerHTML=''; return; }
+  const store = window.__editCaptions || (window.__editCaptions = {});
+  const data = store[activeCapTab] || {};
+  let fields = '';
+  if (activeCapTab === 'LINE') {
+    fields = `
+      <label class="form-label">Message</label>
+      <textarea class="form-input mb-2" rows="3" oninput="updateCaption('message', this.value)">${data.message||''}</textarea>
+      <label class="form-label">ลิงก์ปลายทาง</label>
+      <input class="form-input" value="${data.link||''}" oninput="updateCaption('link', this.value)">`;
+  } else if (activeCapTab === 'TikTok') {
+    fields = `
+      <label class="form-label">Caption</label>
+      <textarea class="form-input mb-2" rows="3" oninput="updateCaption('caption', this.value)">${data.caption||''}</textarea>
+      <label class="form-label">แนวทางวิดีโอ</label>
+      <textarea class="form-input" rows="2" oninput="updateCaption('guide', this.value)">${data.guide||''}</textarea>`;
+  } else {
+    fields = `
+      <label class="form-label">Caption</label>
+      <textarea class="form-input mb-2" rows="3" oninput="updateCaption('caption', this.value)">${data.caption||''}</textarea>
+      <label class="form-label">${activeCapTab==='Instagram'?'Hashtag':'CTA'}</label>
+      <input class="form-input" value="${activeCapTab==='Instagram'?(data.hashtag||''):(data.cta||'')}" oninput="updateCaption('${activeCapTab==='Instagram'?'hashtag':'cta'}', this.value)">`;
+  }
+  panel.innerHTML = fields + `<button class="mt-2 text-xs text-indigo-600" onclick="copyCaption()"><i class="fa-regular fa-copy"></i> คัดลอกข้อความ</button>`;
+}
+function updateCaption(field, value){
+  const store = window.__editCaptions || (window.__editCaptions = {});
+  store[activeCapTab] = store[activeCapTab] || {};
+  store[activeCapTab][field] = value;
+  renderChecklistPreview();
+}
+function copyCaption(){
+  const data = (window.__editCaptions||{})[activeCapTab] || {};
+  const text = data.caption || data.message || '';
+  navigator.clipboard.writeText(text).then(()=>alert('คัดลอกข้อความแล้ว (จำลอง)'));
+}
+function renderChecklistPreview(){
+  const platforms = selectedPlatforms();
+  const captions = window.__editCaptions || {};
+  const hasCaption = platforms.length>0 && platforms.every(p => captions[p] && (captions[p].caption || captions[p].message));
+  const hasMedia = !!document.getElementById('fld-media').value;
+  const hasCTA = platforms.some(p => captions[p] && (captions[p].cta || captions[p].link));
+  const hasSchedule = !!document.getElementById('fld-schedule').value;
+  const hasOwner = !!document.getElementById('fld-owner').value;
+  const checks = [
+    ['มี Caption ครบทุกแพลตฟอร์ม', hasCaption],
+    ['มีรูปหรือวิดีโอแล้ว', hasMedia],
+    ['มี CTA หรือลิงก์ปลายทาง', hasCTA],
+    ['ระบุวันเวลาโพสต์แล้ว', hasSchedule],
+    ['ระบุผู้รับผิดชอบแล้ว', hasOwner],
+    ['ผ่านการอนุมัติแล้ว', document.getElementById('fld-status').value==='Approved' || document.getElementById('fld-status').value==='Ready' || document.getElementById('fld-status').value==='Posted'],
+  ];
+  document.getElementById('checklist-preview').innerHTML = checks.map(([label,ok])=>
+    `<div class="${ok?'check-ok':'check-missing'}"><i class="fa-solid ${ok?'fa-circle-check':'fa-circle'}"></i> ${label}</div>`
+  ).join('');
+}
+document.getElementById('fld-media').addEventListener('input', renderChecklistPreview);
+document.getElementById('fld-schedule').addEventListener('input', renderChecklistPreview);
+document.getElementById('fld-owner').addEventListener('input', renderChecklistPreview);
+document.getElementById('fld-status').addEventListener('change', renderChecklistPreview);
+
+function saveContent(){
+  const platforms = selectedPlatforms();
+  if (!document.getElementById('fld-title').value.trim()){ alert('กรุณาระบุหัวข้อคอนเทนต์'); return; }
+  const payload = {
+    brand: document.getElementById('fld-brand').value,
+    campaign: document.getElementById('fld-campaign').value,
+    title: document.getElementById('fld-title').value,
+    note: document.getElementById('fld-note').value,
+    platforms,
+    scheduledAt: document.getElementById('fld-schedule').value ? new Date(document.getElementById('fld-schedule').value) : new Date(),
+    media: document.getElementById('fld-media').value,
+    owner: document.getElementById('fld-owner').value,
+    reviewer: document.getElementById('fld-reviewer').value,
+    status: document.getElementById('fld-status').value,
+    captions: window.__editCaptions || {},
+    published: {},
+  };
+  if (editingId){
+    const idx = items.findIndex(x=>x.id===editingId);
+    items[idx] = { ...items[idx], ...payload };
+  } else {
+    items.push({ id: Math.max(0,...items.map(i=>i.id))+1, ...payload });
+  }
+  closeForm();
+  populateFilters();
+  refreshAll();
+}
+
+// ---------- Detail modal ----------
+function viewDetail(id){
+  const i = items.find(x=>x.id===id);
+  const flags = computeFlags(i);
+  document.getElementById('detail-body').innerHTML = `
+    <div class="flex items-start justify-between mb-3">
+      <div>
+        <div class="text-xs text-slate-400">${i.brand} · ${i.campaign}</div>
+        <h3 class="font-semibold text-lg">${i.title}</h3>
+      </div>
+      <span class="status-pill status-${i.status}">${i.status}</span>
+    </div>
+    <div class="text-sm text-slate-500 mb-3">
+      <i class="fa-regular fa-clock"></i> ${fmtDate(i.scheduledAt)}
+      ${flags.includes('overdue')?' · <span class="flag-overdue">เลยกำหนด</span>':''}
+      ${flags.includes('soon')?' · <span class="flag-soon">ใกล้ถึงกำหนด</span>':''}
+      ${flags.includes('incomplete')?' · <span class="flag-incomplete">ข้อมูลไม่ครบ</span>':''}
+    </div>
+    <div class="flex gap-1 mb-3">${i.platforms.map(p=>`<span class="platform-chip plat-${p}">${p}</span>`).join('')}</div>
+    <div class="text-sm mb-3"><b>ผู้รับผิดชอบ:</b> ${i.owner} · <b>ผู้ตรวจ:</b> ${i.reviewer}</div>
+    ${i.media?`<div class="text-sm mb-3"><a href="${i.media}" target="_blank" class="text-indigo-600"><i class="fa-solid fa-link"></i> ไฟล์สื่อ</a></div>`:''}
+    <div class="space-y-2">
+      ${i.platforms.map(p=>{
+        const c = i.captions[p]||{};
+        const text = c.caption || c.message || '(ยังไม่ได้เตรียมข้อความ)';
+        return `<div class="border border-slate-100 rounded-lg p-2">
+          <div class="flex items-center justify-between mb-1">
+            <span class="platform-chip plat-${p}">${p}</span>
+            <button class="text-xs text-indigo-600" onclick="navigator.clipboard.writeText(\`${(text||'').replace(/`/g,"'")}\`).then(()=>alert('คัดลอกแล้ว'))"><i class="fa-regular fa-copy"></i> คัดลอก</button>
+          </div>
+          <div class="text-sm whitespace-pre-wrap">${text}</div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div class="mt-4 flex justify-end gap-2">
+      <button onclick="closeDetail()" class="px-3 py-1.5 rounded-lg border border-slate-200 text-sm">ปิด</button>
+      <button onclick="closeDetail();editContent(${i.id})" class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-sm">แก้ไข</button>
+    </div>
+  `;
+  document.getElementById('detail-modal').classList.remove('hidden');
+  document.getElementById('detail-modal').classList.add('flex');
+}
+function closeDetail(){
+  document.getElementById('detail-modal').classList.add('hidden');
+  document.getElementById('detail-modal').classList.remove('flex');
+}
+
+function refreshAll(){
+  renderDashboard();
+  renderList();
+  renderCalendar();
+  renderReport();
+}
+populateFilters();
+refreshAll();
+</script>
+</body>
+</html>
