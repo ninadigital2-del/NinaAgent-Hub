@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>คู่มือ Content Planner</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+body { font-family: 'Prompt', sans-serif; background-color: #f8fafc; }
+.feature-card { border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; background: #fff; }
+.tag { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; }
+.tag-ready { background: #dcfce7; color: #15803d; }
+.tag-soon { background: #fef9c3; color: #854d0e; }
+.step-num { width: 24px; height: 24px; border-radius: 999px; background: #4f46e5; color: #fff; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+</style>
+</head>
+<body class="text-slate-800">
+
+<div class="max-w-4xl mx-auto p-5 md:p-8">
+
+  <div class="mb-8">
+    <a href="content-planner.html" class="text-sm text-indigo-600 mb-3 inline-flex items-center gap-1"><i class="fa-solid fa-arrow-left"></i> กลับไป Content Planner</a>
+    <h1 class="text-2xl md:text-3xl font-bold flex items-center gap-2 mt-2">
+      <i class="fa-solid fa-book text-indigo-600"></i> คู่มือการใช้งาน Content Planner
+    </h1>
+    <p class="text-slate-500 mt-1">ระบบวางแผนคอนเทนต์และแจ้งเตือนของ NinaAgent Hub — เวอร์ชัน Phase 1 (UI Prototype, ข้อมูลจำลอง)</p>
+  </div>
+
+  <!-- ============ FEATURE OVERVIEW ============ -->
+  <section class="mb-10">
+    <h2 class="text-lg font-bold mb-4"><i class="fa-solid fa-list-check text-indigo-600"></i> แอพนี้ทำอะไรได้บ้าง</h2>
+    <div class="grid md:grid-cols-2 gap-3">
+
+      <div class="feature-card">
+        <div class="flex items-center justify-between mb-1">
+          <h3 class="font-semibold text-sm">สร้าง / แก้ไขแผนคอนเทนต์</h3>
+          <span class="tag tag-ready">ใช้ได้</span>
+        </div>
+        <p class="text-xs text-slate-500">ระบุแบรนด์ แคมเปญ หัวข้อ แพลตฟอร์ม วันเวลาโพสต์ ผู้รับผิดชอบ ผู้อนุมัติ และลิงก์สื่อ</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="flex items-center justify-between mb-1">
+          <h3 class="font-semibold text-sm">Caption แยกตามแพลตฟอร์ม</h3>
+          <span class="tag tag-ready">ใช้ได้</span>
+        </div>
+        <p class="text-xs text-slate-500">เตรียมข้อความ/CTA/Hashtag แยก Facebook, Instagram, TikTok, LINE OA พร้อมปุ่มคัดลอก</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="flex items-center justify-between mb-1">
+          <h3 class="font-semibold text-sm">หน้ารวมงานวันนี้ (Dashboard)</h3>
+          <span class="tag tag-ready">ใช้ได้</span>
+        </div>
+        <p class="text-xs text-slate-500">สรุปงานที่ต้องโพสต์วันนี้ ใกล้ถึงกำหนด รอตรวจ/อนุมัติ ข้อมูลไม่ครบ และเลยกำหนด</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="flex items-center justify-between mb-1">
+          <h3 class="font-semibold text-sm">Content Calendar</h3>
+          <span class="tag tag-ready">ใช้ได้</span>
+        </div>
+        <p class="text-xs text-slate-500">ดูงานรายเดือน สลับเดือนได้ คลิกรายการเพื่อดูรายละเอียด</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="flex items-center justify-between mb-1">
+          <h3 class="font-semibold text-sm">ลากวางเลื่อนวันโพสต์</h3>
+          <span class="tag tag-ready">ใช้ได้</span>
+        </div>
+        <p class="text-xs text-slate-500">ลากการ์ดใน Calendar ไปวางวันใหม่เพื่อเลื่อนกำหนดโพสต์ โดยไม่ต้องเปิดฟอร์มแก้ไข</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="flex items-center justify-between mb-1">
+          <h3 class="font-semibold text-sm">Checklist ก่อนโพสต์</h3>
+          <span class="tag tag-ready">ใช้ได้</span>
+        </div>
+        <p class="text-xs text-slate-500">ตรวจสถานะความพร้อม: มี Caption ครบ / มีสื่อ / มี CTA / ระบุวันเวลา / ผู้รับผิดชอบ / ผ่านอนุมัติ</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="flex items-center justify-between mb-1">
+          <h3 class="font-semibold text-sm">ตัวกรองแบรนด์ / แพลตฟอร์ม</h3>
+          <span class="tag tag-ready">ใช้ได้</span>
+        </div>
+        <p class="text-xs text-slate-500">เลือกดูเฉพาะแบรนด์หรือแพลตฟอร์มที่ต้องการ ใช้ร่วมกันทั้ง Dashboard, Calendar, List</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="flex items-center justify-between mb-1">
+          <h3 class="font-semibold text-sm">Bulk Actions (เลือกหลายรายการ)</h3>
+          <span class="tag tag-ready">ใช้ได้</span>
+        </div>
+        <p class="text-xs text-slate-500">ติ๊กเลือกหลายรายการในหน้า List แล้วเปลี่ยนสถานะพร้อมกันได้ทีเดียว</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="flex items-center justify-between mb-1">
+          <h3 class="font-semibold text-sm">โหมดลูกค้า (อ่านอย่างเดียว)</h3>
+          <span class="tag tag-ready">ใช้ได้</span>
+        </div>
+        <p class="text-xs text-slate-500">เปิดโหมดนี้เพื่อซ่อนปุ่มสร้าง/แก้ไข เหมาะสำหรับให้ลูกค้าดูสถานะงานโดยไม่แก้ข้อมูล</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="flex items-center justify-between mb-1">
+          <h3 class="font-semibold text-sm">ความคิดเห็นต่อรายการ (Comments)</h3>
+          <span class="tag tag-ready">ใช้ได้</span>
+        </div>
+        <p class="text-xs text-slate-500">แสดงความเห็น/ขอแก้ไขตรงจุดในแต่ละคอนเทนต์ ทั้งทีมและลูกค้า (โหมดลูกค้า) คอมเมนต์ได้</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="flex items-center justify-between mb-1">
+          <h3 class="font-semibold text-sm">รายงานเบื้องต้น</h3>
+          <span class="tag tag-ready">ใช้ได้</span>
+        </div>
+        <p class="text-xs text-slate-500">สรุปจำนวนงานแยกตามแพลตฟอร์ม/แบรนด์ และอัตราการโพสต์ตรงเวลา</p>
+      </div>
+
+      <div class="feature-card opacity-70">
+        <div class="flex items-center justify-between mb-1">
+          <h3 class="font-semibold text-sm">แจ้งเตือนอีเมลอัตโนมัติ</h3>
+          <span class="tag tag-soon">Phase 3</span>
+        </div>
+        <p class="text-xs text-slate-500">เตือนก่อนโพสต์ 24 ชม. / 1 ชม. เตือนข้อมูลไม่ครบ เลยกำหนด — ต้องเชื่อม Google Apps Script ก่อน</p>
+      </div>
+
+      <div class="feature-card opacity-70">
+        <div class="flex items-center justify-between mb-1">
+          <h3 class="font-semibold text-sm">บันทึกข้อมูลถาวร (Google Sheets)</h3>
+          <span class="tag tag-soon">Phase 2</span>
+        </div>
+        <p class="text-xs text-slate-500">ตอนนี้ข้อมูลเป็นตัวอย่างจำลอง รีเฟรชหน้าแล้วจะรีเซ็ตกลับค่าเดิม — Phase 2 จะเชื่อมฐานข้อมูลจริง</p>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============ HOW TO USE ============ -->
+  <section class="mb-10">
+    <h2 class="text-lg font-bold mb-4"><i class="fa-solid fa-graduation-cap text-indigo-600"></i> วิธีใช้งานเบื้องต้น</h2>
+    <div class="space-y-3">
+      <div class="flex gap-3">
+        <div class="step-num">1</div>
+        <div class="text-sm"><b>สร้างคอนเทนต์ใหม่</b> — กดปุ่ม "สร้างคอนเทนต์" มุมขวาบน กรอกแบรนด์ แคมเปญ หัวข้อ เลือกแพลตฟอร์ม แล้วเตรียม Caption ของแต่ละแพลตฟอร์มในแท็บที่ปรากฏ</div>
+      </div>
+      <div class="flex gap-3">
+        <div class="step-num">2</div>
+        <div class="text-sm"><b>ตรวจความพร้อม</b> — ดู Checklist ด้านล่างฟอร์ม ถ้ายังไม่ครบจะมีจุดสีเทาบอกว่าขาดอะไร กรอกให้ครบก่อนเปลี่ยนสถานะเป็น Approved/Ready</div>
+      </div>
+      <div class="flex gap-3">
+        <div class="step-num">3</div>
+        <div class="text-sm"><b>ติดตามงานประจำวัน</b> — เข้าแท็บ "หน้ารวมงานวันนี้" เพื่อดูงานที่ต้องโพสต์วันนี้ เลยกำหนด หรือรอตรวจ</div>
+      </div>
+      <div class="flex gap-3">
+        <div class="step-num">4</div>
+        <div class="text-sm"><b>วางแผนล่วงหน้า</b> — เข้าแท็บ Calendar ดูภาพรวมทั้งเดือน ลากการ์ดไปวันอื่นได้ถ้าต้องเลื่อนกำหนด</div>
+      </div>
+      <div class="flex gap-3">
+        <div class="step-num">5</div>
+        <div class="text-sm"><b>กรองดูเฉพาะที่ต้องการ</b> — ใช้ filter bar ด้านบน (แบรนด์/แพลตฟอร์ม) เพื่อโฟกัสเฉพาะงานที่เกี่ยวข้อง</div>
+      </div>
+      <div class="flex gap-3">
+        <div class="step-num">6</div>
+        <div class="text-sm"><b>อัปเดตหลังโพสต์จริง</b> — เปิดรายการ กดแก้ไข เปลี่ยนสถานะเป็น "Posted" แล้วบันทึกลิงก์โพสต์จริง</div>
+      </div>
+      <div class="flex gap-3">
+        <div class="step-num">7</div>
+        <div class="text-sm"><b>ให้ลูกค้าดูความคืบหน้า</b> — เปิด "โหมดลูกค้า" มุมขวาบน เพื่อซ่อนปุ่มแก้ไขทั้งหมด เหมาะกับการแชร์หน้าจอให้ลูกค้าดูสถานะงาน หรือให้ลูกค้าคอมเมนต์ขอแก้ไขได้เอง</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ STATUS FLOW ============ -->
+  <section class="mb-10">
+    <h2 class="text-lg font-bold mb-4"><i class="fa-solid fa-diagram-project text-indigo-600"></i> สถานะของคอนเทนต์</h2>
+    <div class="flex flex-wrap items-center gap-2 text-sm">
+      <span class="status-badge px-3 py-1 rounded-full bg-slate-100 text-slate-600 font-medium">Draft</span>
+      <i class="fa-solid fa-arrow-right text-slate-300"></i>
+      <span class="px-3 py-1 rounded-full bg-yellow-100 text-yellow-800 font-medium">Review</span>
+      <i class="fa-solid fa-arrow-right text-slate-300"></i>
+      <span class="px-3 py-1 rounded-full bg-red-100 text-red-700 font-medium">Revision</span>
+      <i class="fa-solid fa-arrow-right text-slate-300"></i>
+      <span class="px-3 py-1 rounded-full bg-blue-100 text-blue-700 font-medium">Approved</span>
+      <i class="fa-solid fa-arrow-right text-slate-300"></i>
+      <span class="px-3 py-1 rounded-full bg-indigo-100 text-indigo-700 font-medium">Ready</span>
+      <i class="fa-solid fa-arrow-right text-slate-300"></i>
+      <span class="px-3 py-1 rounded-full bg-green-100 text-green-700 font-medium">Posted</span>
+    </div>
+    <p class="text-xs text-slate-500 mt-3">ระบบจะคำนวณสถานะเพิ่มเติมให้อัตโนมัติ: <b>กำลังจะถึงกำหนด</b> (ภายใน 24 ชม.), <b>เลยกำหนด</b>, และ <b>ข้อมูลไม่ครบ</b> — แสดงเป็นสีบนหน้า Dashboard และ List</p>
+  </section>
+
+  <!-- ============ ROADMAP ============ -->
+  <section>
+    <h2 class="text-lg font-bold mb-4"><i class="fa-solid fa-road text-indigo-600"></i> สิ่งที่ยังไม่รวมในเวอร์ชันนี้</h2>
+    <ul class="text-sm text-slate-600 space-y-1.5 list-disc list-inside">
+      <li>การโพสต์เข้าแพลตฟอร์มอัตโนมัติ — ยังต้องคัดลอกข้อความไปโพสต์เองในแต่ละแอป</li>
+      <li>การบันทึกข้อมูลถาวร — ตอนนี้เป็นข้อมูลจำลอง รีเฟรชหน้าแล้วรีเซ็ต (จะเชื่อม Google Sheets ใน Phase 2)</li>
+      <li>ระบบแจ้งเตือนอีเมลอัตโนมัติ (จะทำใน Phase 3)</li>
+      <li>ระบบ Login และสิทธิ์ผู้ใช้แบบเต็มรูปแบบ — โหมดลูกค้าตอนนี้เป็นการสลับมุมมองในเครื่องเดียว ยังไม่ใช่ระบบสิทธิ์จริง</li>
+    </ul>
+  </section>
+
+</div>
+</body>
+</html>

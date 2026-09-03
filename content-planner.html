@@ -64,11 +64,17 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
       </h1>
       <p class="text-sm text-slate-500">วางแผนคอนเทนต์และแจ้งเตือนสำหรับทุกแบรนด์และแพลตฟอร์ม</p>
     </div>
-    <div class="flex items-center gap-2">
+    <div class="flex items-center gap-2 flex-wrap">
       <span class="text-xs px-3 py-1.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
         <i class="fa-solid fa-flask"></i> Phase 1 · ข้อมูลจำลอง (ยังไม่บันทึกจริง)
       </span>
-      <button onclick="openForm()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2 rounded-lg flex items-center gap-2">
+      <a href="content-planner-manual.html" target="_blank" class="text-sm font-medium px-4 py-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 flex items-center gap-2">
+        <i class="fa-solid fa-book"></i> คู่มือการใช้งาน
+      </a>
+      <button id="client-mode-btn" onclick="toggleClientMode()" class="text-sm font-medium px-4 py-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 flex items-center gap-2">
+        <i class="fa-regular fa-eye"></i> โหมดลูกค้า (อ่านอย่างเดียว)
+      </button>
+      <button id="create-btn" onclick="openForm()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2 rounded-lg flex items-center gap-2">
         <i class="fa-solid fa-plus"></i> สร้างคอนเทนต์
       </button>
     </div>
@@ -124,11 +130,12 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
 
   <!-- ============ CALENDAR VIEW ============ -->
   <div id="view-calendar" class="hidden">
-    <div class="flex items-center justify-between mb-3">
+    <div class="flex items-center justify-between mb-1">
       <button onclick="shiftMonth(-1)" class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-sm"><i class="fa-solid fa-chevron-left"></i></button>
       <div class="font-semibold" id="cal-title"></div>
       <button onclick="shiftMonth(1)" class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-sm"><i class="fa-solid fa-chevron-right"></i></button>
     </div>
+    <div id="cal-hint" class="text-xs text-slate-400 mb-2"><i class="fa-solid fa-hand"></i> ลากการ์ดไปวางวันที่ต้องการเพื่อเลื่อนกำหนดโพสต์</div>
     <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
       <table class="w-full text-xs border-collapse">
         <thead>
@@ -151,10 +158,24 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
       </select>
       <input id="f-search" class="form-input !w-48" placeholder="ค้นหาหัวข้อ..." oninput="renderList()">
     </div>
+
+    <!-- Bulk action toolbar -->
+    <div id="bulk-toolbar" class="hidden bg-indigo-50 border border-indigo-200 rounded-xl p-2.5 mb-3 flex items-center gap-2 text-sm">
+      <span id="bulk-count" class="font-medium text-indigo-700"></span>
+      <span class="text-slate-400">·</span>
+      <span>เปลี่ยนสถานะเป็น</span>
+      <select id="bulk-status" class="form-input !w-auto">
+        <option>Draft</option><option>Review</option><option>Revision</option><option>Approved</option><option>Ready</option><option>Posted</option><option>Cancelled</option>
+      </select>
+      <button onclick="applyBulkStatus()" class="bg-indigo-600 text-white text-xs font-medium px-3 py-1.5 rounded-lg">ใช้กับรายการที่เลือก</button>
+      <button onclick="clearBulkSelection()" class="text-xs text-slate-400 hover:text-slate-600 ml-auto">ยกเลิกการเลือก</button>
+    </div>
+
     <div class="bg-white rounded-xl border border-slate-200 overflow-x-auto">
       <table class="w-full text-sm">
         <thead class="bg-slate-50 text-slate-500 text-xs">
           <tr>
+            <th class="p-3 text-left" id="th-bulk"><input type="checkbox" id="bulk-select-all" onchange="toggleSelectAll(this.checked)"></th>
             <th class="p-3 text-left">แบรนด์ / แคมเปญ</th>
             <th class="p-3 text-left">หัวข้อ</th>
             <th class="p-3 text-left">แพลตฟอร์ม</th>
@@ -267,13 +288,13 @@ let items = [
   mk(2,'Nina Cosmetics','September Launch','Behind the scene ถ่ายภาพสินค้า',['TikTok'],'today+8h','เอิร์ธ','แนน','Review',{TikTok:{caption:'',guide:''}},''),
   mk(3,'GreenLeaf Cafe','Weekly Promo','โปรโมชั่นกาแฟลด 20%',['Facebook','LINE'],'tomorrow','มายด์','ปาน','Approved',{Facebook:{caption:'กาแฟลด 20% วันนี้ถึงอาทิตย์นี้เท่านั้น ☕',cta:'แวะมาชิม'},LINE:{message:'โปรกาแฟลด 20% วันนี้-อาทิตย์นี้',link:'https://line.me/mock'}},'https://drive.google.com/mock3'),
   mk(4,'GreenLeaf Cafe','Weekly Promo','เมนูใหม่ Cold Brew',['Instagram','TikTok'],'+2d','มายด์','ปาน','Draft',{},''),
-  mk(5,'Urban Fit Studio','Membership Drive','โปรสมัครสมาชิกรายปี',['Facebook','Instagram','LINE'],'-1d','เอิร์ธ','แนน','Revision',{Facebook:{caption:'สมัครสมาชิกรายปี รับส่วนลด 30%'}},'https://drive.google.com/mock5'),
+  mk(5,'Urban Fit Studio','Membership Drive','โปรสมัครสมาชิกรายปี',['Facebook','Instagram','LINE'],'-1d','เอิร์ธ','แนน','Revision',{Facebook:{caption:'สมัครสมาชิกรายปี รับส่วนลด 30%'}},'https://drive.google.com/mock5','',[{author:'แนน (ผู้ตรวจ)',text:'ขอปรับ CTA ให้ชัดกว่านี้ ลูกค้าอ่านแล้วยังไม่รู้ว่าต้องกดตรงไหน',time:new Date(Date.now()-3600000*5)}]),
   mk(6,'Urban Fit Studio','Membership Drive','คลิปรีวิวจากลูกค้า',['TikTok'],'-3h','ปาน','แนน','Posted',{TikTok:{caption:'รีวิวจริงจากสมาชิก 💪'}},'https://drive.google.com/mock6',{Facebook:'',TikTok:'https://tiktok.com/@mock/video/123'}),
   mk(7,'Nina Cosmetics','September Launch','โพสต์ขอบคุณลูกค้า',['Facebook'],'+5d','เอิร์ธ','ปาน','Draft',{},''),
   mk(8,'GreenLeaf Cafe','Weekly Promo','ไลฟ์สไตล์ร้าน',['Instagram'],'+1d3h','มายด์','แนน','Ready',{Instagram:{caption:'บรรยากาศชิลๆ ที่ GreenLeaf ☕🍃',hashtag:'#GreenLeafCafe'}},'https://drive.google.com/mock8'),
 ];
 
-function mk(id,brand,campaign,title,platforms,when,owner,reviewer,status,captions,media,published){
+function mk(id,brand,campaign,title,platforms,when,owner,reviewer,status,captions,media,published,comments){
   return {
     id, brand, campaign, title, platforms,
     scheduledAt: resolveWhen(when),
@@ -281,6 +302,7 @@ function mk(id,brand,campaign,title,platforms,when,owner,reviewer,status,caption
     captions: captions || {},
     media: media || '',
     published: published || {},
+    comments: comments || [],
   };
 }
 function resolveWhen(token){
@@ -334,6 +356,52 @@ function visibleItems(){
     (!sharedPlatform || i.platforms.includes(sharedPlatform))
   );
 }
+
+// ---------- Client (read-only) mode ----------
+let clientMode = false;
+function toggleClientMode(){
+  clientMode = !clientMode;
+  const btn = document.getElementById('client-mode-btn');
+  btn.classList.toggle('bg-emerald-50', clientMode);
+  btn.classList.toggle('border-emerald-300', clientMode);
+  btn.classList.toggle('text-emerald-700', clientMode);
+  btn.innerHTML = clientMode
+    ? '<i class="fa-solid fa-eye"></i> โหมดลูกค้า (เปิดอยู่)'
+    : '<i class="fa-regular fa-eye"></i> โหมดลูกค้า (อ่านอย่างเดียว)';
+  document.getElementById('create-btn').classList.toggle('hidden', clientMode);
+  clearBulkSelection();
+  refreshAll();
+}
+
+// ---------- Bulk actions (List) ----------
+let selectedIds = new Set();
+function toggleSelectRow(id, checked){
+  if (checked) selectedIds.add(id); else selectedIds.delete(id);
+  updateBulkToolbar();
+}
+function toggleSelectAll(checked){
+  const rows = visibleListRows();
+  rows.forEach(i => checked ? selectedIds.add(i.id) : selectedIds.delete(i.id));
+  renderList();
+}
+function clearBulkSelection(){
+  selectedIds.clear();
+  updateBulkToolbar();
+}
+function updateBulkToolbar(){
+  const toolbar = document.getElementById('bulk-toolbar');
+  if (!toolbar) return;
+  toolbar.classList.toggle('hidden', selectedIds.size===0);
+  document.getElementById('bulk-count').textContent = `เลือกไว้ ${selectedIds.size} รายการ`;
+}
+function applyBulkStatus(){
+  const status = document.getElementById('bulk-status').value;
+  items.forEach(i => { if (selectedIds.has(i.id)) i.status = status; });
+  clearBulkSelection();
+  refreshAll();
+}
+let __lastListRows = [];
+function visibleListRows(){ return __lastListRows; }
 
 // ---------- Derived status ----------
 function computeFlags(item){
@@ -419,18 +487,24 @@ function renderList(){
     (!status || i.status===status) &&
     (!search || i.title.toLowerCase().includes(search))
   ).sort((a,b)=>a.scheduledAt-b.scheduledAt);
+  __lastListRows = filtered;
+
+  document.getElementById('th-bulk').classList.toggle('hidden', clientMode);
+  document.getElementById('bulk-toolbar').classList.toggle('hidden', clientMode || selectedIds.size===0);
+  document.getElementById('bulk-select-all').checked = filtered.length>0 && filtered.every(i=>selectedIds.has(i.id));
 
   document.getElementById('list-body').innerHTML = filtered.map(i => `
     <tr class="border-t border-slate-100 hover:bg-slate-50 cursor-pointer" onclick="viewDetail(${i.id})">
+      <td class="p-3 ${clientMode?'hidden':''}" onclick="event.stopPropagation()"><input type="checkbox" ${selectedIds.has(i.id)?'checked':''} onchange="toggleSelectRow(${i.id}, this.checked)"></td>
       <td class="p-3"><div class="font-medium">${i.brand}</div><div class="text-xs text-slate-400">${i.campaign}</div></td>
       <td class="p-3">${i.title}</td>
       <td class="p-3">${i.platforms.map(p=>`<span class="platform-chip plat-${p}">${p}</span>`).join(' ')}</td>
       <td class="p-3 text-xs">${fmtDate(i.scheduledAt)} ${flagBadge(i)}</td>
       <td class="p-3">${i.owner}</td>
       <td class="p-3"><span class="status-pill status-${i.status}">${i.status}</span></td>
-      <td class="p-3 text-right"><button onclick="event.stopPropagation();editContent(${i.id})" class="text-indigo-600 text-xs"><i class="fa-solid fa-pen"></i></button></td>
+      <td class="p-3 text-right">${clientMode?'':`<button onclick="event.stopPropagation();editContent(${i.id})" class="text-indigo-600 text-xs"><i class="fa-solid fa-pen"></i></button>`}</td>
     </tr>
-  `).join('') || `<tr><td colspan="7" class="p-6 text-center text-slate-400 text-sm">ไม่พบรายการ</td></tr>`;
+  `).join('') || `<tr><td colspan="8" class="p-6 text-center text-slate-400 text-sm">ไม่พบรายการ</td></tr>`;
 }
 function flagBadge(i){
   const flags = computeFlags(i);
@@ -461,14 +535,33 @@ function renderCalendar(){
       const cellDate = new Date(y,m,day);
       const isToday = cellDate.toDateString()===today.toDateString();
       const dayItems = visibleItems().filter(i=>i.scheduledAt.toDateString()===cellDate.toDateString());
-      html += `<td class="day-cell ${isToday?'today':''}">
+      html += `<td class="day-cell ${isToday?'today':''}" data-date="${cellDate.toISOString()}" ondragover="onCalDragOver(event)" ondrop="onCalDrop(event, '${cellDate.toISOString()}')">
         <div class="text-xs font-semibold ${isToday?'text-indigo-600':'text-slate-500'}">${day}</div>
-        ${dayItems.map(i=>`<span class="cal-item status-${i.status}" onclick="viewDetail(${i.id})" title="${i.title}">${i.title}</span>`).join('')}
+        ${dayItems.map(i=>`<span class="cal-item status-${i.status}" ${clientMode?'':`draggable="true" ondragstart="onCalDragStart(event, ${i.id})"`} onclick="viewDetail(${i.id})" title="${i.title}">${i.title}</span>`).join('')}
       </td>`;
     }
     html += '</tr>';
   }
   document.getElementById('cal-body').innerHTML = html;
+  document.getElementById('cal-hint').classList.toggle('hidden', clientMode);
+}
+function onCalDragStart(ev, id){
+  ev.dataTransfer.setData('text/plain', String(id));
+}
+function onCalDragOver(ev){
+  ev.preventDefault();
+}
+function onCalDrop(ev, isoDate){
+  ev.preventDefault();
+  if (clientMode) return;
+  const id = parseInt(ev.dataTransfer.getData('text/plain'));
+  const item = items.find(x=>x.id===id);
+  if (!item) return;
+  const target = new Date(isoDate);
+  const old = item.scheduledAt;
+  target.setHours(old.getHours(), old.getMinutes(), 0, 0);
+  item.scheduledAt = target;
+  refreshAll();
 }
 
 // ---------- Report ----------
@@ -497,6 +590,7 @@ function renderReport(){
 
 // ---------- Form ----------
 function openForm(){
+  if (clientMode) return;
   editingId = null;
   document.getElementById('form-title').textContent = 'สร้างคอนเทนต์ใหม่';
   ['fld-brand','fld-campaign','fld-title','fld-note','fld-schedule','fld-media','fld-owner','fld-reviewer'].forEach(id=>document.getElementById(id).value='');
@@ -507,6 +601,7 @@ function openForm(){
   document.getElementById('form-modal').classList.add('flex');
 }
 function editContent(id){
+  if (clientMode) return;
   const i = items.find(x=>x.id===id);
   editingId = id;
   document.getElementById('form-title').textContent = 'แก้ไขคอนเทนต์';
@@ -672,13 +767,39 @@ function viewDetail(id){
         </div>`;
       }).join('')}
     </div>
+    <div class="mt-4 border-t border-slate-100 pt-3">
+      <div class="text-xs font-semibold text-slate-500 mb-2"><i class="fa-regular fa-comments"></i> ความคิดเห็น (${i.comments.length})</div>
+      <div id="comment-list" class="space-y-2 mb-2 max-h-40 overflow-y-auto">
+        ${i.comments.length ? i.comments.map(c=>`
+          <div class="bg-slate-50 rounded-lg p-2 text-sm">
+            <div class="flex items-center justify-between text-xs text-slate-400 mb-0.5">
+              <span class="font-medium text-slate-600">${c.author}</span>
+              <span>${fmtDate(new Date(c.time))}</span>
+            </div>
+            <div>${c.text}</div>
+          </div>
+        `).join('') : '<div class="text-xs text-slate-400">ยังไม่มีความคิดเห็น</div>'}
+      </div>
+      <div class="flex gap-2">
+        <input id="comment-input" class="form-input" placeholder="แสดงความคิดเห็น / ขอแก้ไข...">
+        <button onclick="addComment(${i.id})" class="px-3 py-2 rounded-lg bg-indigo-600 text-white text-sm shrink-0"><i class="fa-solid fa-paper-plane"></i></button>
+      </div>
+    </div>
     <div class="mt-4 flex justify-end gap-2">
       <button onclick="closeDetail()" class="px-3 py-1.5 rounded-lg border border-slate-200 text-sm">ปิด</button>
-      <button onclick="closeDetail();editContent(${i.id})" class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-sm">แก้ไข</button>
+      ${clientMode ? '' : `<button onclick="closeDetail();editContent(${i.id})" class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-sm">แก้ไข</button>`}
     </div>
   `;
   document.getElementById('detail-modal').classList.remove('hidden');
   document.getElementById('detail-modal').classList.add('flex');
+}
+function addComment(id){
+  const input = document.getElementById('comment-input');
+  const text = input.value.trim();
+  if (!text) return;
+  const item = items.find(x=>x.id===id);
+  item.comments.push({ author: clientMode ? 'ลูกค้า (จำลอง)' : 'คุณ (จำลอง)', text, time: new Date() });
+  viewDetail(id);
 }
 function closeDetail(){
   document.getElementById('detail-modal').classList.add('hidden');
