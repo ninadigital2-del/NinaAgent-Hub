@@ -35,6 +35,21 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
 .plat-Instagram { background: #fce7f3; color: #be185d; }
 .plat-TikTok { background: #f3f4f6; color: #111827; }
 .plat-LINE { background: #dcfce7; color: #15803d; }
+.plat-YouTube { background: #fee2e2; color: #b91c1c; }
+
+.platform-badge {
+  width: 20px; height: 20px; border-radius: 999px;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 10px; flex-shrink: 0;
+  box-shadow: 0 0 0 2px #fff;
+}
+.pbadge-Facebook { background: #1877f2; }
+.pbadge-Instagram { background: radial-gradient(circle at 30% 110%, #fdf497 0%, #fdf497 5%, #fd5949 45%, #d6249f 60%, #285AEB 90%); }
+.pbadge-TikTok { background: #000; }
+.pbadge-LINE { background: #06c755; }
+.pbadge-YouTube { background: #ff0000; }
+.platform-badges { display: flex; align-items: center; margin-left: -4px; }
+.platform-badges .platform-badge { margin-left: -4px; }
 
 .modal-mask { background: rgba(15, 23, 42, 0.5); }
 .form-input { border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px; width: 100%; font-family: inherit; font-size: 14px; }
@@ -146,7 +161,7 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
     <select id="shared-brand" class="form-input !w-auto" onchange="applySharedFilter()"><option value="">ทุกแบรนด์</option></select>
     <select id="shared-platform" class="form-input !w-auto" onchange="applySharedFilter()">
       <option value="">ทุกแพลตฟอร์ม</option>
-      <option>Facebook</option><option>Instagram</option><option>TikTok</option><option>LINE</option>
+      <option>Facebook</option><option>Instagram</option><option>TikTok</option><option>LINE</option><option>YouTube</option>
     </select>
     <button onclick="clearSharedFilter()" class="text-xs text-slate-400 hover:text-slate-600 ml-1"><i class="fa-solid fa-xmark"></i> ล้างตัวกรอง</button>
     <span id="shared-filter-badge" class="text-xs text-indigo-600 font-medium ml-auto"></span>
@@ -288,6 +303,7 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
             <label class="flex items-center gap-1 text-sm border border-slate-200 rounded-lg px-2 py-1"><input type="checkbox" value="Instagram"> Instagram</label>
             <label class="flex items-center gap-1 text-sm border border-slate-200 rounded-lg px-2 py-1"><input type="checkbox" value="TikTok"> TikTok</label>
             <label class="flex items-center gap-1 text-sm border border-slate-200 rounded-lg px-2 py-1"><input type="checkbox" value="LINE"> LINE OA</label>
+            <label class="flex items-center gap-1 text-sm border border-slate-200 rounded-lg px-2 py-1"><input type="checkbox" value="YouTube"> YouTube</label>
           </div>
         </div>
         <div><label class="form-label">วันและเวลาที่กำหนดโพสต์</label><input id="fld-schedule" type="datetime-local" class="form-input"></div>
@@ -368,7 +384,16 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
 </div>
 
 <script>
-const PLATFORMS = ['Facebook', 'Instagram', 'TikTok', 'LINE'];
+const PLATFORMS = ['Facebook', 'Instagram', 'TikTok', 'LINE', 'YouTube'];
+const PLATFORM_ICON = {
+  Facebook: 'fa-facebook-f', Instagram: 'fa-instagram', TikTok: 'fa-tiktok',
+  LINE: 'fa-line', YouTube: 'fa-youtube',
+};
+function platformBadges(platforms){
+  return `<span class="platform-badges">${platforms.map(p=>
+    `<span class="platform-badge pbadge-${p}" title="${p}"><i class="fa-brands ${PLATFORM_ICON[p]||'fa-hashtag'}"></i></span>`
+  ).join('')}</span>`;
+}
 const STATUS_FLOW = ['Draft','Review','Revision','Approved','Ready','Posted'];
 
 // ---------- Mock data ----------
@@ -381,6 +406,7 @@ let items = [
   mk(6,'Urban Fit Studio','Membership Drive','คลิปรีวิวจากลูกค้า',['TikTok'],'-3h','ปาน','แนน','Posted',{TikTok:{caption:'รีวิวจริงจากสมาชิก 💪'}},'https://drive.google.com/mock6',{Facebook:'',TikTok:'https://tiktok.com/@mock/video/123'}),
   mk(7,'Nina Cosmetics','September Launch','โพสต์ขอบคุณลูกค้า',['Facebook'],'+5d','เอิร์ธ','ปาน','Draft',{},''),
   mk(8,'GreenLeaf Cafe','Weekly Promo','ไลฟ์สไตล์ร้าน',['Instagram'],'+1d3h','มายด์','แนน','Ready',{Instagram:{caption:'บรรยากาศชิลๆ ที่ GreenLeaf ☕🍃',hashtag:'#GreenLeafCafe'}},'https://drive.google.com/mock8'),
+  mk(9,'Urban Fit Studio','Membership Drive','คลิปรีวิว Full Version',['YouTube','Facebook'],'today+2h','เอิร์ธ','ปาน','Review',{YouTube:{caption:'รีวิวสมาชิก 1 ปี ผลลัพธ์เป็นยังไงบ้าง?',guide:'สัมภาษณ์สมาชิกจริง 3 คน พร้อม before/after',cta:'สมัครสมาชิก, Urban Fit, รีวิว'}},'https://drive.google.com/mock9'),
 ];
 
 function mk(id,brand,campaign,title,platforms,when,owner,reviewer,status,captions,media,published,comments){
@@ -551,8 +577,9 @@ function renderDashboard(){
   `).join('');
 }
 function itemRow(i){
-  return `<div class="flex items-center justify-between py-2 border-b border-slate-50 last:border-0 cursor-pointer" onclick="viewDetail(${i.id})">
-    <div class="min-w-0">
+  return `<div class="flex items-center gap-2.5 py-2 border-b border-slate-50 last:border-0 cursor-pointer" onclick="viewDetail(${i.id})">
+    ${platformBadges(i.platforms)}
+    <div class="min-w-0 flex-1">
       <div class="text-sm font-medium truncate">${i.title}</div>
       <div class="text-xs text-slate-400">${i.brand} · ${fmtDate(i.scheduledAt)} · ${i.owner}</div>
     </div>
@@ -815,6 +842,14 @@ function renderCaptionPanel(){
       <textarea class="form-input mb-2" rows="3" oninput="updateCaption('caption', this.value)">${data.caption||''}</textarea>
       <label class="form-label">แนวทางวิดีโอ</label>
       <textarea class="form-input" rows="2" oninput="updateCaption('guide', this.value)">${data.guide||''}</textarea>`;
+  } else if (activeCapTab === 'YouTube') {
+    fields = `
+      <label class="form-label">ชื่อวิดีโอ (Title)</label>
+      <input class="form-input mb-2" value="${data.caption||''}" oninput="updateCaption('caption', this.value)">
+      <label class="form-label">คำอธิบาย (Description)</label>
+      <textarea class="form-input mb-2" rows="3" oninput="updateCaption('guide', this.value)">${data.guide||''}</textarea>
+      <label class="form-label">Tags / CTA</label>
+      <input class="form-input" value="${data.cta||''}" oninput="updateCaption('cta', this.value)">`;
   } else {
     fields = `
       <label class="form-label">Caption</label>
