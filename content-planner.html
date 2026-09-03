@@ -47,9 +47,61 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
 .check-ok { color: #16a34a; }
 .check-missing { color: #cbd5e1; }
 
-.day-cell { min-height: 90px; border: 1px solid #e5e7eb; padding: 6px; vertical-align: top; }
-.day-cell.today { background: #eef2ff; }
-.cal-item { font-size: 10.5px; padding: 2px 5px; border-radius: 5px; margin-top: 3px; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+/* ---------- Calendar ---------- */
+.cal-weekday { text-align: center; font-size: 11px; font-weight: 700; letter-spacing: .02em; color: #94a3b8; padding: 4px 0 8px; text-transform: uppercase; }
+.cal-weekday.weekend { color: #c7847a; }
+
+.day-cell {
+  position: relative;
+  min-height: 112px;
+  background: #fff;
+  border: 1px solid #eef0f3;
+  border-radius: 12px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  transition: box-shadow .15s ease, border-color .15s ease, transform .1s ease;
+}
+.day-cell.in-month:hover { border-color: #c7d2fe; box-shadow: 0 4px 14px rgba(79, 70, 229, 0.08); }
+.day-cell.out-month { background: #fafafa; border-color: #f4f5f7; }
+.day-cell.out-month .day-num { color: #d1d5db; }
+.day-cell.weekend:not(.out-month) { background: #fcfbfa; }
+.day-cell.today { background: linear-gradient(180deg, #eef2ff 0%, #f5f7ff 100%); border-color: #a5b4fc; }
+.day-cell.drag-over { border-color: #4f46e5; box-shadow: 0 0 0 3px rgba(79,70,229,0.15); transform: scale(1.01); }
+
+.day-num-row { display: flex; align-items: center; justify-content: space-between; }
+.day-num { font-size: 12.5px; font-weight: 600; color: #64748b; }
+.day-num.today-badge {
+  width: 22px; height: 22px; border-radius: 999px; background: #4f46e5; color: #fff;
+  display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px;
+}
+.day-empty-hint { flex: 1; display: flex; align-items: center; justify-content: center; }
+.day-empty-hint i { font-size: 11px; color: #e5e7eb; opacity: 0; transition: opacity .15s ease; }
+.day-cell.in-month:hover .day-empty-hint i { opacity: 1; }
+
+.cal-item {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 10.5px; font-weight: 500; line-height: 1.3;
+  padding: 3px 6px; border-radius: 6px;
+  background: #f8fafc; color: #334155;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  cursor: pointer; border: 1px solid transparent;
+  transition: background .1s ease;
+}
+.cal-item:hover { background: #eef2ff; border-color: #e0e7ff; }
+.cal-item .cal-dot { width: 6px; height: 6px; border-radius: 999px; flex-shrink: 0; }
+.cal-dot-Draft { background: #94a3b8; }
+.cal-dot-Review { background: #eab308; }
+.cal-dot-Revision { background: #ef4444; }
+.cal-dot-Approved { background: #3b82f6; }
+.cal-dot-Ready { background: #6366f1; }
+.cal-dot-Posted { background: #22c55e; }
+.cal-dot-Cancelled { background: #cbd5e1; }
+.cal-item.cal-item-Posted { color: #64748b; text-decoration: line-through; text-decoration-color: #cbd5e1; }
+
+.cal-more { font-size: 10px; font-weight: 600; color: #6366f1; padding: 2px 6px; cursor: pointer; }
+.cal-more:hover { text-decoration: underline; }
 </style>
 </head>
 <body class="text-slate-800">
@@ -140,17 +192,11 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
         <button onclick="shiftMonth(1)" class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-sm"><i class="fa-solid fa-chevron-right"></i></button>
       </div>
     </div>
-    <div id="cal-hint" class="text-xs text-slate-400 mb-2"><i class="fa-solid fa-hand"></i> ลากการ์ดไปวางวันที่ต้องการเพื่อเลื่อนกำหนดโพสต์</div>
-    <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
-      <table class="w-full text-xs border-collapse">
-        <thead>
-          <tr class="bg-slate-50">
-            <th class="p-2 border border-slate-200">อา</th><th class="p-2 border border-slate-200">จ</th><th class="p-2 border border-slate-200">อ</th><th class="p-2 border border-slate-200">พ</th><th class="p-2 border border-slate-200">พฤ</th><th class="p-2 border border-slate-200">ศ</th><th class="p-2 border border-slate-200">ส</th>
-          </tr>
-        </thead>
-        <tbody id="cal-body"></tbody>
-      </table>
+    <div id="cal-hint" class="text-xs text-slate-400 mb-3"><i class="fa-solid fa-hand"></i> ลากการ์ดไปวางวันที่ต้องการเพื่อเลื่อนกำหนดโพสต์</div>
+    <div class="grid grid-cols-7">
+      <div class="cal-weekday">อา</div><div class="cal-weekday">จ</div><div class="cal-weekday">อ</div><div class="cal-weekday">พ</div><div class="cal-weekday">พฤ</div><div class="cal-weekday">ศ</div><div class="cal-weekday weekend">ส</div>
     </div>
+    <div id="cal-body" class="grid grid-cols-7 gap-2"></div>
   </div>
 
   <!-- ============ LIST VIEW ============ -->
@@ -307,6 +353,17 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
     <div class="p-4 border-t border-slate-100 flex justify-end">
       <button onclick="closeImportImage()" class="px-4 py-2 rounded-lg border border-slate-200 text-sm">ปิด</button>
     </div>
+  </div>
+</div>
+
+<!-- ============ DAY OVERVIEW MODAL (Calendar "+N เพิ่มเติม") ============ -->
+<div id="day-modal" class="fixed inset-0 modal-mask hidden items-center justify-center z-50 p-4">
+  <div class="bg-white rounded-2xl w-full max-w-sm max-h-[80vh] overflow-y-auto">
+    <div class="flex items-center justify-between p-4 border-b border-slate-100 sticky top-0 bg-white">
+      <h3 class="font-semibold" id="day-modal-title">รายการของวันที่...</h3>
+      <button onclick="closeDayModal()" class="text-slate-400 hover:text-slate-700"><i class="fa-solid fa-xmark text-lg"></i></button>
+    </div>
+    <div id="day-modal-body" class="p-3 space-y-1.5"></div>
   </div>
 </div>
 
@@ -549,33 +606,67 @@ function fmtDate(d){
 }
 
 // ---------- Calendar ----------
+const MAX_CAL_ITEMS = 3;
 function shiftMonth(n){ calCursor.setMonth(calCursor.getMonth()+n); renderCalendar(); }
+function calItemChip(i){
+  return `<div class="cal-item cal-item-${i.status}" ${clientMode?'':`draggable="true" ondragstart="onCalDragStart(event, ${i.id})"`} onclick="event.stopPropagation();viewDetail(${i.id})" title="${i.title}">
+    <span class="cal-dot cal-dot-${i.status}"></span><span class="truncate">${i.title}</span>
+  </div>`;
+}
 function renderCalendar(){
   const y = calCursor.getFullYear(), m = calCursor.getMonth();
   document.getElementById('cal-title').textContent = calCursor.toLocaleDateString('th-TH', { month:'long', year:'numeric' });
   const first = new Date(y,m,1);
   const startDow = first.getDay();
   const daysInMonth = new Date(y,m+1,0).getDate();
+  const prevMonthDays = new Date(y,m,0).getDate();
   const today = new Date();
+  const totalCells = Math.ceil((startDow + daysInMonth) / 7) * 7;
 
   let html = '';
-  let day = 1 - startDow;
-  for (let row=0; row<6 && day<=daysInMonth; row++){
-    html += '<tr>';
-    for (let c=0;c<7;c++,day++){
-      if (day<1 || day>daysInMonth){ html += '<td class="day-cell" style="background:#fafafa"></td>'; continue; }
-      const cellDate = new Date(y,m,day);
-      const isToday = cellDate.toDateString()===today.toDateString();
-      const dayItems = visibleItems().filter(i=>i.scheduledAt.toDateString()===cellDate.toDateString());
-      html += `<td class="day-cell ${isToday?'today':''}" data-date="${cellDate.toISOString()}" ondragover="onCalDragOver(event)" ondrop="onCalDrop(event, '${cellDate.toISOString()}')">
-        <div class="text-xs font-semibold ${isToday?'text-indigo-600':'text-slate-500'}">${day}</div>
-        ${dayItems.map(i=>`<span class="cal-item status-${i.status}" ${clientMode?'':`draggable="true" ondragstart="onCalDragStart(event, ${i.id})"`} onclick="viewDetail(${i.id})" title="${i.title}">${i.title}</span>`).join('')}
-      </td>`;
-    }
-    html += '</tr>';
+  for (let cell=0; cell<totalCells; cell++){
+    const dayNum = cell - startDow + 1;
+    const inMonth = dayNum>=1 && dayNum<=daysInMonth;
+    const cellDate = inMonth ? new Date(y,m,dayNum) : (dayNum<1 ? new Date(y,m-1,prevMonthDays+dayNum) : new Date(y,m+1,dayNum-daysInMonth));
+    const isToday = inMonth && cellDate.toDateString()===today.toDateString();
+    const isWeekend = cell%7===0 || cell%7===6;
+    const dayItems = inMonth ? visibleItems().filter(i=>i.scheduledAt.toDateString()===cellDate.toDateString()) : [];
+    const shown = dayItems.slice(0, MAX_CAL_ITEMS);
+    const overflow = dayItems.length - shown.length;
+
+    html += `<div class="day-cell ${inMonth?'in-month':'out-month'} ${isToday?'today':''} ${isWeekend?'weekend':''}"
+      data-date="${cellDate.toISOString()}"
+      ${inMonth && !clientMode ? `ondragover="onCalDragOver(event)" ondragenter="onCalDragEnter(event)" ondragleave="onCalDragLeave(event)" ondrop="onCalDrop(event, '${cellDate.toISOString()}')"` : ''}>
+      <div class="day-num-row">
+        <span class="day-num ${isToday?'today-badge':''}">${cellDate.getDate()}</span>
+      </div>
+      ${shown.map(calItemChip).join('')}
+      ${overflow>0 ? `<div class="cal-more" onclick="openDayModal('${cellDate.toISOString()}')">+${overflow} เพิ่มเติม</div>` : ''}
+      ${inMonth && dayItems.length===0 ? `<div class="day-empty-hint"><i class="fa-solid fa-plus"></i></div>` : ''}
+    </div>`;
   }
   document.getElementById('cal-body').innerHTML = html;
   document.getElementById('cal-hint').classList.toggle('hidden', clientMode);
+}
+function openDayModal(isoDate){
+  const d = new Date(isoDate);
+  const dayItems = visibleItems().filter(i=>i.scheduledAt.toDateString()===d.toDateString());
+  document.getElementById('day-modal-title').textContent = d.toLocaleDateString('th-TH', { day:'numeric', month:'long', year:'numeric' });
+  document.getElementById('day-modal-body').innerHTML = dayItems.map(i => `
+    <div class="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50 cursor-pointer" onclick="closeDayModal();viewDetail(${i.id})">
+      <div class="min-w-0">
+        <div class="text-sm font-medium truncate">${i.title}</div>
+        <div class="text-xs text-slate-400">${i.brand} · ${i.owner}</div>
+      </div>
+      <span class="status-pill status-${i.status}">${i.status}</span>
+    </div>
+  `).join('') || '<div class="text-xs text-slate-400 p-2">ไม่มีรายการ</div>';
+  document.getElementById('day-modal').classList.remove('hidden');
+  document.getElementById('day-modal').classList.add('flex');
+}
+function closeDayModal(){
+  document.getElementById('day-modal').classList.add('hidden');
+  document.getElementById('day-modal').classList.remove('flex');
 }
 function onCalDragStart(ev, id){
   ev.dataTransfer.setData('text/plain', String(id));
@@ -583,8 +674,15 @@ function onCalDragStart(ev, id){
 function onCalDragOver(ev){
   ev.preventDefault();
 }
+function onCalDragEnter(ev){
+  ev.currentTarget.classList.add('drag-over');
+}
+function onCalDragLeave(ev){
+  ev.currentTarget.classList.remove('drag-over');
+}
 function onCalDrop(ev, isoDate){
   ev.preventDefault();
+  ev.currentTarget.classList.remove('drag-over');
   if (clientMode) return;
   const id = parseInt(ev.dataTransfer.getData('text/plain'));
   const item = items.find(x=>x.id===id);
