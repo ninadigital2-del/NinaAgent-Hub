@@ -82,6 +82,18 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
     <div class="cp-tab pb-2 cursor-pointer" data-tab="report" onclick="switchTab('report')"><i class="fa-solid fa-chart-simple"></i> รายงาน</div>
   </div>
 
+  <!-- ============ SHARED FILTER BAR (Brand / Platform) ============ -->
+  <div class="bg-white rounded-xl border border-slate-200 p-3 mb-5 flex flex-wrap items-center gap-2">
+    <span class="text-xs font-semibold text-slate-500"><i class="fa-solid fa-filter"></i> ดูเฉพาะ:</span>
+    <select id="shared-brand" class="form-input !w-auto" onchange="applySharedFilter()"><option value="">ทุกแบรนด์</option></select>
+    <select id="shared-platform" class="form-input !w-auto" onchange="applySharedFilter()">
+      <option value="">ทุกแพลตฟอร์ม</option>
+      <option>Facebook</option><option>Instagram</option><option>TikTok</option><option>LINE</option>
+    </select>
+    <button onclick="clearSharedFilter()" class="text-xs text-slate-400 hover:text-slate-600 ml-1"><i class="fa-solid fa-xmark"></i> ล้างตัวกรอง</button>
+    <span id="shared-filter-badge" class="text-xs text-indigo-600 font-medium ml-auto"></span>
+  </div>
+
   <!-- ============ DASHBOARD VIEW ============ -->
   <div id="view-dashboard">
     <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
@@ -132,11 +144,6 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
   <!-- ============ LIST VIEW ============ -->
   <div id="view-list" class="hidden">
     <div class="bg-white rounded-xl border border-slate-200 p-3 mb-4 flex flex-wrap gap-2">
-      <select id="f-brand" class="form-input !w-auto" onchange="renderList()"><option value="">ทุกแบรนด์</option></select>
-      <select id="f-platform" class="form-input !w-auto" onchange="renderList()">
-        <option value="">ทุกแพลตฟอร์ม</option>
-        <option>Facebook</option><option>Instagram</option><option>TikTok</option><option>LINE</option>
-      </select>
       <select id="f-owner" class="form-input !w-auto" onchange="renderList()"><option value="">ทุกผู้รับผิดชอบ</option></select>
       <select id="f-status" class="form-input !w-auto" onchange="renderList()">
         <option value="">ทุกสถานะ</option>
@@ -298,6 +305,36 @@ function resolveWhen(token){
 let editingId = null;
 let calCursor = new Date();
 
+// ---------- Shared filter (Brand / Platform) ----------
+let sharedBrand = '';
+let sharedPlatform = '';
+function populateSharedFilter(){
+  const brands = [...new Set(items.map(i=>i.brand))];
+  document.getElementById('shared-brand').innerHTML = '<option value="">ทุกแบรนด์</option>' + brands.map(b=>`<option ${b===sharedBrand?'selected':''}>${b}</option>`).join('');
+  document.getElementById('shared-platform').value = sharedPlatform;
+}
+function applySharedFilter(){
+  sharedBrand = document.getElementById('shared-brand').value;
+  sharedPlatform = document.getElementById('shared-platform').value;
+  const parts = [];
+  if (sharedBrand) parts.push(sharedBrand);
+  if (sharedPlatform) parts.push(sharedPlatform);
+  document.getElementById('shared-filter-badge').textContent = parts.length ? `กำลังกรอง: ${parts.join(' · ')}` : '';
+  refreshAll();
+}
+function clearSharedFilter(){
+  sharedBrand = ''; sharedPlatform = '';
+  populateSharedFilter();
+  document.getElementById('shared-filter-badge').textContent = '';
+  refreshAll();
+}
+function visibleItems(){
+  return items.filter(i =>
+    (!sharedBrand || i.brand===sharedBrand) &&
+    (!sharedPlatform || i.platforms.includes(sharedPlatform))
+  );
+}
+
 // ---------- Derived status ----------
 function computeFlags(item){
   const now = new Date();
@@ -329,11 +366,12 @@ function switchTab(tab){
 function renderDashboard(){
   const now = new Date();
   const todayStr = now.toDateString();
-  const today = items.filter(i => i.scheduledAt.toDateString()===todayStr && !['Posted','Cancelled'].includes(i.status));
-  const soon = items.filter(i => computeFlags(i).includes('soon') && !today.includes(i));
-  const review = items.filter(i => i.status==='Review' || i.status==='Revision');
-  const incomplete = items.filter(i => computeFlags(i).includes('incomplete'));
-  const overdue = items.filter(i => computeFlags(i).includes('overdue'));
+  const scoped = visibleItems();
+  const today = scoped.filter(i => i.scheduledAt.toDateString()===todayStr && !['Posted','Cancelled'].includes(i.status));
+  const soon = scoped.filter(i => computeFlags(i).includes('soon') && !today.includes(i));
+  const review = scoped.filter(i => i.status==='Review' || i.status==='Revision');
+  const incomplete = scoped.filter(i => computeFlags(i).includes('incomplete'));
+  const overdue = scoped.filter(i => computeFlags(i).includes('overdue'));
 
   document.getElementById('stat-today').textContent = today.length;
   document.getElementById('stat-soon').textContent = soon.length;
@@ -367,21 +405,16 @@ function itemRow(i){
 
 // ---------- List ----------
 function populateFilters(){
-  const brands = [...new Set(items.map(i=>i.brand))];
   const owners = [...new Set(items.map(i=>i.owner))];
-  document.getElementById('f-brand').innerHTML = '<option value="">ทุกแบรนด์</option>' + brands.map(b=>`<option>${b}</option>`).join('');
   document.getElementById('f-owner').innerHTML = '<option value="">ทุกผู้รับผิดชอบ</option>' + owners.map(o=>`<option>${o}</option>`).join('');
+  populateSharedFilter();
 }
 function renderList(){
-  const brand = document.getElementById('f-brand').value;
-  const platform = document.getElementById('f-platform').value;
   const owner = document.getElementById('f-owner').value;
   const status = document.getElementById('f-status').value;
   const search = document.getElementById('f-search').value.toLowerCase();
 
-  const filtered = items.filter(i =>
-    (!brand || i.brand===brand) &&
-    (!platform || i.platforms.includes(platform)) &&
+  const filtered = visibleItems().filter(i =>
     (!owner || i.owner===owner) &&
     (!status || i.status===status) &&
     (!search || i.title.toLowerCase().includes(search))
@@ -427,7 +460,7 @@ function renderCalendar(){
       if (day<1 || day>daysInMonth){ html += '<td class="day-cell" style="background:#fafafa"></td>'; continue; }
       const cellDate = new Date(y,m,day);
       const isToday = cellDate.toDateString()===today.toDateString();
-      const dayItems = items.filter(i=>i.scheduledAt.toDateString()===cellDate.toDateString());
+      const dayItems = visibleItems().filter(i=>i.scheduledAt.toDateString()===cellDate.toDateString());
       html += `<td class="day-cell ${isToday?'today':''}">
         <div class="text-xs font-semibold ${isToday?'text-indigo-600':'text-slate-500'}">${day}</div>
         ${dayItems.map(i=>`<span class="cal-item status-${i.status}" onclick="viewDetail(${i.id})" title="${i.title}">${i.title}</span>`).join('')}
