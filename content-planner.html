@@ -133,7 +133,12 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
     <div class="flex items-center justify-between mb-1">
       <button onclick="shiftMonth(-1)" class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-sm"><i class="fa-solid fa-chevron-left"></i></button>
       <div class="font-semibold" id="cal-title"></div>
-      <button onclick="shiftMonth(1)" class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-sm"><i class="fa-solid fa-chevron-right"></i></button>
+      <div class="flex items-center gap-2">
+        <button onclick="openImportImage()" class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-sm text-slate-600 hover:bg-slate-50">
+          <i class="fa-solid fa-image"></i> นำเข้าจากรูปปฏิทิน
+        </button>
+        <button onclick="shiftMonth(1)" class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-sm"><i class="fa-solid fa-chevron-right"></i></button>
+      </div>
     </div>
     <div id="cal-hint" class="text-xs text-slate-400 mb-2"><i class="fa-solid fa-hand"></i> ลากการ์ดไปวางวันที่ต้องการเพื่อเลื่อนกำหนดโพสต์</div>
     <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
@@ -219,7 +224,11 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
     </div>
     <div class="p-5 space-y-4">
       <div class="grid md:grid-cols-2 gap-3">
-        <div><label class="form-label">แบรนด์ / ลูกค้า</label><input id="fld-brand" class="form-input" placeholder="เช่น Nina Cosmetics"></div>
+        <div>
+          <label class="form-label">แบรนด์ / ลูกค้า</label>
+          <select id="fld-brand" class="form-input" onchange="onBrandSelectChange()"></select>
+          <input id="fld-brand-new" class="form-input mt-2 hidden" placeholder="พิมพ์ชื่อแบรนด์ใหม่">
+        </div>
         <div><label class="form-label">แคมเปญ</label><input id="fld-campaign" class="form-input" placeholder="เช่น September Launch"></div>
       </div>
       <div><label class="form-label">หัวข้อคอนเทนต์</label><input id="fld-title" class="form-input" placeholder="หัวข้อ / concept"></div>
@@ -275,6 +284,29 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
 <div id="detail-modal" class="fixed inset-0 modal-mask hidden items-center justify-center z-50 p-4">
   <div class="bg-white rounded-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto">
     <div id="detail-body" class="p-5"></div>
+  </div>
+</div>
+
+<!-- ============ IMPORT FROM CALENDAR IMAGE MODAL ============ -->
+<div id="import-modal" class="fixed inset-0 modal-mask hidden items-center justify-center z-50 p-4">
+  <div class="bg-white rounded-2xl w-full max-w-lg">
+    <div class="flex items-center justify-between p-4 border-b border-slate-100">
+      <h3 class="font-semibold"><i class="fa-solid fa-image text-indigo-600"></i> นำเข้าจากรูปปฏิทิน</h3>
+      <button onclick="closeImportImage()" class="text-slate-400 hover:text-slate-700"><i class="fa-solid fa-xmark text-lg"></i></button>
+    </div>
+    <div class="p-5">
+      <label id="import-dropzone" class="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-slate-200 rounded-xl p-8 text-center cursor-pointer hover:bg-slate-50">
+        <i class="fa-solid fa-cloud-arrow-up text-2xl text-slate-300"></i>
+        <span class="text-sm text-slate-500">แปะรูปปฏิทินที่ทำจาก Canva ที่นี่ หรือกดเพื่อเลือกไฟล์</span>
+        <input type="file" accept="image/*" class="hidden" onchange="onImportFileSelected(this.files[0])">
+      </label>
+      <div id="import-status" class="mt-4 text-sm bg-amber-50 border border-amber-200 text-amber-700 rounded-lg p-3">
+        <i class="fa-solid fa-flask"></i> ฟีเจอร์นี้อยู่ระหว่างพัฒนา (Phase 2) — ต้องเชื่อม Google Apps Script + Gemini Vision API ก่อนถึงจะอ่านรูปและสร้างรายการให้อัตโนมัติได้ (แบบเดียวกับ GEM Capacity Board) ตอนนี้ยังไม่ประมวลผลรูปที่อัปโหลด
+      </div>
+    </div>
+    <div class="p-4 border-t border-slate-100 flex justify-end">
+      <button onclick="closeImportImage()" class="px-4 py-2 rounded-lg border border-slate-200 text-sm">ปิด</button>
+    </div>
   </div>
 </div>
 
@@ -589,11 +621,36 @@ function renderReport(){
 }
 
 // ---------- Form ----------
+function populateBrandDropdown(selected){
+  const brands = [...new Set(items.map(i=>i.brand))];
+  const sel = document.getElementById('fld-brand');
+  sel.innerHTML = brands.map(b=>`<option value="${b}">${b}</option>`).join('') + `<option value="__new__">+ เพิ่มแบรนด์ใหม่...</option>`;
+  if (selected && brands.includes(selected)) {
+    sel.value = selected;
+  } else if (selected) {
+    // brand not in existing list (e.g. right after adding a new one) — add it and select
+    const opt = document.createElement('option');
+    opt.value = selected; opt.textContent = selected;
+    sel.insertBefore(opt, sel.lastElementChild);
+    sel.value = selected;
+  }
+  onBrandSelectChange();
+}
+function onBrandSelectChange(){
+  const isNew = document.getElementById('fld-brand').value === '__new__';
+  document.getElementById('fld-brand-new').classList.toggle('hidden', !isNew);
+}
+function resolvedBrand(){
+  const sel = document.getElementById('fld-brand').value;
+  return sel === '__new__' ? document.getElementById('fld-brand-new').value.trim() : sel;
+}
+
 function openForm(){
   if (clientMode) return;
   editingId = null;
   document.getElementById('form-title').textContent = 'สร้างคอนเทนต์ใหม่';
-  ['fld-brand','fld-campaign','fld-title','fld-note','fld-schedule','fld-media','fld-owner','fld-reviewer'].forEach(id=>document.getElementById(id).value='');
+  ['fld-campaign','fld-title','fld-note','fld-schedule','fld-media','fld-owner','fld-reviewer','fld-brand-new'].forEach(id=>document.getElementById(id).value='');
+  populateBrandDropdown();
   document.getElementById('fld-status').value = 'Draft';
   document.querySelectorAll('#fld-platforms input').forEach(cb=>{ cb.checked=false; cb.onchange=renderCaptionTabs; });
   renderCaptionTabs();
@@ -605,7 +662,7 @@ function editContent(id){
   const i = items.find(x=>x.id===id);
   editingId = id;
   document.getElementById('form-title').textContent = 'แก้ไขคอนเทนต์';
-  document.getElementById('fld-brand').value = i.brand;
+  populateBrandDropdown(i.brand);
   document.getElementById('fld-campaign').value = i.campaign;
   document.getElementById('fld-title').value = i.title;
   document.getElementById('fld-note').value = i.note || '';
@@ -708,8 +765,10 @@ document.getElementById('fld-status').addEventListener('change', renderChecklist
 function saveContent(){
   const platforms = selectedPlatforms();
   if (!document.getElementById('fld-title').value.trim()){ alert('กรุณาระบุหัวข้อคอนเทนต์'); return; }
+  const brand = resolvedBrand();
+  if (!brand){ alert('กรุณาระบุแบรนด์ / ลูกค้า'); return; }
   const payload = {
-    brand: document.getElementById('fld-brand').value,
+    brand,
     campaign: document.getElementById('fld-campaign').value,
     title: document.getElementById('fld-title').value,
     note: document.getElementById('fld-note').value,
@@ -804,6 +863,21 @@ function addComment(id){
 function closeDetail(){
   document.getElementById('detail-modal').classList.add('hidden');
   document.getElementById('detail-modal').classList.remove('flex');
+}
+
+// ---------- Import from calendar image (placeholder — needs Phase 2 backend) ----------
+function openImportImage(){
+  document.getElementById('import-modal').classList.remove('hidden');
+  document.getElementById('import-modal').classList.add('flex');
+}
+function closeImportImage(){
+  document.getElementById('import-modal').classList.add('hidden');
+  document.getElementById('import-modal').classList.remove('flex');
+}
+function onImportFileSelected(file){
+  if (!file) return;
+  document.getElementById('import-status').innerHTML =
+    `<i class="fa-solid fa-circle-info"></i> รับไฟล์ "${file.name}" แล้ว แต่ยังไม่สามารถอ่านข้อมูลจากรูปได้ในเวอร์ชันนี้ — ต้องรอเชื่อม Apps Script backend ก่อน (Phase 2)`;
 }
 
 function refreshAll(){
