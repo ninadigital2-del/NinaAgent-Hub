@@ -125,7 +125,7 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
       <p class="text-sm text-slate-500">วางแผนคอนเทนต์และแจ้งเตือนสำหรับทุกแบรนด์และแพลตฟอร์ม</p>
     </div>
     <div class="flex items-center gap-2 flex-wrap">
-      <span class="text-xs px-3 py-1.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+      <span id="data-mode-badge" class="text-xs px-3 py-1.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
         <i class="fa-solid fa-flask"></i> Phase 1 · ข้อมูลจำลอง (ยังไม่บันทึกจริง)
       </span>
       <a href="content-planner-manual.html" target="_blank" class="text-sm font-medium px-4 py-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 flex items-center gap-2">
@@ -304,8 +304,16 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
       </div>
 
       <div class="grid md:grid-cols-2 gap-3">
-        <div><label class="form-label">ผู้รับผิดชอบ</label><input id="fld-owner" class="form-input" placeholder="ชื่อผู้รับผิดชอบ"></div>
-        <div><label class="form-label">ผู้ตรวจ / ผู้อนุมัติ</label><input id="fld-reviewer" class="form-input" placeholder="ชื่อผู้อนุมัติ"></div>
+        <div>
+          <label class="form-label">ผู้รับผิดชอบ</label>
+          <select id="fld-owner" class="form-input" onchange="onPersonSelectChange('fld-owner')"></select>
+          <input id="fld-owner-new" class="form-input mt-2 hidden" placeholder="พิมพ์ชื่อใหม่">
+        </div>
+        <div>
+          <label class="form-label">ผู้ตรวจ / ผู้อนุมัติ</label>
+          <select id="fld-reviewer" class="form-input" onchange="onPersonSelectChange('fld-reviewer')"></select>
+          <input id="fld-reviewer-new" class="form-input mt-2 hidden" placeholder="พิมพ์ชื่อใหม่">
+        </div>
       </div>
 
       <!-- Per-platform captions -->
@@ -330,7 +338,7 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
     </div>
     <div class="p-4 border-t border-slate-100 flex justify-end gap-2 sticky bottom-0 bg-white">
       <button onclick="closeForm()" class="px-4 py-2 rounded-lg border border-slate-200 text-sm">ยกเลิก</button>
-      <button onclick="saveContent()" class="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium">บันทึก (จำลอง)</button>
+      <button id="save-content-btn" onclick="saveContent()" class="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium disabled:opacity-50">บันทึก</button>
     </div>
   </div>
 </div>
@@ -392,17 +400,71 @@ function platformBadges(platforms){
 }
 const STATUS_FLOW = ['Draft','Review','Revision','Approved','Ready','Posted'];
 
+// ---------- Backend API (Phase 2) ----------
+// Paste the Apps Script Web App /exec URL here once deployed (see
+// Content_Planner_GAS/SETUP.md). Leave empty to keep using local mock
+// data only (Phase 1 behavior — nothing persists across page reloads).
+const API_URL = '';
+
+function apiItemToClient(row){
+  return {
+    id: row.ID,
+    brand: row.Brand || '', campaign: row.Campaign || '', title: row.Title || '', note: row.Note || '',
+    platforms: row.Platforms || [],
+    scheduledAt: row.ScheduledAt ? new Date(row.ScheduledAt) : new Date(),
+    owner: row.Owner || '', reviewer: row.Reviewer || '', status: row.Status || 'Draft',
+    captions: row.Captions || {}, media: row.MediaUrl || '',
+    published: row.PublishedUrls || {}, comments: row.Comments || [],
+  };
+}
+function clientPatchToApi(patch){
+  const map = { brand:'Brand', campaign:'Campaign', title:'Title', note:'Note', owner:'Owner', reviewer:'Reviewer', status:'Status', media:'MediaUrl' };
+  const out = {};
+  Object.keys(map).forEach(k => { if (patch[k] !== undefined) out[map[k]] = patch[k]; });
+  if (patch.platforms !== undefined) out.Platforms = patch.platforms;
+  if (patch.captions !== undefined) out.Captions = patch.captions;
+  if (patch.published !== undefined) out.PublishedUrls = patch.published;
+  if (patch.scheduledAt !== undefined) out.ScheduledAt = patch.scheduledAt instanceof Date ? patch.scheduledAt.toISOString() : patch.scheduledAt;
+  return out;
+}
+async function apiCall(action, data){
+  const res = await fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // avoids a CORS preflight against Apps Script
+    body: JSON.stringify(Object.assign({ action }, data)),
+  });
+  const json = await res.json();
+  if (!json.success) throw new Error(json.error || 'API error');
+  return json;
+}
+async function apiGet(action){
+  const res = await fetch(`${API_URL}?action=${action}`);
+  const json = await res.json();
+  if (!json.success) throw new Error(json.error || 'API error');
+  return json;
+}
+async function loadFromApi(){
+  if (!API_URL) return;
+  try {
+    const [listResp, ownersResp] = await Promise.all([apiGet('list'), apiGet('owners')]);
+    items = listResp.items.map(apiItemToClient);
+    notionOwners = ownersResp.owners;
+  } catch (err) {
+    console.error('Failed to load from API, falling back to mock data:', err);
+  }
+}
+
 // ---------- Mock data ----------
 let items = [
-  mk(1,'Nina Cosmetics','September Launch','เปิดตัวลิปสติกคอลเลกชันใหม่',['Facebook','Instagram'],'today+5h','ปาน','แนน','Ready',{Facebook:{caption:'ลิปสติกใหม่มาแล้ว! เนื้อแมทท์ ติดทนทั้งวัน 💄',cta:'ช้อปเลย -> link.co/nina'},Instagram:{caption:'New drop 💄✨ #NinaCosmetics #ลิปสติกใหม่',hashtag:'#NinaCosmetics #Makeup'}},'https://drive.google.com/mock1'),
-  mk(2,'Nina Cosmetics','September Launch','Behind the scene ถ่ายภาพสินค้า',['TikTok'],'today+8h','เอิร์ธ','แนน','Review',{TikTok:{caption:'',guide:''}},''),
-  mk(3,'GreenLeaf Cafe','Weekly Promo','โปรโมชั่นกาแฟลด 20%',['Facebook','LINE'],'tomorrow','มายด์','ปาน','Approved',{Facebook:{caption:'กาแฟลด 20% วันนี้ถึงอาทิตย์นี้เท่านั้น ☕',cta:'แวะมาชิม'},LINE:{message:'โปรกาแฟลด 20% วันนี้-อาทิตย์นี้',link:'https://line.me/mock'}},'https://drive.google.com/mock3'),
-  mk(4,'GreenLeaf Cafe','Weekly Promo','เมนูใหม่ Cold Brew',['Instagram','TikTok'],'+2d','มายด์','ปาน','Draft',{},''),
-  mk(5,'Urban Fit Studio','Membership Drive','โปรสมัครสมาชิกรายปี',['Facebook','Instagram','LINE'],'-1d','เอิร์ธ','แนน','Revision',{Facebook:{caption:'สมัครสมาชิกรายปี รับส่วนลด 30%'}},'https://drive.google.com/mock5','',[{author:'แนน (ผู้ตรวจ)',text:'ขอปรับ CTA ให้ชัดกว่านี้ ลูกค้าอ่านแล้วยังไม่รู้ว่าต้องกดตรงไหน',time:new Date(Date.now()-3600000*5)}]),
-  mk(6,'Urban Fit Studio','Membership Drive','คลิปรีวิวจากลูกค้า',['TikTok'],'-3h','ปาน','แนน','Posted',{TikTok:{caption:'รีวิวจริงจากสมาชิก 💪'}},'https://drive.google.com/mock6',{Facebook:'',TikTok:'https://tiktok.com/@mock/video/123'}),
-  mk(7,'Nina Cosmetics','September Launch','โพสต์ขอบคุณลูกค้า',['Facebook'],'+5d','เอิร์ธ','ปาน','Draft',{},''),
-  mk(8,'GreenLeaf Cafe','Weekly Promo','ไลฟ์สไตล์ร้าน',['Instagram'],'+1d3h','มายด์','แนน','Ready',{Instagram:{caption:'บรรยากาศชิลๆ ที่ GreenLeaf ☕🍃',hashtag:'#GreenLeafCafe'}},'https://drive.google.com/mock8'),
-  mk(9,'Urban Fit Studio','Membership Drive','คลิปรีวิว Full Version',['YouTube','Facebook'],'today+2h','เอิร์ธ','ปาน','Review',{YouTube:{caption:'รีวิวสมาชิก 1 ปี ผลลัพธ์เป็นยังไงบ้าง?',guide:'สัมภาษณ์สมาชิกจริง 3 คน พร้อม before/after',cta:'สมัครสมาชิก, Urban Fit, รีวิว'}},'https://drive.google.com/mock9'),
+  mk('mock-1','Nina Cosmetics','September Launch','เปิดตัวลิปสติกคอลเลกชันใหม่',['Facebook','Instagram'],'today+5h','ปาน','แนน','Ready',{Facebook:{caption:'ลิปสติกใหม่มาแล้ว! เนื้อแมทท์ ติดทนทั้งวัน 💄',cta:'ช้อปเลย -> link.co/nina'},Instagram:{caption:'New drop 💄✨ #NinaCosmetics #ลิปสติกใหม่',hashtag:'#NinaCosmetics #Makeup'}},'https://drive.google.com/mock1'),
+  mk('mock-2','Nina Cosmetics','September Launch','Behind the scene ถ่ายภาพสินค้า',['TikTok'],'today+8h','เอิร์ธ','แนน','Review',{TikTok:{caption:'',guide:''}},''),
+  mk('mock-3','GreenLeaf Cafe','Weekly Promo','โปรโมชั่นกาแฟลด 20%',['Facebook','LINE'],'tomorrow','มายด์','ปาน','Approved',{Facebook:{caption:'กาแฟลด 20% วันนี้ถึงอาทิตย์นี้เท่านั้น ☕',cta:'แวะมาชิม'},LINE:{message:'โปรกาแฟลด 20% วันนี้-อาทิตย์นี้',link:'https://line.me/mock'}},'https://drive.google.com/mock3'),
+  mk('mock-4','GreenLeaf Cafe','Weekly Promo','เมนูใหม่ Cold Brew',['Instagram','TikTok'],'+2d','มายด์','ปาน','Draft',{},''),
+  mk('mock-5','Urban Fit Studio','Membership Drive','โปรสมัครสมาชิกรายปี',['Facebook','Instagram','LINE'],'-1d','เอิร์ธ','แนน','Revision',{Facebook:{caption:'สมัครสมาชิกรายปี รับส่วนลด 30%'}},'https://drive.google.com/mock5','',[{author:'แนน (ผู้ตรวจ)',text:'ขอปรับ CTA ให้ชัดกว่านี้ ลูกค้าอ่านแล้วยังไม่รู้ว่าต้องกดตรงไหน',time:new Date(Date.now()-3600000*5)}]),
+  mk('mock-6','Urban Fit Studio','Membership Drive','คลิปรีวิวจากลูกค้า',['TikTok'],'-3h','ปาน','แนน','Posted',{TikTok:{caption:'รีวิวจริงจากสมาชิก 💪'}},'https://drive.google.com/mock6',{Facebook:'',TikTok:'https://tiktok.com/@mock/video/123'}),
+  mk('mock-7','Nina Cosmetics','September Launch','โพสต์ขอบคุณลูกค้า',['Facebook'],'+5d','เอิร์ธ','ปาน','Draft',{},''),
+  mk('mock-8','GreenLeaf Cafe','Weekly Promo','ไลฟ์สไตล์ร้าน',['Instagram'],'+1d3h','มายด์','แนน','Ready',{Instagram:{caption:'บรรยากาศชิลๆ ที่ GreenLeaf ☕🍃',hashtag:'#GreenLeafCafe'}},'https://drive.google.com/mock8'),
+  mk('mock-9','Urban Fit Studio','Membership Drive','คลิปรีวิว Full Version',['YouTube','Facebook'],'today+2h','เอิร์ธ','ปาน','Review',{YouTube:{caption:'รีวิวสมาชิก 1 ปี ผลลัพธ์เป็นยังไงบ้าง?',guide:'สัมภาษณ์สมาชิกจริง 3 คน พร้อม before/after',cta:'สมัครสมาชิก, Urban Fit, รีวิว'}},'https://drive.google.com/mock9'),
 ];
 
 function mk(id,brand,campaign,title,platforms,when,owner,reviewer,status,captions,media,published,comments){
@@ -505,8 +567,16 @@ function updateBulkToolbar(){
   toolbar.classList.toggle('hidden', selectedIds.size===0);
   document.getElementById('bulk-count').textContent = `เลือกไว้ ${selectedIds.size} รายการ`;
 }
-function applyBulkStatus(){
+async function applyBulkStatus(){
   const status = document.getElementById('bulk-status').value;
+  const ids = [...selectedIds];
+  if (API_URL) {
+    try {
+      await Promise.all(ids.map(id => apiCall('updateStatus', { id, status })));
+    } catch (err) {
+      alert('อัปเดตสถานะบางรายการไม่สำเร็จ: ' + err.message);
+    }
+  }
   items.forEach(i => { if (selectedIds.has(i.id)) i.status = status; });
   clearBulkSelection();
   refreshAll();
@@ -573,7 +643,7 @@ function renderDashboard(){
   `).join('');
 }
 function itemRow(i){
-  return `<div class="flex items-center gap-2.5 py-2 border-b border-slate-50 last:border-0 cursor-pointer" onclick="viewDetail(${i.id})">
+  return `<div class="flex items-center gap-2.5 py-2 border-b border-slate-50 last:border-0 cursor-pointer" onclick="viewDetail('${i.id}')">
     <div class="min-w-0 flex-1">
       <div class="flex items-center gap-1.5 min-w-0">
         <span class="text-sm font-medium truncate">${i.title}</span>
@@ -608,15 +678,15 @@ function renderList(){
   document.getElementById('bulk-select-all').checked = filtered.length>0 && filtered.every(i=>selectedIds.has(i.id));
 
   document.getElementById('list-body').innerHTML = filtered.map(i => `
-    <tr class="border-t border-slate-100 hover:bg-slate-50 cursor-pointer" onclick="viewDetail(${i.id})">
-      <td class="p-3 ${clientMode?'hidden':''}" onclick="event.stopPropagation()"><input type="checkbox" ${selectedIds.has(i.id)?'checked':''} onchange="toggleSelectRow(${i.id}, this.checked)"></td>
+    <tr class="border-t border-slate-100 hover:bg-slate-50 cursor-pointer" onclick="viewDetail('${i.id}')">
+      <td class="p-3 ${clientMode?'hidden':''}" onclick="event.stopPropagation()"><input type="checkbox" ${selectedIds.has(i.id)?'checked':''} onchange="toggleSelectRow('${i.id}', this.checked)"></td>
       <td class="p-3"><div class="font-medium">${i.brand}</div><div class="text-xs text-slate-400">${i.campaign}</div></td>
       <td class="p-3">${i.title}</td>
       <td class="p-3">${i.platforms.map(p=>`<span class="platform-chip plat-${p}">${p}</span>`).join(' ')}</td>
       <td class="p-3 text-xs">${fmtDate(i.scheduledAt)} ${flagBadge(i)}</td>
       <td class="p-3">${i.owner}</td>
       <td class="p-3"><span class="status-pill status-${i.status}">${i.status}</span></td>
-      <td class="p-3 text-right">${clientMode?'':`<button onclick="event.stopPropagation();editContent(${i.id})" class="text-indigo-600 text-xs"><i class="fa-solid fa-pen"></i></button>`}</td>
+      <td class="p-3 text-right">${clientMode?'':`<button onclick="event.stopPropagation();editContent('${i.id}')" class="text-indigo-600 text-xs"><i class="fa-solid fa-pen"></i></button>`}</td>
     </tr>
   `).join('') || `<tr><td colspan="8" class="p-6 text-center text-slate-400 text-sm">ไม่พบรายการ</td></tr>`;
 }
@@ -634,7 +704,7 @@ function fmtDate(d){
 const MAX_CAL_ITEMS = 3;
 function shiftMonth(n){ calCursor.setMonth(calCursor.getMonth()+n); renderCalendar(); }
 function calItemChip(i){
-  return `<div class="cal-item cal-item-${i.status}" ${clientMode?'':`draggable="true" ondragstart="onCalDragStart(event, ${i.id})"`} onclick="event.stopPropagation();viewDetail(${i.id})" title="${i.title}">
+  return `<div class="cal-item cal-item-${i.status}" ${clientMode?'':`draggable="true" ondragstart="onCalDragStart(event, '${i.id}')"`} onclick="event.stopPropagation();viewDetail('${i.id}')" title="${i.title}">
     <span class="cal-dot cal-dot-${i.status}"></span><span class="truncate">${i.title}</span>
   </div>`;
 }
@@ -678,7 +748,7 @@ function openDayModal(isoDate){
   const dayItems = visibleItems().filter(i=>i.scheduledAt.toDateString()===d.toDateString());
   document.getElementById('day-modal-title').textContent = d.toLocaleDateString('th-TH', { day:'numeric', month:'long', year:'numeric' });
   document.getElementById('day-modal-body').innerHTML = dayItems.map(i => `
-    <div class="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50 cursor-pointer" onclick="closeDayModal();viewDetail(${i.id})">
+    <div class="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50 cursor-pointer" onclick="closeDayModal();viewDetail('${i.id}')">
       <div class="min-w-0">
         <div class="text-sm font-medium truncate">${i.title}</div>
         <div class="text-xs text-slate-400">${i.brand} · ${i.owner}</div>
@@ -705,16 +775,24 @@ function onCalDragEnter(ev){
 function onCalDragLeave(ev){
   ev.currentTarget.classList.remove('drag-over');
 }
-function onCalDrop(ev, isoDate){
+async function onCalDrop(ev, isoDate){
   ev.preventDefault();
   ev.currentTarget.classList.remove('drag-over');
   if (clientMode) return;
-  const id = parseInt(ev.dataTransfer.getData('text/plain'));
+  const id = ev.dataTransfer.getData('text/plain');
   const item = items.find(x=>x.id===id);
   if (!item) return;
   const target = new Date(isoDate);
   const old = item.scheduledAt;
   target.setHours(old.getHours(), old.getMinutes(), 0, 0);
+  if (API_URL) {
+    try {
+      await apiCall('update', { id, data: { ScheduledAt: target.toISOString() } });
+    } catch (err) {
+      alert('เลื่อนวันไม่สำเร็จ: ' + err.message);
+      return;
+    }
+  }
   item.scheduledAt = target;
   refreshAll();
 }
@@ -768,12 +846,46 @@ function resolvedBrand(){
   return sel === '__new__' ? document.getElementById('fld-brand-new').value.trim() : sel;
 }
 
+// ---------- Owner / Reviewer dropdowns (Notion-synced when API is connected) ----------
+let notionOwners = null; // set by loadFromApi() when API_URL is configured
+function personRoster(){
+  if (notionOwners && notionOwners.length) return notionOwners;
+  return [...new Set(items.flatMap(i => [i.owner, i.reviewer]).filter(Boolean))];
+}
+function populatePersonDropdown(selectId, selected){
+  const roster = personRoster();
+  const sel = document.getElementById(selectId);
+  sel.innerHTML = roster.map(n=>`<option value="${n}">${n}</option>`).join('') + `<option value="__new__">+ เพิ่มชื่อใหม่...</option>`;
+  if (selected && roster.includes(selected)) {
+    sel.value = selected;
+  } else if (selected) {
+    const opt = document.createElement('option');
+    opt.value = selected; opt.textContent = selected;
+    sel.insertBefore(opt, sel.lastElementChild);
+    sel.value = selected;
+  } else {
+    sel.value = roster[0] || '__new__';
+  }
+  onPersonSelectChange(selectId);
+}
+function onPersonSelectChange(selectId){
+  const isNew = document.getElementById(selectId).value === '__new__';
+  document.getElementById(selectId + '-new').classList.toggle('hidden', !isNew);
+  renderChecklistPreview();
+}
+function resolvedPerson(selectId){
+  const sel = document.getElementById(selectId).value;
+  return sel === '__new__' ? document.getElementById(selectId + '-new').value.trim() : sel;
+}
+
 function openForm(){
   if (clientMode) return;
   editingId = null;
   document.getElementById('form-title').textContent = 'สร้างคอนเทนต์ใหม่';
-  ['fld-campaign','fld-title','fld-note','fld-schedule','fld-media','fld-owner','fld-reviewer','fld-brand-new'].forEach(id=>document.getElementById(id).value='');
+  ['fld-campaign','fld-title','fld-note','fld-schedule','fld-media','fld-brand-new','fld-owner-new','fld-reviewer-new'].forEach(id=>document.getElementById(id).value='');
   populateBrandDropdown();
+  populatePersonDropdown('fld-owner');
+  populatePersonDropdown('fld-reviewer');
   document.getElementById('fld-status').value = 'Draft';
   document.querySelectorAll('#fld-platforms input').forEach(cb=>{ cb.checked=false; cb.onchange=renderCaptionTabs; });
   renderCaptionTabs();
@@ -791,8 +903,8 @@ function editContent(id){
   document.getElementById('fld-note').value = i.note || '';
   document.getElementById('fld-schedule').value = toLocalInput(i.scheduledAt);
   document.getElementById('fld-media').value = i.media;
-  document.getElementById('fld-owner').value = i.owner;
-  document.getElementById('fld-reviewer').value = i.reviewer;
+  populatePersonDropdown('fld-owner', i.owner);
+  populatePersonDropdown('fld-reviewer', i.reviewer);
   document.getElementById('fld-status').value = i.status;
   document.querySelectorAll('#fld-platforms input').forEach(cb=>{ cb.checked = i.platforms.includes(cb.value); cb.onchange=renderCaptionTabs; });
   window.__editCaptions = JSON.parse(JSON.stringify(i.captions));
@@ -875,7 +987,7 @@ function renderChecklistPreview(){
   const hasMedia = !!document.getElementById('fld-media').value;
   const hasCTA = platforms.some(p => captions[p] && (captions[p].cta || captions[p].link));
   const hasSchedule = !!document.getElementById('fld-schedule').value;
-  const hasOwner = !!document.getElementById('fld-owner').value;
+  const hasOwner = !!resolvedPerson('fld-owner');
   const checks = [
     ['มี Caption ครบทุกแพลตฟอร์ม', hasCaption],
     ['มีรูปหรือวิดีโอแล้ว', hasMedia],
@@ -890,10 +1002,10 @@ function renderChecklistPreview(){
 }
 document.getElementById('fld-media').addEventListener('input', renderChecklistPreview);
 document.getElementById('fld-schedule').addEventListener('input', renderChecklistPreview);
-document.getElementById('fld-owner').addEventListener('input', renderChecklistPreview);
+document.getElementById('fld-owner-new').addEventListener('input', renderChecklistPreview);
 document.getElementById('fld-status').addEventListener('change', renderChecklistPreview);
 
-function saveContent(){
+async function saveContent(){
   const platforms = selectedPlatforms();
   if (!document.getElementById('fld-title').value.trim()){ alert('กรุณาระบุหัวข้อคอนเทนต์'); return; }
   const brand = resolvedBrand();
@@ -906,21 +1018,47 @@ function saveContent(){
     platforms,
     scheduledAt: document.getElementById('fld-schedule').value ? new Date(document.getElementById('fld-schedule').value) : new Date(),
     media: document.getElementById('fld-media').value,
-    owner: document.getElementById('fld-owner').value,
-    reviewer: document.getElementById('fld-reviewer').value,
+    owner: resolvedPerson('fld-owner'),
+    reviewer: resolvedPerson('fld-reviewer'),
     status: document.getElementById('fld-status').value,
     captions: window.__editCaptions || {},
     published: {},
   };
-  if (editingId){
-    const idx = items.findIndex(x=>x.id===editingId);
-    items[idx] = { ...items[idx], ...payload };
+
+  const saveBtn = document.getElementById('save-content-btn');
+  saveBtn.disabled = true;
+
+  if (API_URL) {
+    try {
+      if (editingId) {
+        const resp = await apiCall('update', { id: editingId, data: clientPatchToApi(payload) });
+        const idx = items.findIndex(x=>x.id===editingId);
+        items[idx] = apiItemToClient(resp.item);
+      } else {
+        const resp = await apiCall('create', { data: clientPatchToApi(payload) });
+        items.push(apiItemToClient(resp.item));
+      }
+    } catch (err) {
+      saveBtn.disabled = false;
+      alert('บันทึกไปที่ระบบหลังบ้านไม่สำเร็จ: ' + err.message);
+      return;
+    }
   } else {
-    items.push({ id: Math.max(0,...items.map(i=>i.id))+1, ...payload });
+    saveLocalOnly(payload);
   }
+
+  saveBtn.disabled = false;
   closeForm();
   populateFilters();
   refreshAll();
+}
+function saveLocalOnly(payload){
+  if (editingId) {
+    const idx = items.findIndex(x=>x.id===editingId);
+    items[idx] = { ...items[idx], ...payload };
+  } else {
+    items.push({ id: 'local-' + Date.now(), comments: [], ...payload });
+  }
 }
 
 // ---------- Detail modal ----------
@@ -972,23 +1110,34 @@ function viewDetail(id){
       </div>
       <div class="flex gap-2">
         <input id="comment-input" class="form-input" placeholder="แสดงความคิดเห็น / ขอแก้ไข...">
-        <button onclick="addComment(${i.id})" class="px-3 py-2 rounded-lg bg-indigo-600 text-white text-sm shrink-0"><i class="fa-solid fa-paper-plane"></i></button>
+        <button onclick="addComment('${i.id}')" class="px-3 py-2 rounded-lg bg-indigo-600 text-white text-sm shrink-0"><i class="fa-solid fa-paper-plane"></i></button>
       </div>
     </div>
     <div class="mt-4 flex justify-end gap-2">
       <button onclick="closeDetail()" class="px-3 py-1.5 rounded-lg border border-slate-200 text-sm">ปิด</button>
-      ${clientMode ? '' : `<button onclick="closeDetail();editContent(${i.id})" class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-sm">แก้ไข</button>`}
+      ${clientMode ? '' : `<button onclick="closeDetail();editContent('${i.id}')" class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-sm">แก้ไข</button>`}
     </div>
   `;
   document.getElementById('detail-modal').classList.remove('hidden');
   document.getElementById('detail-modal').classList.add('flex');
 }
-function addComment(id){
+async function addComment(id){
   const input = document.getElementById('comment-input');
   const text = input.value.trim();
   if (!text) return;
+  const author = clientMode ? 'ลูกค้า (จำลอง)' : 'คุณ (จำลอง)';
   const item = items.find(x=>x.id===id);
-  item.comments.push({ author: clientMode ? 'ลูกค้า (จำลอง)' : 'คุณ (จำลอง)', text, time: new Date() });
+  if (API_URL) {
+    try {
+      const resp = await apiCall('addComment', { id, author, text });
+      item.comments = apiItemToClient(resp.item).comments;
+    } catch (err) {
+      alert('ส่งความคิดเห็นไม่สำเร็จ: ' + err.message);
+      return;
+    }
+  } else {
+    item.comments.push({ author, text, time: new Date() });
+  }
   viewDetail(id);
 }
 function closeDetail(){
@@ -1017,8 +1166,18 @@ function refreshAll(){
   renderCalendar();
   renderReport();
 }
-populateFilters();
-refreshAll();
+
+async function initApp(){
+  if (API_URL) {
+    const badge = document.getElementById('data-mode-badge');
+    badge.className = 'text-xs px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200';
+    badge.innerHTML = '<i class="fa-solid fa-database"></i> เชื่อมต่อฐานข้อมูลจริงแล้ว';
+    await loadFromApi();
+  }
+  populateFilters();
+  refreshAll();
+}
+initApp();
 </script>
 </body>
 </html>
