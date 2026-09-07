@@ -194,8 +194,8 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
       <button onclick="shiftMonth(-1)" class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-sm"><i class="fa-solid fa-chevron-left"></i></button>
       <div class="font-semibold" id="cal-title"></div>
       <div class="flex items-center gap-2">
-        <button onclick="openImportImage()" class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-sm text-slate-600 hover:bg-slate-50">
-          <i class="fa-solid fa-image"></i> นำเข้าจากรูปปฏิทิน
+        <button onclick="openImportImage()" class="px-3 py-1.5 rounded-lg border border-purple-200 bg-purple-50 text-sm text-purple-700 hover:bg-purple-100 font-medium">
+          <i class="fa-solid fa-wand-magic-sparkles"></i> นำเข้าจากรูปปฏิทิน
         </button>
         <button onclick="shiftMonth(1)" class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-sm"><i class="fa-solid fa-chevron-right"></i></button>
       </div>
@@ -1091,7 +1091,12 @@ function viewDetail(id){
         <div class="text-xs text-slate-400">${i.brand} · ${i.campaign}</div>
         <h3 class="font-semibold text-lg">${i.title}</h3>
       </div>
-      <span class="status-pill status-${i.status}">${i.status}</span>
+      ${clientMode
+        ? `<span class="status-pill status-${i.status}">${i.status}</span>`
+        : `<select class="status-pill status-${i.status}" style="border:none;cursor:pointer;" onchange="changeDetailStatus('${i.id}', this.value)">
+             ${['Draft','Review','Revision','Approved','Ready','Posted','Cancelled'].map(s=>`<option value="${s}" ${s===i.status?'selected':''}>${s}</option>`).join('')}
+           </select>`
+      }
     </div>
     <div class="text-sm text-slate-500 mb-3">
       <i class="fa-regular fa-clock"></i> ${fmtDate(i.scheduledAt)}
@@ -1163,6 +1168,21 @@ async function addComment(id){
 function closeDetail(){
   document.getElementById('detail-modal').classList.add('hidden');
   document.getElementById('detail-modal').classList.remove('flex');
+}
+async function changeDetailStatus(id, status){
+  const item = items.find(x=>x.id===id);
+  if (API_URL) {
+    try {
+      await apiCall('updateStatus', { id, status });
+    } catch (err) {
+      alert('เปลี่ยนสถานะไม่สำเร็จ: ' + err.message);
+      viewDetail(id);
+      return;
+    }
+  }
+  item.status = status;
+  refreshAll();
+  viewDetail(id);
 }
 
 // ---------- Import from calendar image (Gemini Vision via Apps Script) ----------
