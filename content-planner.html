@@ -444,13 +444,15 @@ async function apiGet(action){
   return json;
 }
 async function loadFromApi(){
-  if (!API_URL) return;
+  if (!API_URL) return false;
   try {
     const [listResp, ownersResp] = await Promise.all([apiGet('list'), apiGet('owners')]);
     items = listResp.items.map(apiItemToClient);
     notionOwners = ownersResp.owners;
+    return true;
   } catch (err) {
     console.error('Failed to load from API, falling back to mock data:', err);
+    return false;
   }
 }
 
@@ -1170,9 +1172,14 @@ function refreshAll(){
 async function initApp(){
   if (API_URL) {
     const badge = document.getElementById('data-mode-badge');
-    badge.className = 'text-xs px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200';
-    badge.innerHTML = '<i class="fa-solid fa-database"></i> เชื่อมต่อฐานข้อมูลจริงแล้ว';
-    await loadFromApi();
+    const ok = await loadFromApi();
+    if (ok) {
+      badge.className = 'text-xs px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200';
+      badge.innerHTML = '<i class="fa-solid fa-database"></i> เชื่อมต่อฐานข้อมูลจริงแล้ว';
+    } else {
+      badge.className = 'text-xs px-3 py-1.5 rounded-full bg-red-50 text-red-700 border border-red-200';
+      badge.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> เชื่อมฐานข้อมูลไม่สำเร็จ — กำลังใช้ข้อมูลจำลอง (ดู Console เพื่อดูข้อผิดพลาด)';
+    }
   }
   populateFilters();
   refreshAll();
