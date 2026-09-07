@@ -27,7 +27,7 @@ Project Settings → Script Properties → add:
 | Key | Value |
 |---|---|
 | `NOTION_TOKEN` | Notion internal integration token (share the Owner database with this integration) |
-| `NOTION_DATABASE_ID` | The Notion database ID that has the "Owner for Grouping" property |
+| `NOTION_DATABASE_ID` | `2e69dccd-181d-81df-8919-fbacf921c7d5` (the "Tasks" database, confirmed to have "Owner for Grouping") |
 | `LINE_CHANNEL_TOKEN` | Channel access token from the LINE Official Account (Messaging API) |
 | `LINE_TARGET_ID` | The LINE group ID to push reminders into (see below) |
 

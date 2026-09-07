@@ -230,6 +230,17 @@ function extractNotionText(prop) {
   if (prop.type === 'title') return (prop.title || []).map(t => t.plain_text).join('');
   if (prop.type === 'rich_text') return (prop.rich_text || []).map(t => t.plain_text).join('');
   if (prop.type === 'multi_select') return (prop.multi_select || []).map(s => s.name).join(', ');
+  if (prop.type === 'formula') {
+    // "Owner for Grouping" in the Tasks database is a formula field.
+    // Its result can be string, number, boolean, or date depending on the formula.
+    const f = prop.formula;
+    if (!f) return '';
+    if (f.type === 'string') return f.string || '';
+    if (f.type === 'number') return f.number != null ? String(f.number) : '';
+    if (f.type === 'boolean') return f.boolean ? 'true' : 'false';
+    if (f.type === 'date') return (f.date && f.date.start) || '';
+    return '';
+  }
   return '';
 }
 
