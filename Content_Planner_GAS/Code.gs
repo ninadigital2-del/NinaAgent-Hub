@@ -75,6 +75,8 @@ function doPost(e) {
     if (action === 'update') return jsonResponse({ success: true, item: updateContent(body.id, body.data) });
     if (action === 'updateStatus') return jsonResponse({ success: true, item: updateContent(body.id, { Status: body.status }) });
     if (action === 'addComment') return jsonResponse({ success: true, item: addComment(body.id, body.author, body.text) });
+    if (action === 'extractImage') return jsonResponse({ success: true, items: extractCalendarImage(body.imageBase64, body.mimeType) });
+    if (action === 'bulkCreate') return jsonResponse({ success: true, items: (body.items || []).map(createContent) });
     return jsonResponse({ success: false, error: 'Unknown action: ' + action });
   } catch (err) {
     return jsonResponse({ success: false, error: String(err) });
@@ -242,6 +244,58 @@ function extractNotionText(prop) {
     return '';
   }
   return '';
+}
+
+// ---------- Import content plan from a calendar image (Gemini Vision) ----------
+/**
+ * Reads a Canva-style content calendar image and returns a draft list of
+ * content items extracted from it. Nothing is written to the Sheet here —
+ * the frontend shows these as an editable review list first, and only
+ * calls 'bulkCreate' once the user confirms.
+ *
+ * Requires Script Property: GEMINI_API_KEY (same key used by
+ * Social_Media_Assistant_GAS's callGeminiUniversal, can be shared/reused).
+ */
+function extractCalendarImage(base64, mimeType) {
+  const apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+  if (!apiKey) throw new Error('Set GEMINI_API_KEY in Script Properties first.');
+
+  const currentYear = new Date().getFullYear();
+  const prompt = 'อ่านรูปปฏิทินคอนเทนต์นี้อย่างละเอียด แล้วแยกรายการคอนเทนต์แต่ละอันออกมา ' +
+    'ตอบกลับเป็น JSON array เท่านั้น ห้ามมีข้อความอื่นหรือ markdown ล้อมกรอบ ' +
+    'รูปแบบแต่ละรายการ: {"title": "หัวข้อ/คำอธิบายสั้นๆ ของคอนเทนต์", ' +
+    '"date": "YYYY-MM-DD", "platform": "Facebook|Instagram|TikTok|LINE|YouTube", ' +
+    '"note": "รายละเอียดเพิ่มเติมถ้ามีในรูป เช่น แคมเปญหรือแบรนด์"}. ' +
+    'ถ้าวันที่ในรูปไม่ระบุปี ให้ใช้ปี ' + currentYear + '. ' +
+    'ถ้าไม่ระบุแพลตฟอร์มชัดเจน ให้เดาจากไอคอน/สีที่ใกล้เคียงที่สุด หรือใส่ "Facebook" เป็นค่าเริ่มต้น.';
+
+  const payload = {
+    contents: [{
+      role: 'user',
+      parts: [
+        { text: prompt },
+        { inline_data: { mime_type: mimeType, data: base64 } },
+      ],
+    }],
+  };
+
+  const resp = UrlFetchApp.fetch(
+    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + apiKey,
+    {
+      method: 'post',
+      contentType: 'application/json',
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true,
+    }
+  );
+  const json = JSON.parse(resp.getContentText());
+  if (json.error) throw new Error('Gemini API Error: ' + json.error.message);
+
+  let text = json.candidates[0].content.parts[0].text;
+  text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+  const items = JSON.parse(text);
+  if (!Array.isArray(items)) throw new Error('Gemini did not return a JSON array');
+  return items;
 }
 
 // ---------- Reminders (LINE push via time-driven trigger) ----------

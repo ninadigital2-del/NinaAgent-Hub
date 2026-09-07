@@ -352,8 +352,8 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
 
 <!-- ============ IMPORT FROM CALENDAR IMAGE MODAL ============ -->
 <div id="import-modal" class="fixed inset-0 modal-mask hidden items-center justify-center z-50 p-4">
-  <div class="bg-white rounded-2xl w-full max-w-lg">
-    <div class="flex items-center justify-between p-4 border-b border-slate-100">
+  <div class="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+    <div class="flex items-center justify-between p-4 border-b border-slate-100 sticky top-0 bg-white">
       <h3 class="font-semibold"><i class="fa-solid fa-image text-indigo-600"></i> นำเข้าจากรูปปฏิทิน</h3>
       <button onclick="closeImportImage()" class="text-slate-400 hover:text-slate-700"><i class="fa-solid fa-xmark text-lg"></i></button>
     </div>
@@ -364,11 +364,29 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
         <input type="file" accept="image/*" class="hidden" onchange="onImportFileSelected(this.files[0])">
       </label>
       <div id="import-status" class="mt-4 text-sm bg-amber-50 border border-amber-200 text-amber-700 rounded-lg p-3">
-        <i class="fa-solid fa-flask"></i> ฟีเจอร์นี้อยู่ระหว่างพัฒนา (Phase 2) — ต้องเชื่อม Google Apps Script + Gemini Vision API ก่อนถึงจะอ่านรูปและสร้างรายการให้อัตโนมัติได้ (แบบเดียวกับ GEM Capacity Board) ตอนนี้ยังไม่ประมวลผลรูปที่อัปโหลด
+        <i class="fa-solid fa-flask"></i> ต้องเชื่อมต่อฐานข้อมูลจริงก่อน (ดูสถานะที่ badge มุมขวาบน) ฟีเจอร์นี้ใช้ Gemini Vision API ผ่าน Apps Script backend ในการอ่านรูป
+      </div>
+      <div id="import-review" class="hidden mt-4">
+        <div class="text-xs font-semibold text-slate-500 mb-2">ตรวจสอบรายการที่ดึงได้ ก่อนสร้างจริง (แก้ไขได้)</div>
+        <div class="overflow-x-auto border border-slate-200 rounded-xl">
+          <table class="w-full text-sm">
+            <thead class="bg-slate-50 text-slate-500 text-xs">
+              <tr>
+                <th class="p-2 text-left"><input type="checkbox" id="import-select-all" checked onchange="toggleImportSelectAll(this.checked)"></th>
+                <th class="p-2 text-left">หัวข้อ</th>
+                <th class="p-2 text-left">วันที่</th>
+                <th class="p-2 text-left">แพลตฟอร์ม</th>
+                <th class="p-2 text-left">หมายเหตุ</th>
+              </tr>
+            </thead>
+            <tbody id="import-review-body"></tbody>
+          </table>
+        </div>
       </div>
     </div>
-    <div class="p-4 border-t border-slate-100 flex justify-end">
+    <div class="p-4 border-t border-slate-100 flex justify-end gap-2 sticky bottom-0 bg-white">
       <button onclick="closeImportImage()" class="px-4 py-2 rounded-lg border border-slate-200 text-sm">ปิด</button>
+      <button id="import-confirm-btn" onclick="confirmImport()" class="hidden px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium">สร้างรายการที่เลือก</button>
     </div>
   </div>
 </div>
@@ -1147,19 +1165,115 @@ function closeDetail(){
   document.getElementById('detail-modal').classList.remove('flex');
 }
 
-// ---------- Import from calendar image (placeholder — needs Phase 2 backend) ----------
+// ---------- Import from calendar image (Gemini Vision via Apps Script) ----------
+let importDraft = [];
 function openImportImage(){
   document.getElementById('import-modal').classList.remove('hidden');
   document.getElementById('import-modal').classList.add('flex');
+  document.getElementById('import-review').classList.add('hidden');
+  document.getElementById('import-confirm-btn').classList.add('hidden');
+  document.getElementById('import-dropzone').classList.remove('hidden');
+  importDraft = [];
+  resetImportStatus();
+}
+function resetImportStatus(){
+  const status = document.getElementById('import-status');
+  if (API_URL) {
+    status.className = 'mt-4 text-sm bg-slate-50 border border-slate-200 text-slate-500 rounded-lg p-3';
+    status.innerHTML = '<i class="fa-solid fa-circle-info"></i> เลือกรูปปฏิทินเพื่อเริ่มอ่านข้อมูล';
+  } else {
+    status.className = 'mt-4 text-sm bg-amber-50 border border-amber-200 text-amber-700 rounded-lg p-3';
+    status.innerHTML = '<i class="fa-solid fa-flask"></i> ต้องเชื่อมต่อฐานข้อมูลจริงก่อน (ดูสถานะที่ badge มุมขวาบน) ฟีเจอร์นี้ใช้ Gemini Vision API ผ่าน Apps Script backend ในการอ่านรูป';
+  }
 }
 function closeImportImage(){
   document.getElementById('import-modal').classList.add('hidden');
   document.getElementById('import-modal').classList.remove('flex');
 }
-function onImportFileSelected(file){
+async function onImportFileSelected(file){
   if (!file) return;
-  document.getElementById('import-status').innerHTML =
-    `<i class="fa-solid fa-circle-info"></i> รับไฟล์ "${file.name}" แล้ว แต่ยังไม่สามารถอ่านข้อมูลจากรูปได้ในเวอร์ชันนี้ — ต้องรอเชื่อม Apps Script backend ก่อน (Phase 2)`;
+  if (!API_URL) { resetImportStatus(); return; }
+  const status = document.getElementById('import-status');
+  status.className = 'mt-4 text-sm bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-lg p-3';
+  status.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังอ่านรูปด้วย AI... (อาจใช้เวลาสักครู่)';
+
+  try {
+    const base64 = await fileToBase64(file);
+    const resp = await apiCall('extractImage', { imageBase64: base64, mimeType: file.type || 'image/png' });
+    importDraft = resp.items.map((it, idx) => ({
+      tempId: idx,
+      title: it.title || '',
+      date: it.date || '',
+      platform: PLATFORMS.includes(it.platform) ? it.platform : 'Facebook',
+      note: it.note || '',
+      selected: true,
+    }));
+    if (!importDraft.length) {
+      status.className = 'mt-4 text-sm bg-amber-50 border border-amber-200 text-amber-700 rounded-lg p-3';
+      status.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> ไม่พบรายการคอนเทนต์ในรูปนี้ ลองรูปอื่นดูครับ';
+      return;
+    }
+    status.className = 'mt-4 text-sm bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-lg p-3';
+    status.innerHTML = `<i class="fa-solid fa-circle-check"></i> อ่านได้ ${importDraft.length} รายการ — ตรวจสอบด้านล่างก่อนสร้างจริง`;
+    renderImportReview();
+    document.getElementById('import-review').classList.remove('hidden');
+    document.getElementById('import-confirm-btn').classList.remove('hidden');
+    document.getElementById('import-dropzone').classList.add('hidden');
+  } catch (err) {
+    status.className = 'mt-4 text-sm bg-red-50 border border-red-200 text-red-700 rounded-lg p-3';
+    status.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> อ่านรูปไม่สำเร็จ: ' + err.message;
+  }
+}
+function fileToBase64(file){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+function renderImportReview(){
+  document.getElementById('import-review-body').innerHTML = importDraft.map(it => `
+    <tr class="border-t border-slate-100">
+      <td class="p-2"><input type="checkbox" ${it.selected?'checked':''} onchange="importDraft[${it.tempId}].selected=this.checked"></td>
+      <td class="p-2"><input class="form-input" value="${it.title.replace(/"/g,'&quot;')}" oninput="importDraft[${it.tempId}].title=this.value"></td>
+      <td class="p-2"><input type="date" class="form-input" value="${it.date}" oninput="importDraft[${it.tempId}].date=this.value"></td>
+      <td class="p-2">
+        <select class="form-input" onchange="importDraft[${it.tempId}].platform=this.value">
+          ${PLATFORMS.map(p=>`<option ${p===it.platform?'selected':''}>${p}</option>`).join('')}
+        </select>
+      </td>
+      <td class="p-2"><input class="form-input" value="${(it.note||'').replace(/"/g,'&quot;')}" oninput="importDraft[${it.tempId}].note=this.value"></td>
+    </tr>
+  `).join('');
+}
+function toggleImportSelectAll(checked){
+  importDraft.forEach(it => it.selected = checked);
+  renderImportReview();
+}
+async function confirmImport(){
+  const selected = importDraft.filter(it => it.selected && it.title.trim());
+  if (!selected.length) { alert('เลือกอย่างน้อย 1 รายการ'); return; }
+  const btn = document.getElementById('import-confirm-btn');
+  btn.disabled = true;
+  try {
+    const payload = selected.map(it => ({
+      Brand: sharedBrand || '', Campaign: '', Title: it.title, Note: it.note,
+      Platforms: [it.platform],
+      ScheduledAt: it.date ? new Date(it.date).toISOString() : new Date().toISOString(),
+      Owner: '', Reviewer: '', Status: 'Draft',
+    }));
+    const resp = await apiCall('bulkCreate', { items: payload });
+    resp.items.forEach(row => items.push(apiItemToClient(row)));
+    closeImportImage();
+    populateFilters();
+    refreshAll();
+    switchTab('list');
+  } catch (err) {
+    alert('สร้างรายการไม่สำเร็จ: ' + err.message);
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 function refreshAll(){
