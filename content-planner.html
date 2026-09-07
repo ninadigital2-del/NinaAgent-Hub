@@ -281,7 +281,7 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
       <div class="grid md:grid-cols-2 gap-3">
         <div>
           <label class="form-label">แบรนด์ / ลูกค้า</label>
-          <select id="fld-brand" class="form-input" onchange="onBrandSelectChange()"></select>
+          <select id="fld-brand" class="form-input" onchange="onBrandSelectChange('fld-brand')"></select>
           <input id="fld-brand-new" class="form-input mt-2 hidden" placeholder="พิมพ์ชื่อแบรนด์ใหม่">
         </div>
         <div><label class="form-label">แคมเปญ</label><input id="fld-campaign" class="form-input" placeholder="เช่น September Launch"></div>
@@ -359,6 +359,12 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
       <button onclick="closeImportImage()" class="text-slate-400 hover:text-slate-700"><i class="fa-solid fa-xmark text-lg"></i></button>
     </div>
     <div class="p-5">
+      <div class="mb-4">
+        <label class="form-label">แบรนด์ของปฏิทินนี้</label>
+        <select id="import-brand" class="form-input" onchange="onBrandSelectChange('import-brand')"></select>
+        <input id="import-brand-new" class="form-input mt-2 hidden" placeholder="พิมพ์ชื่อแบรนด์ใหม่">
+        <p class="text-xs text-slate-400 mt-1">ทุกรายการที่นำเข้าจากรูปนี้จะถูกตั้งเป็นแบรนด์นี้ทั้งหมด</p>
+      </div>
       <label id="import-dropzone" class="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-slate-200 rounded-xl p-8 text-center cursor-pointer hover:bg-slate-50">
         <i class="fa-solid fa-cloud-arrow-up text-2xl text-slate-300"></i>
         <span class="text-sm text-slate-500">แปะรูปปฏิทินที่ทำจาก Canva ที่นี่ หรือกดเพื่อเลือกไฟล์</span>
@@ -844,9 +850,9 @@ function renderReport(){
 }
 
 // ---------- Form ----------
-function populateBrandDropdown(selected){
+function populateBrandDropdown(selectId, selected){
   const brands = (notionBrands && notionBrands.length) ? notionBrands : [...new Set(items.map(i=>i.brand))];
-  const sel = document.getElementById('fld-brand');
+  const sel = document.getElementById(selectId);
   sel.innerHTML = brands.map(b=>`<option value="${b}">${b}</option>`).join('') + `<option value="__new__">+ เพิ่มแบรนด์ใหม่...</option>`;
   if (selected && brands.includes(selected)) {
     sel.value = selected;
@@ -857,15 +863,15 @@ function populateBrandDropdown(selected){
     sel.insertBefore(opt, sel.lastElementChild);
     sel.value = selected;
   }
-  onBrandSelectChange();
+  onBrandSelectChange(selectId);
 }
-function onBrandSelectChange(){
-  const isNew = document.getElementById('fld-brand').value === '__new__';
-  document.getElementById('fld-brand-new').classList.toggle('hidden', !isNew);
+function onBrandSelectChange(selectId){
+  const isNew = document.getElementById(selectId).value === '__new__';
+  document.getElementById(selectId + '-new').classList.toggle('hidden', !isNew);
 }
-function resolvedBrand(){
-  const sel = document.getElementById('fld-brand').value;
-  return sel === '__new__' ? document.getElementById('fld-brand-new').value.trim() : sel;
+function resolvedBrand(selectId){
+  const sel = document.getElementById(selectId).value;
+  return sel === '__new__' ? document.getElementById(selectId + '-new').value.trim() : sel;
 }
 
 // ---------- Owner / Reviewer dropdowns (Notion-synced when API is connected) ----------
@@ -906,7 +912,7 @@ function openForm(){
   editingId = null;
   document.getElementById('form-title').textContent = 'สร้างคอนเทนต์ใหม่';
   ['fld-campaign','fld-title','fld-note','fld-schedule','fld-media','fld-brand-new','fld-owner-new','fld-reviewer-new'].forEach(id=>document.getElementById(id).value='');
-  populateBrandDropdown();
+  populateBrandDropdown('fld-brand');
   populatePersonDropdown('fld-owner');
   populatePersonDropdown('fld-reviewer');
   document.getElementById('fld-status').value = 'Draft';
@@ -920,7 +926,7 @@ function editContent(id){
   const i = items.find(x=>x.id===id);
   editingId = id;
   document.getElementById('form-title').textContent = 'แก้ไขคอนเทนต์';
-  populateBrandDropdown(i.brand);
+  populateBrandDropdown('fld-brand', i.brand);
   document.getElementById('fld-campaign').value = i.campaign;
   document.getElementById('fld-title').value = i.title;
   document.getElementById('fld-note').value = i.note || '';
@@ -1031,7 +1037,7 @@ document.getElementById('fld-status').addEventListener('change', renderChecklist
 async function saveContent(){
   const platforms = selectedPlatforms();
   if (!document.getElementById('fld-title').value.trim()){ alert('กรุณาระบุหัวข้อคอนเทนต์'); return; }
-  const brand = resolvedBrand();
+  const brand = resolvedBrand('fld-brand');
   if (!brand){ alert('กรุณาระบุแบรนด์ / ลูกค้า'); return; }
   const payload = {
     brand,
@@ -1196,6 +1202,8 @@ function openImportImage(){
   document.getElementById('import-review').classList.add('hidden');
   document.getElementById('import-confirm-btn').classList.add('hidden');
   document.getElementById('import-dropzone').classList.remove('hidden');
+  document.getElementById('import-brand-new').value = '';
+  populateBrandDropdown('import-brand', sharedBrand || null);
   importDraft = [];
   resetImportStatus();
 }
@@ -1216,6 +1224,7 @@ function closeImportImage(){
 async function onImportFileSelected(file){
   if (!file) return;
   if (!API_URL) { resetImportStatus(); return; }
+  if (!resolvedBrand('import-brand')) { alert('กรุณาเลือกแบรนด์ก่อน'); return; }
   const status = document.getElementById('import-status');
   status.className = 'mt-4 text-sm bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-lg p-3';
   status.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังอ่านรูปด้วย AI... (อาจใช้เวลาสักครู่)';
@@ -1277,11 +1286,13 @@ function toggleImportSelectAll(checked){
 async function confirmImport(){
   const selected = importDraft.filter(it => it.selected && it.title.trim());
   if (!selected.length) { alert('เลือกอย่างน้อย 1 รายการ'); return; }
+  const brand = resolvedBrand('import-brand');
+  if (!brand) { alert('กรุณาเลือกแบรนด์ก่อน'); return; }
   const btn = document.getElementById('import-confirm-btn');
   btn.disabled = true;
   try {
     const payload = selected.map(it => ({
-      Brand: sharedBrand || '', Campaign: '', Title: it.title, Note: it.note,
+      Brand: brand, Campaign: '', Title: it.title, Note: it.note,
       Platforms: [it.platform],
       ScheduledAt: it.date ? new Date(it.date).toISOString() : new Date().toISOString(),
       Owner: '', Reviewer: '', Status: 'Draft',
