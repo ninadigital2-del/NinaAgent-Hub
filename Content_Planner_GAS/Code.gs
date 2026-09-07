@@ -222,6 +222,7 @@ function queryNotionDatabase(dbId, token, filter) {
 }
 
 function writeSyncedNames(sheetName, names) {
+  setupSheets();
   const ss = getSpreadsheet();
   const sheet = ss.getSheetByName(sheetName);
   sheet.clearContents();
