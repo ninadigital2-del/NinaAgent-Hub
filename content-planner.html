@@ -851,16 +851,20 @@ function renderReport(){
 
 // ---------- Form ----------
 function populateBrandDropdown(selectId, selected){
-  const brands = (notionBrands && notionBrands.length) ? notionBrands : [...new Set(items.map(i=>i.brand))];
+  const notionOnly = notionBrands && notionBrands.length > 0;
+  const brands = notionOnly ? notionBrands : [...new Set(items.map(i=>i.brand))];
   const sel = document.getElementById(selectId);
-  sel.innerHTML = brands.map(b=>`<option value="${b}">${b}</option>`).join('') + `<option value="__new__">+ เพิ่มแบรนด์ใหม่...</option>`;
+  sel.innerHTML = brands.map(b=>`<option value="${b}">${b}</option>`).join('') +
+    (notionOnly ? '' : `<option value="__new__">+ เพิ่มแบรนด์ใหม่...</option>`);
   if (selected && brands.includes(selected)) {
     sel.value = selected;
   } else if (selected) {
-    // brand not in existing list (e.g. right after adding a new one) — add it and select
+    // Existing item with a brand not in the current list (legacy data,
+    // or typed before Notion sync was required) — show it so editing
+    // doesn't silently change the brand, but don't offer it as a new pick.
     const opt = document.createElement('option');
-    opt.value = selected; opt.textContent = selected;
-    sel.insertBefore(opt, sel.lastElementChild);
+    opt.value = selected; opt.textContent = selected + (notionOnly ? ' (ไม่อยู่ใน Notion)' : '');
+    sel.appendChild(opt);
     sel.value = selected;
   }
   onBrandSelectChange(selectId);
