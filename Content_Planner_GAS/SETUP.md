@@ -28,6 +28,7 @@ Project Settings → Script Properties → add:
 |---|---|
 | `NOTION_TOKEN` | Notion internal integration token (share the Owner database with this integration) |
 | `NOTION_DATABASE_ID` | `2e69dccd-181d-81df-8919-fbacf921c7d5` (the "Tasks" database, confirmed to have "Owner for Grouping") |
+| `NOTION_BRAND_DATABASE_ID` | `2eb9dccd-181d-808f-b888-cdf883503df6` (the "Brand" database — same integration needs Connections access here too) |
 | `LINE_CHANNEL_TOKEN` | Channel access token from the LINE Official Account (Messaging API) |
 | `LINE_TARGET_ID` | The LINE group ID to push reminders into (see below) |
 | `GEMINI_API_KEY` | For the "import from calendar image" feature — can reuse the same key as `Social_Media_Assistant_GAS` if you already have one |
@@ -36,12 +37,13 @@ Project Settings → Script Properties → add:
 temporarily log the `source.groupId` from an incoming webhook event (or use
 the LINE Official Account Manager's group chat details) — copy that ID here.
 
-## 4. Sync owners once
+## 4. Sync owners and brands once
 
-Run `syncOwnersFromNotion` manually the first time to confirm it pulls the
-right names. After that, add a daily time-driven trigger for it if the
-Notion list changes often (Triggers → Add Trigger → `syncOwnersFromNotion` →
-Time-driven → Day timer).
+Run `syncOwnersFromNotion` and `syncBrandsFromNotion` manually the first
+time to confirm each pulls the right names (`syncBrandsFromNotion` only
+pulls brands where "Active = Yes" is checked). After that, add a daily
+time-driven trigger for each if the Notion lists change often (Triggers →
+Add Trigger → pick the function → Time-driven → Day timer).
 
 ## 5. Deploy as Web App
 

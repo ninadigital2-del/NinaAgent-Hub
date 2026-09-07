@@ -10,6 +10,7 @@
 
 const SHEET_CONTENT = 'Content';
 const SHEET_OWNERS = 'Owners';
+const SHEET_BRANDS = 'Brands';
 
 const COLUMNS = [
   'ID', 'Brand', 'Campaign', 'Title', 'Note',
@@ -53,6 +54,12 @@ function setupSheets(ss) {
     owners.appendRow(['Name', 'SyncedAt']);
     owners.setFrozenRows(1);
   }
+  let brands = ss.getSheetByName(SHEET_BRANDS);
+  if (!brands) brands = ss.insertSheet(SHEET_BRANDS);
+  if (brands.getLastRow() === 0) {
+    brands.appendRow(['Name', 'SyncedAt']);
+    brands.setFrozenRows(1);
+  }
 }
 
 // ---------- Web API ----------
@@ -61,6 +68,7 @@ function doGet(e) {
   try {
     if (action === 'list') return jsonResponse({ success: true, items: listContent() });
     if (action === 'owners') return jsonResponse({ success: true, owners: listOwners() });
+    if (action === 'brands') return jsonResponse({ success: true, brands: listBrands() });
     return jsonResponse({ success: false, error: 'Unknown action: ' + action });
   } catch (err) {
     return jsonResponse({ success: false, error: String(err) });
@@ -171,18 +179,60 @@ function addComment(id, author, text) {
   return rowToItem(sheet.getRange(rowIdx, 1, 1, COLUMNS.length).getValues()[0]);
 }
 
-// ---------- Owners (synced from Notion) ----------
+// ---------- Owners / Brands (synced from Notion) ----------
 function listOwners() {
+  return listSyncedNames(SHEET_OWNERS);
+}
+function listBrands() {
+  return listSyncedNames(SHEET_BRANDS);
+}
+function listSyncedNames(sheetName) {
   const ss = getSpreadsheet();
-  const sheet = ss.getSheetByName(SHEET_OWNERS);
+  const sheet = ss.getSheetByName(sheetName);
   const values = sheet.getDataRange().getValues();
   values.shift();
   return values.filter(r => r[0]).map(r => r[0]);
 }
 
 /**
- * Pulls the "Owner for Grouping" property from the Notion database and
- * writes the distinct names into the Owners tab. Run manually or on a
+ * Queries a Notion database (following pagination) and returns every
+ * result page. `filter`, if given, is passed straight through as the
+ * Notion API's query filter object.
+ */
+function queryNotionDatabase(dbId, token, filter) {
+  const pages = [];
+  let cursor = undefined;
+  do {
+    const payload = {};
+    if (cursor) payload.start_cursor = cursor;
+    if (filter) payload.filter = filter;
+    const resp = UrlFetchApp.fetch('https://api.notion.com/v1/databases/' + dbId + '/query', {
+      method: 'post',
+      contentType: 'application/json',
+      headers: { Authorization: 'Bearer ' + token, 'Notion-Version': '2022-06-28' },
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true,
+    });
+    const json = JSON.parse(resp.getContentText());
+    if (json.error) throw new Error('Notion API Error: ' + json.error.message);
+    if (json.results) pages.push(...json.results);
+    cursor = json.has_more ? json.next_cursor : undefined;
+  } while (cursor);
+  return pages;
+}
+
+function writeSyncedNames(sheetName, names) {
+  const ss = getSpreadsheet();
+  const sheet = ss.getSheetByName(sheetName);
+  sheet.clearContents();
+  sheet.appendRow(['Name', 'SyncedAt']);
+  const now = new Date().toISOString();
+  [...names].sort().forEach(name => sheet.appendRow([name, now]));
+}
+
+/**
+ * Pulls the "Owner for Grouping" property from the Notion Tasks database
+ * and writes the distinct names into the Owners tab. Run manually or on a
  * daily time-driven trigger — this is a cache, not a live call, so the
  * Content Planner form stays fast and works even if Notion is down.
  *
@@ -197,34 +247,40 @@ function syncOwnersFromNotion() {
   if (!token || !dbId) throw new Error('Set NOTION_TOKEN and NOTION_DATABASE_ID in Script Properties first.');
 
   const names = new Set();
-  let cursor = undefined;
-  do {
-    const payload = cursor ? { start_cursor: cursor } : {};
-    const resp = UrlFetchApp.fetch('https://api.notion.com/v1/databases/' + dbId + '/query', {
-      method: 'post',
-      contentType: 'application/json',
-      headers: { Authorization: 'Bearer ' + token, 'Notion-Version': '2022-06-28' },
-      payload: JSON.stringify(payload),
-      muteHttpExceptions: true,
-    });
-    const json = JSON.parse(resp.getContentText());
-    if (json.results) {
-      json.results.forEach(page => {
-        const prop = page.properties[PROPERTY_NAME];
-        if (!prop) return;
-        const value = extractNotionText(prop);
-        if (value) names.add(value);
-      });
-    }
-    cursor = json.has_more ? json.next_cursor : undefined;
-  } while (cursor);
+  queryNotionDatabase(dbId, token).forEach(page => {
+    const prop = page.properties[PROPERTY_NAME];
+    if (!prop) return;
+    const value = extractNotionText(prop);
+    if (value) names.add(value);
+  });
+  writeSyncedNames(SHEET_OWNERS, names);
+}
 
-  const ss = getSpreadsheet();
-  const sheet = ss.getSheetByName(SHEET_OWNERS);
-  sheet.clearContents();
-  sheet.appendRow(['Name', 'SyncedAt']);
-  const now = new Date().toISOString();
-  [...names].sort().forEach(name => sheet.appendRow([name, now]));
+/**
+ * Pulls brand names from the Notion "Brand" database (Name property,
+ * filtered to Active = Yes) into the Brands tab, same caching pattern as
+ * syncOwnersFromNotion.
+ *
+ * Requires Script Property: NOTION_BRAND_DATABASE_ID (separate from
+ * NOTION_DATABASE_ID since Brand lives in its own database). Reuses
+ * NOTION_TOKEN — the same integration must be connected to this database
+ * too (Brand database → ••• → Connections).
+ */
+function syncBrandsFromNotion() {
+  const props = PropertiesService.getScriptProperties();
+  const token = props.getProperty('NOTION_TOKEN');
+  const dbId = props.getProperty('NOTION_BRAND_DATABASE_ID');
+  if (!token || !dbId) throw new Error('Set NOTION_TOKEN and NOTION_BRAND_DATABASE_ID in Script Properties first.');
+
+  const filter = { property: 'Active = Yes', checkbox: { equals: true } };
+  const names = new Set();
+  queryNotionDatabase(dbId, token, filter).forEach(page => {
+    const prop = page.properties['Name'];
+    if (!prop) return;
+    const value = extractNotionText(prop);
+    if (value) names.add(value);
+  });
+  writeSyncedNames(SHEET_BRANDS, names);
 }
 
 function extractNotionText(prop) {

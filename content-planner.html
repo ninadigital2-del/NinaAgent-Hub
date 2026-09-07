@@ -57,7 +57,7 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
 
 /* ---------- Calendar ---------- */
 .cal-weekday { text-align: center; font-size: 11px; font-weight: 700; letter-spacing: .02em; color: #94a3b8; padding: 4px 0 8px; text-transform: uppercase; }
-.cal-weekday.weekend { color: #c7847a; }
+.cal-weekday.weekend { color: #dc2626; }
 
 .day-cell {
   position: relative;
@@ -74,7 +74,8 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
 .day-cell.in-month:hover { border-color: #c7d2fe; box-shadow: 0 4px 14px rgba(79, 70, 229, 0.08); }
 .day-cell.out-month { background: #fafafa; border-color: #f4f5f7; }
 .day-cell.out-month .day-num { color: #d1d5db; }
-.day-cell.weekend:not(.out-month) { background: #fcfbfa; }
+.day-cell.weekend:not(.out-month) { background: #fef2f2; }
+.day-cell.weekend:not(.out-month) .day-num { color: #dc2626; }
 .day-cell.today { background: linear-gradient(180deg, #eef2ff 0%, #f5f7ff 100%); border-color: #a5b4fc; }
 .day-cell.drag-over { border-color: #4f46e5; box-shadow: 0 0 0 3px rgba(79,70,229,0.15); transform: scale(1.01); }
 
@@ -202,7 +203,7 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
     </div>
     <div id="cal-hint" class="text-xs text-slate-400 mb-3"><i class="fa-solid fa-hand"></i> ลากการ์ดไปวางวันที่ต้องการเพื่อเลื่อนกำหนดโพสต์</div>
     <div class="grid grid-cols-7">
-      <div class="cal-weekday">อา</div><div class="cal-weekday">จ</div><div class="cal-weekday">อ</div><div class="cal-weekday">พ</div><div class="cal-weekday">พฤ</div><div class="cal-weekday">ศ</div><div class="cal-weekday weekend">ส</div>
+      <div class="cal-weekday weekend">อา</div><div class="cal-weekday">จ</div><div class="cal-weekday">อ</div><div class="cal-weekday">พ</div><div class="cal-weekday">พฤ</div><div class="cal-weekday">ศ</div><div class="cal-weekday weekend">ส</div>
     </div>
     <div id="cal-body" class="grid grid-cols-7 gap-2"></div>
   </div>
@@ -464,9 +465,10 @@ async function apiGet(action){
 async function loadFromApi(){
   if (!API_URL) return false;
   try {
-    const [listResp, ownersResp] = await Promise.all([apiGet('list'), apiGet('owners')]);
+    const [listResp, ownersResp, brandsResp] = await Promise.all([apiGet('list'), apiGet('owners'), apiGet('brands')]);
     items = listResp.items.map(apiItemToClient);
     notionOwners = ownersResp.owners;
+    notionBrands = brandsResp.brands;
     return true;
   } catch (err) {
     console.error('Failed to load from API, falling back to mock data:', err);
@@ -843,7 +845,7 @@ function renderReport(){
 
 // ---------- Form ----------
 function populateBrandDropdown(selected){
-  const brands = [...new Set(items.map(i=>i.brand))];
+  const brands = (notionBrands && notionBrands.length) ? notionBrands : [...new Set(items.map(i=>i.brand))];
   const sel = document.getElementById('fld-brand');
   sel.innerHTML = brands.map(b=>`<option value="${b}">${b}</option>`).join('') + `<option value="__new__">+ เพิ่มแบรนด์ใหม่...</option>`;
   if (selected && brands.includes(selected)) {
@@ -868,6 +870,7 @@ function resolvedBrand(){
 
 // ---------- Owner / Reviewer dropdowns (Notion-synced when API is connected) ----------
 let notionOwners = null; // set by loadFromApi() when API_URL is configured
+let notionBrands = null; // set by loadFromApi() when API_URL is configured
 function personRoster(){
   if (notionOwners && notionOwners.length) return notionOwners;
   return [...new Set(items.flatMap(i => [i.owner, i.reviewer]).filter(Boolean))];
