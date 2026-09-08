@@ -542,30 +542,36 @@ let calCursor = new Date();
 
 // ---------- Shared filter (Brand / Platform) ----------
 let sharedBrand = '';
+let sharedBrandLocked = false; // true when forced via ?brand=... link — dropdown disabled, survives "clear filter"
 let sharedOwner = '';
 let sharedPlatform = '';
 function populateSharedFilter(){
   const brands = [...new Set(items.map(i=>i.brand))];
   document.getElementById('shared-brand').innerHTML = '<option value="">ทุกแบรนด์</option>' + brands.map(b=>`<option ${b===sharedBrand?'selected':''}>${b}</option>`).join('');
+  document.getElementById('shared-brand').disabled = sharedBrandLocked;
   const owners = [...new Set(items.map(i=>i.owner))];
   document.getElementById('shared-owner').innerHTML = '<option value="">ทุกผู้รับผิดชอบ</option>' + owners.map(o=>`<option ${o===sharedOwner?'selected':''}>${o}</option>`).join('');
   document.getElementById('shared-platform').value = sharedPlatform;
+  updateSharedFilterBadge();
 }
-function applySharedFilter(){
-  sharedBrand = document.getElementById('shared-brand').value;
-  sharedOwner = document.getElementById('shared-owner').value;
-  sharedPlatform = document.getElementById('shared-platform').value;
+function updateSharedFilterBadge(){
   const parts = [];
-  if (sharedBrand) parts.push(sharedBrand);
+  if (sharedBrand) parts.push(sharedBrand + (sharedBrandLocked ? ' (ล็อก)' : ''));
   if (sharedOwner) parts.push(sharedOwner);
   if (sharedPlatform) parts.push(sharedPlatform);
   document.getElementById('shared-filter-badge').textContent = parts.length ? `กำลังกรอง: ${parts.join(' · ')}` : '';
+}
+function applySharedFilter(){
+  if (!sharedBrandLocked) sharedBrand = document.getElementById('shared-brand').value;
+  sharedOwner = document.getElementById('shared-owner').value;
+  sharedPlatform = document.getElementById('shared-platform').value;
+  updateSharedFilterBadge();
   refreshAll();
 }
 function clearSharedFilter(){
-  sharedBrand = ''; sharedOwner = ''; sharedPlatform = '';
+  if (!sharedBrandLocked) sharedBrand = '';
+  sharedOwner = ''; sharedPlatform = '';
   populateSharedFilter();
-  document.getElementById('shared-filter-badge').textContent = '';
   refreshAll();
 }
 function visibleItems(){
@@ -1372,6 +1378,11 @@ async function initApp(){
     try { clientMode = localStorage.getItem('cp_clientMode') === '1'; } catch(e) {}
   }
   applyClientModeUI();
+  const brandParam = params.get('brand');
+  if (brandParam) {
+    sharedBrand = brandParam;
+    sharedBrandLocked = true;
+  }
   if (API_URL) {
     const badge = document.getElementById('data-mode-badge');
     const ok = await loadFromApi();
