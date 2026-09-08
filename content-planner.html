@@ -115,6 +115,15 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
 </head>
 <body class="text-slate-800">
 
+<div id="client-mode-banner" class="hidden sticky top-0 z-40 bg-emerald-600 text-white">
+  <div class="max-w-7xl mx-auto px-4 md:px-6 py-2 flex items-center justify-between gap-3 text-sm font-medium">
+    <span><i class="fa-solid fa-eye"></i> โหมดลูกค้า — ดูข้อมูลได้ทุกอย่าง เปลี่ยนสถานะและคอมเมนต์ได้ แต่แก้ไข/ลบ/สร้างรายการใหม่ไม่ได้</span>
+    <button id="client-mode-banner-close" onclick="toggleClientMode()" class="hidden shrink-0 px-3 py-1 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-xs">
+      <i class="fa-solid fa-xmark"></i> ปิดโหมดลูกค้า
+    </button>
+  </div>
+</div>
+
 <div class="max-w-7xl mx-auto p-4 md:p-6">
 
   <!-- Header -->
@@ -132,7 +141,7 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
       <a href="content-planner-manual.html" target="_blank" class="text-sm font-medium px-4 py-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 flex items-center gap-2">
         <i class="fa-solid fa-book"></i> คู่มือการใช้งาน
       </a>
-      <button id="client-mode-btn" onclick="openClientLinkModal()" class="text-sm font-medium px-4 py-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 flex items-center gap-2">
+      <button id="client-mode-btn" class="text-sm font-medium px-4 py-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 flex items-center gap-2">
         <i class="fa-regular fa-eye"></i> โหมดลูกค้า (อ่านอย่างเดียว)
       </button>
       <button id="create-btn" onclick="openForm()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2 rounded-lg flex items-center gap-2">
@@ -416,12 +425,27 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
       <button onclick="closeClientLinkModal()" class="text-slate-400 hover:text-slate-700"><i class="fa-solid fa-xmark text-lg"></i></button>
     </div>
     <div class="p-4">
-      <input id="client-link-search" class="form-input mb-3" placeholder="ค้นหาแบรนด์..." oninput="renderClientLinkList()">
-      <div id="client-link-list" class="space-y-1.5 max-h-72 overflow-y-auto"></div>
-      <div class="border-t border-slate-100 mt-3 pt-3">
-        <button onclick="closeClientLinkModal();toggleClientMode()" class="text-xs text-slate-500 hover:text-slate-700">
-          <i class="fa-regular fa-eye"></i> หรือดูตัวอย่างโหมดลูกค้าในหน้านี้เลย (ไม่ล็อกแบรนด์)
-        </button>
+      <div id="client-link-stage-list">
+        <div class="text-sm text-slate-500 mb-3">เลือกแบรนด์ที่จะส่งลิงก์ให้ลูกค้า</div>
+        <input id="client-link-search" class="form-input mb-3" placeholder="ค้นหาแบรนด์..." oninput="renderClientLinkList()">
+        <div id="client-link-list" class="space-y-1 max-h-72 overflow-y-auto"></div>
+        <div class="border-t border-slate-100 mt-3 pt-3">
+          <button onclick="closeClientLinkModal();toggleClientMode()" class="text-xs text-slate-500 hover:text-slate-700">
+            <i class="fa-regular fa-eye"></i> หรือดูตัวอย่างโหมดลูกค้าในหน้านี้เลย (ไม่ล็อกแบรนด์)
+          </button>
+        </div>
+      </div>
+      <div id="client-link-stage-result" class="hidden">
+        <div class="text-sm text-slate-500 mb-1">ลิงก์สำหรับแบรนด์</div>
+        <div class="font-semibold text-lg mb-3" id="client-link-result-brand"></div>
+        <div class="bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm rounded-lg px-3 py-2 mb-3">
+          <i class="fa-solid fa-check"></i> คัดลอกลิงก์เข้า clipboard ให้แล้ว
+        </div>
+        <div class="flex items-center gap-2 mb-4">
+          <input id="client-link-result-input" readonly class="form-input flex-1 text-xs" onclick="this.select()">
+          <button onclick="copyResultLink(this)" class="px-3 py-2 rounded-lg bg-indigo-600 text-white text-xs shrink-0 whitespace-nowrap"><i class="fa-regular fa-copy"></i> คัดลอกอีกครั้ง</button>
+        </div>
+        <button onclick="backToClientBrandList()" class="text-xs text-slate-500 hover:text-slate-700"><i class="fa-solid fa-arrow-left"></i> เลือกแบรนด์อื่น</button>
       </div>
     </div>
   </div>
@@ -614,13 +638,21 @@ function toggleClientMode(){
 }
 function openClientLinkModal(){
   document.getElementById('client-link-search').value = '';
-  renderClientLinkList();
+  showClientLinkListStage();
   document.getElementById('client-link-modal').classList.remove('hidden');
   document.getElementById('client-link-modal').classList.add('flex');
 }
 function closeClientLinkModal(){
   document.getElementById('client-link-modal').classList.add('hidden');
   document.getElementById('client-link-modal').classList.remove('flex');
+}
+function showClientLinkListStage(){
+  document.getElementById('client-link-stage-list').classList.remove('hidden');
+  document.getElementById('client-link-stage-result').classList.add('hidden');
+  renderClientLinkList();
+}
+function backToClientBrandList(){
+  showClientLinkListStage();
 }
 function clientLinkBrandList(){
   const fromNotion = (typeof notionBrands !== 'undefined' && notionBrands) ? notionBrands : [];
@@ -639,39 +671,53 @@ function renderClientLinkList(){
     return;
   }
   wrap.innerHTML = brands.map(b => `
-    <div class="flex items-center gap-2 border-b border-slate-50 last:border-0 py-2">
-      <span class="text-sm font-medium flex-1 truncate">${b}</span>
-      <input readonly value="${buildClientLink(b)}" class="form-input !w-56 text-xs" onclick="this.select()">
-      <button onclick="copyClientLink('${b.replace(/'/g,"\\'")}', this)" class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs shrink-0 whitespace-nowrap">
-        <i class="fa-regular fa-copy"></i> คัดลอก
-      </button>
-    </div>
+    <button onclick="selectClientBrand('${b.replace(/'/g,"\\'")}')" class="w-full flex items-center justify-between gap-2 border-b border-slate-50 last:border-0 py-2.5 px-1 text-left hover:bg-slate-50 rounded-lg">
+      <span class="text-sm font-medium">${b}</span>
+      <i class="fa-solid fa-chevron-right text-slate-300 text-xs"></i>
+    </button>
   `).join('');
 }
-async function copyClientLink(brand, btn){
-  const link = buildClientLink(brand);
-  const original = btn.innerHTML;
+async function selectClientBrand(brand){
+  document.getElementById('client-link-result-brand').textContent = brand;
+  document.getElementById('client-link-result-input').value = buildClientLink(brand);
+  document.getElementById('client-link-stage-list').classList.add('hidden');
+  document.getElementById('client-link-stage-result').classList.remove('hidden');
+  await copyResultLink();
+}
+async function copyResultLink(btn){
+  const input = document.getElementById('client-link-result-input');
   try {
-    await navigator.clipboard.writeText(link);
-    btn.innerHTML = '<i class="fa-solid fa-check"></i> คัดลอกแล้ว';
+    await navigator.clipboard.writeText(input.value);
   } catch (err) {
-    const input = btn.previousElementSibling;
     input.select();
     document.execCommand('copy');
-    btn.innerHTML = '<i class="fa-solid fa-check"></i> คัดลอกแล้ว';
   }
-  setTimeout(() => { btn.innerHTML = original; }, 1500);
+  if (btn) {
+    const original = btn.innerHTML;
+    btn.innerHTML = '<i class="fa-solid fa-check"></i> คัดลอกแล้ว';
+    setTimeout(() => { btn.innerHTML = original; }, 1500);
+  }
 }
 function applyClientModeUI(){
   const btn = document.getElementById('client-mode-btn');
   btn.classList.toggle('bg-emerald-50', clientMode);
   btn.classList.toggle('border-emerald-300', clientMode);
   btn.classList.toggle('text-emerald-700', clientMode);
-  btn.innerHTML = clientMode
-    ? '<i class="fa-solid fa-eye"></i> โหมดลูกค้า (เปิดอยู่)'
-    : '<i class="fa-regular fa-eye"></i> โหมดลูกค้า (อ่านอย่างเดียว)';
+  if (clientMode) {
+    // already previewing client mode locally -> clicking the button turns it back off
+    btn.innerHTML = '<i class="fa-solid fa-eye"></i> ปิดโหมดลูกค้า';
+    btn.onclick = toggleClientMode;
+  } else {
+    // not in client mode -> clicking opens the brand picker to generate a link
+    btn.innerHTML = '<i class="fa-regular fa-eye"></i> โหมดลูกค้า (อ่านอย่างเดียว)';
+    btn.onclick = openClientLinkModal;
+  }
   btn.classList.toggle('hidden', clientModeLocked);
   document.getElementById('create-btn').classList.toggle('hidden', clientMode);
+
+  const banner = document.getElementById('client-mode-banner');
+  banner.classList.toggle('hidden', !clientMode);
+  document.getElementById('client-mode-banner-close').classList.toggle('hidden', clientModeLocked);
 }
 
 // ---------- Bulk actions (List) ----------
