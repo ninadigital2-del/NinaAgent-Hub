@@ -410,8 +410,18 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
       <label id="import-dropzone" class="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-slate-200 rounded-xl p-8 text-center cursor-pointer hover:bg-slate-50">
         <i class="fa-solid fa-cloud-arrow-up text-2xl text-slate-300"></i>
         <span class="text-sm text-slate-500">แปะรูปปฏิทินที่ทำจาก Canva ที่นี่ หรือกดเพื่อเลือกไฟล์</span>
-        <input type="file" accept="image/*" class="hidden" onchange="onImportFileSelected(this.files[0])">
+        <input id="import-file-input" type="file" accept="image/*" class="hidden" onchange="onImportFilePicked(this.files[0])">
       </label>
+      <div id="import-preview" class="hidden mt-3 flex items-center justify-between gap-3 border border-slate-200 rounded-xl p-3 bg-slate-50">
+        <div class="flex items-center gap-2 text-sm text-slate-600 min-w-0">
+          <i class="fa-regular fa-image text-indigo-400"></i>
+          <span id="import-preview-filename" class="truncate"></span>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <button onclick="clearImportFile()" class="px-3 py-1.5 rounded-lg border border-slate-200 text-xs text-slate-600 hover:bg-white">เลือกรูปอื่น</button>
+          <button id="import-analyze-btn" onclick="runImportAnalysis()" class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-medium"><i class="fa-solid fa-wand-magic-sparkles"></i> วิเคราะห์รูปด้วย AI</button>
+        </div>
+      </div>
       <div id="import-status" class="mt-4 text-sm bg-amber-50 border border-amber-200 text-amber-700 rounded-lg p-3">
         <i class="fa-solid fa-flask"></i> ต้องเชื่อมต่อฐานข้อมูลจริงก่อน (ดูสถานะที่ badge มุมขวาบน) ฟีเจอร์นี้ใช้ Gemini Vision API ผ่าน Apps Script backend ในการอ่านรูป
       </div>
@@ -1449,6 +1459,7 @@ async function changeDetailStatus(id, status){
 
 // ---------- Import from calendar image (Gemini Vision via Apps Script) ----------
 let importDraft = [];
+let importPendingFile = null;
 function openImportImage(){
   document.getElementById('import-modal').classList.remove('hidden');
   document.getElementById('import-modal').classList.add('flex');
@@ -1462,6 +1473,9 @@ function openImportImage(){
   populatePersonDropdown('import-owner');
   populatePersonDropdown('import-reviewer');
   importDraft = [];
+  importPendingFile = null;
+  document.getElementById('import-preview').classList.add('hidden');
+  document.getElementById('import-file-input').value = '';
   resetImportStatus();
 }
 function resetImportStatus(){
@@ -1478,10 +1492,30 @@ function closeImportImage(){
   document.getElementById('import-modal').classList.add('hidden');
   document.getElementById('import-modal').classList.remove('flex');
 }
-async function onImportFileSelected(file){
+function onImportFilePicked(file){
+  if (!file) return;
+  importPendingFile = file;
+  document.getElementById('import-preview-filename').textContent = file.name;
+  document.getElementById('import-preview').classList.remove('hidden');
+  const status = document.getElementById('import-status');
+  if (API_URL) {
+    status.className = 'mt-4 text-sm bg-slate-50 border border-slate-200 text-slate-500 rounded-lg p-3';
+    status.innerHTML = '<i class="fa-solid fa-circle-info"></i> เลือกรูปแล้ว ตรวจดูให้ถูกไฟล์ก่อนกด "วิเคราะห์รูปด้วย AI"';
+  }
+}
+function clearImportFile(){
+  importPendingFile = null;
+  document.getElementById('import-file-input').value = '';
+  document.getElementById('import-preview').classList.add('hidden');
+  resetImportStatus();
+}
+async function runImportAnalysis(){
+  const file = importPendingFile;
   if (!file) return;
   if (!API_URL) { resetImportStatus(); return; }
   if (!resolvedBrand('import-brand')) { alert('กรุณาเลือกแบรนด์ก่อน'); return; }
+  const analyzeBtn = document.getElementById('import-analyze-btn');
+  analyzeBtn.disabled = true;
   const status = document.getElementById('import-status');
   status.className = 'mt-4 text-sm bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-lg p-3';
   status.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังอ่านรูปด้วย AI... (อาจใช้เวลาสักครู่)';
@@ -1508,9 +1542,12 @@ async function onImportFileSelected(file){
     document.getElementById('import-review').classList.remove('hidden');
     document.getElementById('import-confirm-btn').classList.remove('hidden');
     document.getElementById('import-dropzone').classList.add('hidden');
+    document.getElementById('import-preview').classList.add('hidden');
   } catch (err) {
     status.className = 'mt-4 text-sm bg-red-50 border border-red-200 text-red-700 rounded-lg p-3';
     status.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> อ่านรูปไม่สำเร็จ: ' + err.message;
+  } finally {
+    analyzeBtn.disabled = false;
   }
 }
 function fileToBase64(file){
