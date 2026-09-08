@@ -392,6 +392,12 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
         <input id="import-brand-new" class="form-input mt-2 hidden" placeholder="พิมพ์ชื่อแบรนด์ใหม่">
         <p class="text-xs text-slate-400 mt-1">ทุกรายการที่นำเข้าจากรูปนี้จะถูกตั้งเป็นแบรนด์นี้ทั้งหมด</p>
       </div>
+      <div class="mb-4">
+        <label class="form-label">ผู้รับผิดชอบ</label>
+        <select id="import-owner" class="form-input" onchange="onPersonSelectChange('import-owner')"></select>
+        <input id="import-owner-new" class="form-input mt-2 hidden" placeholder="พิมพ์ชื่อใหม่">
+        <p class="text-xs text-slate-400 mt-1">รูปปฏิทินไม่มีข้อมูลนี้ให้ AI อ่าน — เลือกไว้ที่นี่ครั้งเดียวจะถูกตั้งให้ทุกรายการที่นำเข้า (แก้เป็นรายชิ้นทีหลังได้)</p>
+      </div>
       <label id="import-dropzone" class="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-slate-200 rounded-xl p-8 text-center cursor-pointer hover:bg-slate-50">
         <i class="fa-solid fa-cloud-arrow-up text-2xl text-slate-300"></i>
         <span class="text-sm text-slate-500">แปะรูปปฏิทินที่ทำจาก Canva ที่นี่ หรือกดเพื่อเลือกไฟล์</span>
@@ -1418,7 +1424,9 @@ function openImportImage(){
   document.getElementById('import-confirm-btn').classList.add('hidden');
   document.getElementById('import-dropzone').classList.remove('hidden');
   document.getElementById('import-brand-new').value = '';
+  document.getElementById('import-owner-new').value = '';
   populateBrandDropdown('import-brand', sharedBrand || null);
+  populatePersonDropdown('import-owner');
   importDraft = [];
   resetImportStatus();
 }
@@ -1503,6 +1511,7 @@ async function confirmImport(){
   if (!selected.length) { alert('เลือกอย่างน้อย 1 รายการ'); return; }
   const brand = resolvedBrand('import-brand');
   if (!brand) { alert('กรุณาเลือกแบรนด์ก่อน'); return; }
+  const owner = resolvedPerson('import-owner');
   const btn = document.getElementById('import-confirm-btn');
   btn.disabled = true;
   try {
@@ -1510,7 +1519,7 @@ async function confirmImport(){
       Brand: brand, Campaign: '', Title: it.title, Note: it.note,
       Platforms: [it.platform],
       ScheduledAt: it.date ? new Date(it.date).toISOString() : new Date().toISOString(),
-      Owner: '', Reviewer: '', Status: 'Draft',
+      Owner: owner, Reviewer: '', Status: 'Draft',
     }));
     const resp = await apiCall('bulkCreate', { items: payload });
     resp.items.forEach(row => items.push(apiItemToClient(row)));
