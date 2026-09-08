@@ -411,21 +411,28 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
 
 <script>
 const PLATFORMS = ['Facebook', 'Instagram', 'TikTok', 'LINE', 'YouTube'];
+let __igIconSeq = 0;
 const PLATFORM_ICON_SVG = {
-  Facebook: `<svg viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#1877F2"/><path fill="#fff" d="M13.5 21v-7.2h2.4l.36-2.8h-2.76V9.1c0-.81.22-1.36 1.39-1.36h1.48V5.23A19.8 19.8 0 0 0 14.8 5C12.6 5 11.1 6.33 11.1 8.8v2.2H8.7v2.8h2.4V21h2.4Z"/></svg>`,
-  Instagram: `<svg viewBox="0 0 24 24"><defs><radialGradient id="igGrad" cx="30%" cy="107%" r="150%"><stop offset="0%" stop-color="#fdf497"/><stop offset="30%" stop-color="#fd5949"/><stop offset="60%" stop-color="#d6249f"/><stop offset="100%" stop-color="#285AEB"/></radialGradient></defs><rect width="24" height="24" rx="6" fill="url(#igGrad)"/><rect x="6" y="6" width="12" height="12" rx="4" fill="none" stroke="#fff" stroke-width="1.6"/><circle cx="12" cy="12" r="3.2" fill="none" stroke="#fff" stroke-width="1.6"/><circle cx="16.3" cy="7.7" r="1" fill="#fff"/></svg>`,
-  TikTok: `<svg viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#000"/><path fill="#fff" d="M15.5 4c.4 2 1.9 3.4 3.9 3.6v2.6c-1.4 0-2.7-.4-3.9-1.2v6.1c0 3-2.5 5.4-5.5 5.4s-5.5-2.4-5.5-5.4 2.5-5.4 5.5-5.4c.3 0 .6 0 .9.1v2.7c-.3-.1-.6-.2-.9-.2-1.5 0-2.7 1.2-2.7 2.8s1.2 2.8 2.7 2.8 2.8-1.2 2.8-2.8V4h2.7Z"/></svg>`,
-  LINE: `<svg viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#06C755"/><path fill="#fff" d="M12 5c-4.4 0-8 2.9-8 6.5 0 3.2 2.9 5.9 6.8 6.4-.3 1-.9 2.1-.9 2.1s2-.5 3.9-1.7c3.9-.6 6.2-3.1 6.2-6.8C20 7.9 16.4 5 12 5Z"/></svg>`,
-  YouTube: `<svg viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#FF0000"/><path fill="#fff" d="M10 8.6 16 12l-6 3.4V8.6Z"/></svg>`,
+  Facebook: () => `<svg viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#1877F2"/><path fill="#fff" d="M13.5 21v-7.2h2.4l.36-2.8h-2.76V9.1c0-.81.22-1.36 1.39-1.36h1.48V5.23A19.8 19.8 0 0 0 14.8 5C12.6 5 11.1 6.33 11.1 8.8v2.2H8.7v2.8h2.4V21h2.4Z"/></svg>`,
+  Instagram: () => {
+    const gid = 'igGrad' + (__igIconSeq++);
+    return `<svg viewBox="0 0 24 24"><defs><radialGradient id="${gid}" cx="30%" cy="107%" r="150%"><stop offset="0%" stop-color="#fdf497"/><stop offset="30%" stop-color="#fd5949"/><stop offset="60%" stop-color="#d6249f"/><stop offset="100%" stop-color="#285AEB"/></radialGradient></defs><rect width="24" height="24" rx="6" fill="url(#${gid})"/><rect x="6" y="6" width="12" height="12" rx="4" fill="none" stroke="#fff" stroke-width="1.6"/><circle cx="12" cy="12" r="3.2" fill="none" stroke="#fff" stroke-width="1.6"/><circle cx="16.3" cy="7.7" r="1" fill="#fff"/></svg>`;
+  },
+  TikTok: () => `<svg viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#000"/><path fill="#fff" d="M15.5 4c.4 2 1.9 3.4 3.9 3.6v2.6c-1.4 0-2.7-.4-3.9-1.2v6.1c0 3-2.5 5.4-5.5 5.4s-5.5-2.4-5.5-5.4 2.5-5.4 5.5-5.4c.3 0 .6 0 .9.1v2.7c-.3-.1-.6-.2-.9-.2-1.5 0-2.7 1.2-2.7 2.8s1.2 2.8 2.7 2.8 2.8-1.2 2.8-2.8V4h2.7Z"/></svg>`,
+  LINE: () => `<svg viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#06C755"/><path fill="#fff" d="M12 5c-4.4 0-8 2.9-8 6.5 0 3.2 2.9 5.9 6.8 6.4-.3 1-.9 2.1-.9 2.1s2-.5 3.9-1.7c3.9-.6 6.2-3.1 6.2-6.8C20 7.9 16.4 5 12 5Z"/></svg>`,
+  YouTube: () => `<svg viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#FF0000"/><path fill="#fff" d="M10 8.6 16 12l-6 3.4V8.6Z"/></svg>`,
 };
+function platformIconSvg(p){
+  return PLATFORM_ICON_SVG[p] ? PLATFORM_ICON_SVG[p]() : '';
+}
 function platformBadges(platforms){
   return `<span class="platform-badges">${platforms.map(p=>
-    `<span class="platform-badge" title="${p}">${PLATFORM_ICON_SVG[p]||''}</span>`
+    `<span class="platform-badge" title="${p}">${platformIconSvg(p)}</span>`
   ).join('')}</span>`;
 }
 function platformChip(p){
   return `<span class="platform-chip plat-${p}" style="display:inline-flex;align-items:center;gap:5px;">
-    <span class="platform-badge">${PLATFORM_ICON_SVG[p]||''}</span>${p}
+    <span class="platform-badge">${platformIconSvg(p)}</span>${p}
   </span>`;
 }
 const STATUS_FLOW = ['Draft','Review','Revision','Approved','Ready','Posted'];
