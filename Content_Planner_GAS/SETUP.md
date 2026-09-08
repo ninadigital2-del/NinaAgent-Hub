@@ -30,8 +30,18 @@ Project Settings → Script Properties → add:
 | `NOTION_DATABASE_ID` | `2e69dccd-181d-81df-8919-fbacf921c7d5` (the "Tasks" database, confirmed to have "Owner for Grouping") |
 | `NOTION_BRAND_DATABASE_ID` | `2eb9dccd-181d-808f-b888-cdf883503df6` (the "Brand" database — same integration needs Connections access here too) |
 | `LINE_CHANNEL_TOKEN` | Channel access token from the LINE Official Account (Messaging API) |
-| `LINE_TARGET_ID` | The LINE group ID to push reminders into (see below) |
+| `LINE_TARGET_ID` | Who to push reminders to — see below |
 | `GEMINI_API_KEY` | For the "import from calendar image" feature — can reuse the same key as `Social_Media_Assistant_GAS` if you already have one |
+
+**`LINE_TARGET_ID` accepts one ID or several, comma-separated** — each one
+gets its own individual push (e.g. `userIdA,userIdB` sends the same
+reminder twice, once per person). Useful early on, before a shared group
+chat exists: point it at each person's own LINE user ID directly. Once
+there's a real team group, switch to a single group ID instead.
+
+**Getting a personal LINE user ID:** have that person message the bot (or
+add it as a friend) once, then log `source.userId` from the resulting
+webhook event.
 
 **Getting the LINE group ID:** add the bot to the team's LINE group, then
 temporarily log the `source.groupId` from an incoming webhook event (or use

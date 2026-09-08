@@ -736,38 +736,42 @@ function sendFlexReminder(items, kind) {
   sendLineFlexMessage(meta.altText(items.length), { type: 'carousel', contents: bubbles });
 }
 
-function sendLineMessage(text) {
-  const props = PropertiesService.getScriptProperties();
-  const token = props.getProperty('LINE_CHANNEL_TOKEN');
-  const targetId = props.getProperty('LINE_TARGET_ID');
-  if (!token || !targetId) {
-    Logger.log('LINE not configured, would have sent: ' + text);
-    return;
-  }
+// LINE_TARGET_ID can hold one ID (a group/room/user) or several separated
+// by commas — each gets its own push. Useful before a shared group chat
+// exists: e.g. "userIdA,userIdB" pushes individually to two people.
+function getLineTargetIds() {
+  const raw = PropertiesService.getScriptProperties().getProperty('LINE_TARGET_ID');
+  return (raw || '').split(',').map(s => s.trim()).filter(Boolean);
+}
+
+function pushLineMessage(token, targetId, message) {
   UrlFetchApp.fetch('https://api.line.me/v2/bot/message/push', {
     method: 'post',
     contentType: 'application/json',
     headers: { Authorization: 'Bearer ' + token },
-    payload: JSON.stringify({ to: targetId, messages: [{ type: 'text', text }] }),
+    payload: JSON.stringify({ to: targetId, messages: [message] }),
     muteHttpExceptions: true,
   });
 }
 
+function sendLineMessage(text) {
+  const token = PropertiesService.getScriptProperties().getProperty('LINE_CHANNEL_TOKEN');
+  const targets = getLineTargetIds();
+  if (!token || !targets.length) {
+    Logger.log('LINE not configured, would have sent: ' + text);
+    return;
+  }
+  targets.forEach(targetId => pushLineMessage(token, targetId, { type: 'text', text }));
+}
+
 function sendLineFlexMessage(altText, contents) {
-  const props = PropertiesService.getScriptProperties();
-  const token = props.getProperty('LINE_CHANNEL_TOKEN');
-  const targetId = props.getProperty('LINE_TARGET_ID');
-  if (!token || !targetId) {
+  const token = PropertiesService.getScriptProperties().getProperty('LINE_CHANNEL_TOKEN');
+  const targets = getLineTargetIds();
+  if (!token || !targets.length) {
     Logger.log('LINE not configured, would have sent flex: ' + altText);
     return;
   }
-  UrlFetchApp.fetch('https://api.line.me/v2/bot/message/push', {
-    method: 'post',
-    contentType: 'application/json',
-    headers: { Authorization: 'Bearer ' + token },
-    payload: JSON.stringify({ to: targetId, messages: [{ type: 'flex', altText, contents }] }),
-    muteHttpExceptions: true,
-  });
+  targets.forEach(targetId => pushLineMessage(token, targetId, { type: 'flex', altText, contents }));
 }
 
 // ---------- One-time setup helpers ----------
