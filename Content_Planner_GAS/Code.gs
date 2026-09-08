@@ -581,6 +581,7 @@ function sendDailyReminders() {
       platforms: row[col('Platforms')],
       owner: row[col('Owner')],
       scheduledAtText: formatTH(scheduledAt),
+      media: row[col('MediaUrl')],
     };
 
     const notReady = status !== 'Ready' && status !== 'Approved';
@@ -656,31 +657,46 @@ const REMINDER_KIND = {
 /** Sends one LINE Flex "carousel" message — one bubble card per item — for a batch of items due the same day. */
 function sendFlexReminder(items, kind) {
   const meta = REMINDER_KIND[kind];
-  const bubbles = items.map(info => ({
-    type: 'bubble',
-    size: 'mega',
-    header: {
-      type: 'box', layout: 'vertical', backgroundColor: meta.headerColor, paddingAll: '12px',
-      contents: [{ type: 'text', text: meta.headerText, color: '#ffffff', weight: 'bold', size: 'sm', wrap: true }],
-    },
-    body: {
-      type: 'box', layout: 'vertical', spacing: 'sm', paddingAll: '16px',
-      contents: [
-        { type: 'text', text: '📅 กำหนดโพส: ' + info.scheduledAtText, size: 'sm', weight: 'bold', color: '#1f2937', wrap: true },
-        { type: 'text', text: info.title, weight: 'bold', size: 'md', wrap: true },
-        { type: 'text', text: info.brand, size: 'sm', color: '#888888' },
-        { type: 'box', layout: 'baseline', spacing: 'sm', contents: [
-          { type: 'text', text: 'Channel:', size: 'xs', color: '#aaaaaa', flex: 2 },
-          { type: 'text', text: shortPlatforms(info.platforms), size: 'xs', color: '#333333', flex: 5, wrap: true },
-        ]},
-        { type: 'box', layout: 'baseline', spacing: 'sm', contents: [
-          { type: 'text', text: 'รับผิดชอบ:', size: 'xs', color: '#aaaaaa', flex: 2 },
-          { type: 'text', text: info.owner || '-', size: 'xs', color: '#333333', flex: 5, wrap: true },
-        ]},
-        { type: 'text', text: meta.closingText, size: 'xs', color: meta.headerColor, wrap: true, margin: 'md' },
-      ],
-    },
-  }));
+  const bubbles = items.map(info => {
+    const bubble = {
+      type: 'bubble',
+      size: 'mega',
+      header: {
+        type: 'box', layout: 'vertical', backgroundColor: meta.headerColor, paddingAll: '12px',
+        contents: [{ type: 'text', text: meta.headerText, color: '#ffffff', weight: 'bold', size: 'sm', wrap: true }],
+      },
+      body: {
+        type: 'box', layout: 'vertical', spacing: 'sm', paddingAll: '16px',
+        contents: [
+          { type: 'text', text: '📅 กำหนดโพส: ' + info.scheduledAtText, size: 'sm', weight: 'bold', color: '#1f2937', wrap: true },
+          { type: 'text', text: info.title, weight: 'bold', size: 'md', wrap: true },
+          { type: 'text', text: info.brand, size: 'sm', color: '#888888' },
+          { type: 'box', layout: 'baseline', spacing: 'sm', contents: [
+            { type: 'text', text: 'Channel:', size: 'xs', color: '#aaaaaa', flex: 2 },
+            { type: 'text', text: shortPlatforms(info.platforms), size: 'xs', color: '#333333', flex: 5, wrap: true },
+          ]},
+          { type: 'box', layout: 'baseline', spacing: 'sm', contents: [
+            { type: 'text', text: 'รับผิดชอบ:', size: 'xs', color: '#aaaaaa', flex: 2 },
+            { type: 'text', text: info.owner || '-', size: 'xs', color: '#333333', flex: 5, wrap: true },
+          ]},
+          { type: 'text', text: meta.closingText, size: 'xs', color: meta.headerColor, wrap: true, margin: 'md' },
+        ],
+      },
+    };
+    // Only add the button if there's an actual http(s) link to open — LINE
+    // rejects uri actions with other schemes, and a button that opens
+    // nothing is worse than no button.
+    if (info.media && /^https?:\/\//i.test(info.media)) {
+      bubble.footer = {
+        type: 'box', layout: 'vertical', paddingAll: '12px',
+        contents: [{
+          type: 'button', style: 'link', height: 'sm',
+          action: { type: 'uri', label: '🔗 เปิดดูงานนี้', uri: info.media },
+        }],
+      };
+    }
+    return bubble;
+  });
 
   sendLineFlexMessage(meta.altText(items.length), { type: 'carousel', contents: bubbles });
 }

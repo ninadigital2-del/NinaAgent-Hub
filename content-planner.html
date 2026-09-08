@@ -139,7 +139,7 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
       <span id="data-mode-badge" class="text-xs px-3 py-1.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
         <i class="fa-solid fa-flask"></i> Phase 1 · ข้อมูลจำลอง (ยังไม่บันทึกจริง)
       </span>
-      <a href="content-planner-manual.html" target="_blank" class="text-sm font-medium px-4 py-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 flex items-center gap-2">
+      <a id="manual-link" href="content-planner-manual.html" target="_blank" class="text-sm font-medium px-4 py-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 flex items-center gap-2">
         <i class="fa-solid fa-book"></i> คู่มือการใช้งาน
       </a>
       <button id="client-mode-btn" class="text-sm font-medium px-4 py-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 flex items-center gap-2">
@@ -756,6 +756,7 @@ function applyClientModeUI(){
   }
   btn.classList.toggle('hidden', clientModeLocked);
   document.getElementById('create-btn').classList.toggle('hidden', clientMode);
+  document.getElementById('manual-link').classList.toggle('hidden', clientMode);
 
   const banner = document.getElementById('client-mode-banner');
   banner.classList.toggle('hidden', !clientMode);
