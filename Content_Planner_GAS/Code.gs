@@ -580,6 +580,7 @@ function sendDailyReminders() {
       brand: row[col('Brand')],
       platforms: row[col('Platforms')],
       owner: row[col('Owner')],
+      scheduledAtText: formatTH(scheduledAt),
     };
 
     const notReady = status !== 'Ready' && status !== 'Approved';
@@ -657,14 +658,15 @@ function sendFlexReminder(items, kind) {
   const meta = REMINDER_KIND[kind];
   const bubbles = items.map(info => ({
     type: 'bubble',
-    size: 'kilo',
+    size: 'mega',
     header: {
       type: 'box', layout: 'vertical', backgroundColor: meta.headerColor, paddingAll: '12px',
-      contents: [{ type: 'text', text: meta.headerText, color: '#ffffff', weight: 'bold', size: 'xs', wrap: true }],
+      contents: [{ type: 'text', text: meta.headerText, color: '#ffffff', weight: 'bold', size: 'sm', wrap: true }],
     },
     body: {
       type: 'box', layout: 'vertical', spacing: 'sm', paddingAll: '16px',
       contents: [
+        { type: 'text', text: '📅 กำหนดโพส: ' + info.scheduledAtText, size: 'xs', color: '#aaaaaa', wrap: true },
         { type: 'text', text: info.title, weight: 'bold', size: 'md', wrap: true },
         { type: 'text', text: info.brand, size: 'sm', color: '#888888' },
         { type: 'box', layout: 'baseline', spacing: 'sm', contents: [
