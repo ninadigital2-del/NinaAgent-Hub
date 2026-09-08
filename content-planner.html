@@ -1085,7 +1085,9 @@ function personRoster(){
 function populatePersonDropdown(selectId, selected){
   const roster = personRoster();
   const sel = document.getElementById(selectId);
-  sel.innerHTML = roster.map(n=>`<option value="${n}">${n}</option>`).join('') + `<option value="__new__">+ เพิ่มชื่อใหม่...</option>`;
+  sel.innerHTML = '<option value="">— ยังไม่ระบุ —</option>' +
+    roster.map(n=>`<option value="${n}">${n}</option>`).join('') +
+    `<option value="__new__">+ เพิ่มชื่อใหม่...</option>`;
   if (selected && roster.includes(selected)) {
     sel.value = selected;
   } else if (selected) {
@@ -1094,7 +1096,11 @@ function populatePersonDropdown(selectId, selected){
     sel.insertBefore(opt, sel.lastElementChild);
     sel.value = selected;
   } else {
-    sel.value = roster[0] || '__new__';
+    // No value saved for this item — leave it visibly unset instead of
+    // silently defaulting to the first name in the roster (that made an
+    // unassigned item look identical to one actually assigned to
+    // whoever happened to be first alphabetically).
+    sel.value = '';
   }
   onPersonSelectChange(selectId);
 }
