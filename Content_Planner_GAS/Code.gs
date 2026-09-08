@@ -335,8 +335,28 @@ function getContentCalendar() {
     } catch (e) { /* fall through and recreate */ }
   }
   const cal = CalendarApp.createCalendar('NinaAgent Hub - Content Planner');
+  cal.setDescription(
+    'ปฏิทินรวมกำหนดการโพสต์คอนเทนต์ทุกแบรนด์ จากระบบ Content Planner (NinaAgent Hub)\n\n' +
+    'แต่ละ event = คอนเทนต์ 1 ชิ้นที่ถูกกำหนดวันโพสต์ไว้ ระบบอัปเดตให้อัตโนมัติทุกครั้งที่มีการสร้าง/แก้ไข/ยกเลิกคอนเทนต์ในระบบ ไม่ต้องแก้ไข event ในปฏิทินนี้เอง\n\n' +
+    'รายละเอียดแต่ละ event: สถานะ, ผู้รับผิดชอบ, ผู้ตรวจ, หมายเหตุ\n\n' +
+    'หากต้องการแก้ไขข้อมูล หรือดูรายละเอียด Caption/สื่อ ให้เข้าที่ระบบ Content Planner โดยตรง'
+  );
   props.setProperty('CALENDAR_ID', cal.getId());
   return cal;
+}
+
+/**
+ * Run manually once if the calendar was already created before this
+ * description text existed (setDescription only runs automatically on
+ * first creation, not retroactively).
+ */
+function setCalendarDescription() {
+  getContentCalendar().setDescription(
+    'ปฏิทินรวมกำหนดการโพสต์คอนเทนต์ทุกแบรนด์ จากระบบ Content Planner (NinaAgent Hub)\n\n' +
+    'แต่ละ event = คอนเทนต์ 1 ชิ้นที่ถูกกำหนดวันโพสต์ไว้ ระบบอัปเดตให้อัตโนมัติทุกครั้งที่มีการสร้าง/แก้ไข/ยกเลิกคอนเทนต์ในระบบ ไม่ต้องแก้ไข event ในปฏิทินนี้เอง\n\n' +
+    'รายละเอียดแต่ละ event: สถานะ, ผู้รับผิดชอบ, ผู้ตรวจ, หมายเหตุ\n\n' +
+    'หากต้องการแก้ไขข้อมูล หรือดูรายละเอียด Caption/สื่อ ให้เข้าที่ระบบ Content Planner โดยตรง'
+  );
 }
 
 /**
@@ -395,6 +415,43 @@ function deleteCalendarEvent(eventId) {
     const event = cal.getEventById(eventId);
     if (event) event.deleteEvent();
   } catch (e) { /* already gone, ignore */ }
+}
+
+/**
+ * One-time backfill: run manually after adding calendar sync to pick up
+ * content items that were created/edited before this feature existed
+ * (calendar sync only fires inside createContent/updateContent, so older
+ * rows were never touched). Safe to re-run — skips rows that already have
+ * a CalendarEventId and a working event.
+ */
+function backfillCalendarEvents() {
+  const sheet = getContentSheet();
+  const values = sheet.getDataRange().getValues();
+  const header = values.shift();
+  const idColIdx = header.indexOf('CalendarEventId');
+  let created = 0, skipped = 0, failed = 0;
+
+  values.forEach((row, i) => {
+    if (!row[0]) return; // blank row
+    const item = rowToItem(row);
+    if (item.Status === 'Cancelled') { skipped++; return; }
+    if (item.CalendarEventId) {
+      try {
+        const cal = getContentCalendar();
+        if (cal.getEventById(item.CalendarEventId)) { skipped++; return; }
+      } catch (e) { /* event missing, fall through and recreate */ }
+    }
+    try {
+      const eventId = syncCalendarEvent(item);
+      sheet.getRange(i + 2, idColIdx + 1).setValue(eventId);
+      created++;
+    } catch (e) {
+      Logger.log('Backfill failed for ' + item.ID + ': ' + e);
+      failed++;
+    }
+  });
+
+  Logger.log(`Backfill done: ${created} created, ${skipped} already had events, ${failed} failed.`);
 }
 
 // ---------- Import content plan from a calendar image (Gemini Vision) ----------

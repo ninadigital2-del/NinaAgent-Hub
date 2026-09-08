@@ -65,6 +65,14 @@ under the owner account and stores its ID in Script Properties
 gets one event on it (30-minute block at the scheduled post time), kept in
 sync on edits and removed if the item is Cancelled.
 
+Sync only runs inside create/update — items that already existed before this
+feature was deployed won't get an event until touched again. Run
+**`backfillCalendarEvents`** once (Apps Script editor → select it → Run) to
+create events for all existing rows in one pass; safe to re-run any time,
+it skips rows that already have a working event. If the calendar was
+already created before the Thai description text was added, run
+**`setCalendarDescription`** once too to apply it retroactively.
+
 Each PM subscribes once:
 1. Ask the owner account (`nina.digital2@gmail.com`) to share the calendar:
    Google Calendar → find "NinaAgent Hub - Content Planner" under "My
