@@ -666,7 +666,7 @@ function sendFlexReminder(items, kind) {
     body: {
       type: 'box', layout: 'vertical', spacing: 'sm', paddingAll: '16px',
       contents: [
-        { type: 'text', text: '📅 กำหนดโพส: ' + info.scheduledAtText, size: 'xs', color: '#aaaaaa', wrap: true },
+        { type: 'text', text: '📅 กำหนดโพส: ' + info.scheduledAtText, size: 'sm', weight: 'bold', color: '#1f2937', wrap: true },
         { type: 'text', text: info.title, weight: 'bold', size: 'md', wrap: true },
         { type: 'text', text: info.brand, size: 'sm', color: '#888888' },
         { type: 'box', layout: 'baseline', spacing: 'sm', contents: [
