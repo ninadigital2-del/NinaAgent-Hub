@@ -106,10 +106,17 @@ that instead.
   **not** built here — that's the Make.com scenario, scoped separately, which
   writes directly to the same `Content` sheet via its own Google Sheets
   connector.
+- The old `Sent_Prep1d` / `Sent_24h` / `Sent_1h` columns are no longer used
+  (that ladder was simplified to just the 2-day and day-of messages above)
+  but are **kept as columns, not deleted** — removing them would shift every
+  column after them out of alignment with existing data. Re-run `setupSheets`
+  and their headers will relabel to "(ไม่ใช้แล้ว)" so it's clear in the sheet
+  they're dead; safe to ignore otherwise.
 - If you already had this backend deployed before this update, just re-paste
-  `Code.gs`, run `setupSheets` once more (adds the `Sent_DayOf` column
-  without touching existing data), and run **`setupReminderTrigger`** again
-  too — it now installs the new daily 8:15 trigger alongside the existing
+  `Code.gs`, run `setupSheets` once more (adds the `Sent_DayOf` column and
+  relabels the retired ones above, without touching existing data), and run
+  **`setupReminderTrigger`** again too — it now installs the new daily 8:15
+  trigger alongside the existing
   15-minute one (old `checkReminders`-only trigger is replaced, not
   duplicated). The next Deploy → Manage deployments → New version may prompt
   you to re-authorize.

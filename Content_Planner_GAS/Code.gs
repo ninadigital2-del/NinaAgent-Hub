@@ -23,7 +23,12 @@ const COLUMNS = [
   'PublishedUrls',     // JSON string, keyed by platform
   'Comments',          // JSON array
   'CreatedAt', 'UpdatedAt',
-  'Sent_Prep2d', 'Sent_Prep1d', 'Sent_24h', 'Sent_1h', 'Sent_OverdueAt', // reminder dedup flags (Prep1d/24h/1h unused, kept so existing columns don't shift)
+  // Sent_Prep2d and Sent_OverdueAt are the only dedup flags still read/written.
+  // The next 3 are retired (dropped when the reminder ladder was simplified)
+  // but kept as columns — renaming or deleting them would shift every column
+  // after them out of alignment with existing sheet data — so they're
+  // relabeled "(ไม่ใช้แล้ว)" instead. Re-run setupSheets to see the rename.
+  'Sent_Prep2d', 'Sent_Prep1d (ไม่ใช้แล้ว)', 'Sent_24h (ไม่ใช้แล้ว)', 'Sent_1h (ไม่ใช้แล้ว)', 'Sent_OverdueAt',
   'CalendarEventId', // event on the shared "Content Planner" Google Calendar
   'Sent_DayOf', // dedup flag for the day-of-post morning reminder
 ];
@@ -175,7 +180,7 @@ function updateContent(id, data) {
     const oldTime = new Date(current[COLUMNS.indexOf('ScheduledAt')]).getTime();
     const newTime = new Date(data.ScheduledAt).getTime();
     if (oldTime !== newTime) {
-      ['Sent_Prep2d', 'Sent_Prep1d', 'Sent_24h', 'Sent_1h', 'Sent_OverdueAt', 'Sent_DayOf'].forEach(col => {
+      ['Sent_Prep2d', 'Sent_OverdueAt', 'Sent_DayOf'].forEach(col => {
         current[COLUMNS.indexOf(col)] = '';
       });
     }
