@@ -153,6 +153,7 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
   <div class="bg-white rounded-xl border border-slate-200 p-3 mb-5 flex flex-wrap items-center gap-2">
     <span class="text-xs font-semibold text-slate-500"><i class="fa-solid fa-filter"></i> ดูเฉพาะ:</span>
     <select id="shared-brand" class="form-input !w-auto" onchange="applySharedFilter()"><option value="">ทุกแบรนด์</option></select>
+    <select id="shared-owner" class="form-input !w-auto" onchange="applySharedFilter()"><option value="">ทุกผู้รับผิดชอบ</option></select>
     <select id="shared-platform" class="form-input !w-auto" onchange="applySharedFilter()">
       <option value="">ทุกแพลตฟอร์ม</option>
       <option>Facebook</option><option>Instagram</option><option>TikTok</option><option>LINE</option><option>YouTube</option>
@@ -211,7 +212,6 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
   <!-- ============ LIST VIEW ============ -->
   <div id="view-list" class="hidden">
     <div class="bg-white rounded-xl border border-slate-200 p-3 mb-4 flex flex-wrap gap-2">
-      <select id="f-owner" class="form-input !w-auto" onchange="renderList()"><option value="">ทุกผู้รับผิดชอบ</option></select>
       <select id="f-status" class="form-input !w-auto" onchange="renderList()">
         <option value="">ทุกสถานะ</option>
         <option>Draft</option><option>Review</option><option>Revision</option><option>Approved</option><option>Ready</option><option>Posted</option><option>Cancelled</option>
@@ -535,23 +535,28 @@ let calCursor = new Date();
 
 // ---------- Shared filter (Brand / Platform) ----------
 let sharedBrand = '';
+let sharedOwner = '';
 let sharedPlatform = '';
 function populateSharedFilter(){
   const brands = [...new Set(items.map(i=>i.brand))];
   document.getElementById('shared-brand').innerHTML = '<option value="">ทุกแบรนด์</option>' + brands.map(b=>`<option ${b===sharedBrand?'selected':''}>${b}</option>`).join('');
+  const owners = [...new Set(items.map(i=>i.owner))];
+  document.getElementById('shared-owner').innerHTML = '<option value="">ทุกผู้รับผิดชอบ</option>' + owners.map(o=>`<option ${o===sharedOwner?'selected':''}>${o}</option>`).join('');
   document.getElementById('shared-platform').value = sharedPlatform;
 }
 function applySharedFilter(){
   sharedBrand = document.getElementById('shared-brand').value;
+  sharedOwner = document.getElementById('shared-owner').value;
   sharedPlatform = document.getElementById('shared-platform').value;
   const parts = [];
   if (sharedBrand) parts.push(sharedBrand);
+  if (sharedOwner) parts.push(sharedOwner);
   if (sharedPlatform) parts.push(sharedPlatform);
   document.getElementById('shared-filter-badge').textContent = parts.length ? `กำลังกรอง: ${parts.join(' · ')}` : '';
   refreshAll();
 }
 function clearSharedFilter(){
-  sharedBrand = ''; sharedPlatform = '';
+  sharedBrand = ''; sharedOwner = ''; sharedPlatform = '';
   populateSharedFilter();
   document.getElementById('shared-filter-badge').textContent = '';
   refreshAll();
@@ -559,6 +564,7 @@ function clearSharedFilter(){
 function visibleItems(){
   return items.filter(i =>
     (!sharedBrand || i.brand===sharedBrand) &&
+    (!sharedOwner || i.owner===sharedOwner) &&
     (!sharedPlatform || i.platforms.includes(sharedPlatform))
   );
 }
@@ -690,17 +696,13 @@ function itemRow(i){
 
 // ---------- List ----------
 function populateFilters(){
-  const owners = [...new Set(items.map(i=>i.owner))];
-  document.getElementById('f-owner').innerHTML = '<option value="">ทุกผู้รับผิดชอบ</option>' + owners.map(o=>`<option>${o}</option>`).join('');
   populateSharedFilter();
 }
 function renderList(){
-  const owner = document.getElementById('f-owner').value;
   const status = document.getElementById('f-status').value;
   const search = document.getElementById('f-search').value.toLowerCase();
 
   const filtered = visibleItems().filter(i =>
-    (!owner || i.owner===owner) &&
     (!status || i.status===status) &&
     (!search || i.title.toLowerCase().includes(search))
   ).sort((a,b)=>a.scheduledAt-b.scheduledAt);
