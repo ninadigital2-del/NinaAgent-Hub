@@ -648,9 +648,9 @@ function shortPlatforms(platformsCsv) {
 }
 
 const REMINDER_KIND = {
-  prep2d: { headerColor: '#f59e0b', headerText: '📋 อีก 2 วันจะถึงกำหนดโพส', altText: n => `อีก 2 วัน มีกำหนดโพส ${n} งานที่ยังไม่พร้อมนะคะ` },
-  prep1d: { headerColor: '#ea580c', headerText: '⚠️ พรุ่งนี้ถึงกำหนดโพสแล้ว', altText: n => `พรุ่งนี้มีกำหนดโพส ${n} งานที่ยังไม่พร้อมนะคะ` },
-  dayOf: { headerColor: '#4f46e5', headerText: '📅 วันนี้มีกำหนดโพส', altText: n => `วันนี้มีกำหนดโพส ${n} งานนะคะ` },
+  prep2d: { headerColor: '#f59e0b', headerText: '📋 อีก 2 วันจะถึงกำหนดโพส', closingText: 'รีบเตรียมให้ทันด้วยนะคะ 🙏', altText: n => `อีก 2 วัน มีกำหนดโพส ${n} งานที่ยังไม่พร้อมนะคะ` },
+  prep1d: { headerColor: '#ea580c', headerText: '⚠️ พรุ่งนี้ถึงกำหนดโพสแล้ว', closingText: 'เหลือเวลาไม่มากแล้ว รีบเช็คให้พร้อมด้วยนะคะ', altText: n => `พรุ่งนี้มีกำหนดโพส ${n} งานที่ยังไม่พร้อมนะคะ` },
+  dayOf: { headerColor: '#4f46e5', headerText: '📅 วันนี้มีกำหนดโพส', closingText: 'ถึงกำหนดโพสวันนี้แล้วค่ะ', altText: n => `วันนี้มีกำหนดโพส ${n} งานนะคะ` },
 };
 
 /** Sends one LINE Flex "carousel" message — one bubble card per item — for a batch of items due the same day. */
@@ -677,6 +677,7 @@ function sendFlexReminder(items, kind) {
           { type: 'text', text: 'รับผิดชอบ:', size: 'xs', color: '#aaaaaa', flex: 2 },
           { type: 'text', text: info.owner || '-', size: 'xs', color: '#333333', flex: 5, wrap: true },
         ]},
+        { type: 'text', text: meta.closingText, size: 'xs', color: meta.headerColor, wrap: true, margin: 'md' },
       ],
     },
   }));
