@@ -17,8 +17,8 @@ Google Apps Script backend for the Content Planner. Do these steps from the
    Grant the permissions it asks for. This creates a new Google Sheet
    ("NinaAgent Hub - Content Planner Data") with the `Content`, `Owners`,
    and `Brands` tabs, and stores its ID in Script Properties automatically.
-2. Select `setupReminderTrigger` → Run. This installs the 15-minute
-   time-driven trigger that checks and sends reminders.
+2. Select `setupReminderTrigger` → Run. This installs the daily 8:15
+   (Asia/Bangkok) trigger that sends the LINE reminders — see Notes below.
 
 ## 3. Set Script Properties
 
@@ -95,9 +95,13 @@ that instead.
     2 days that isn't Ready/Approved yet, one bundling every item due *today*
     (regardless of status). All items due the same day go in **one** message
     as separate cards, not one push per item.
-  - `checkReminders` — every 15 minutes, only for the 🚨 overdue safety-net
-    message (resent every 2 hours per item until it's no longer overdue).
-  - Items with status **Scheduled** are skipped by both triggers entirely —
+  - `checkReminders` (🚨 overdue-every-2h nag) exists in the code but its
+    trigger is **not installed** — turned off on purpose, since there's no
+    LINE button for a PM to say "posted", so a repeating overdue ping nobody
+    can dismiss would just be noise. Re-enable by uncommenting the trigger
+    line in `setupReminderTrigger()` if a Make.com "mark as posted" flow
+    gets built later.
+  - Items with status **Scheduled** are skipped by `sendDailyReminders` —
     use that status for anything already queued in another tool (e.g. Meta
     Business Suite) so it doesn't get nagged about here.
   - Each rule has a `Sent_*` column per row so it never fires twice for the
@@ -115,8 +119,8 @@ that instead.
 - If you already had this backend deployed before this update, just re-paste
   `Code.gs`, run `setupSheets` once more (adds the `Sent_DayOf` column and
   relabels the retired ones above, without touching existing data), and run
-  **`setupReminderTrigger`** again too — it now installs the new daily 8:15
-  trigger alongside the existing
-  15-minute one (old `checkReminders`-only trigger is replaced, not
-  duplicated). The next Deploy → Manage deployments → New version may prompt
-  you to re-authorize.
+  **`setupReminderTrigger`** again too — it replaces the old 15-minute
+  `checkReminders` trigger with the new daily 8:15 `sendDailyReminders` one
+  (not installed alongside it — the 15-minute trigger is removed, per the
+  overdue-nag being turned off above). The next Deploy → Manage deployments
+  → New version may prompt you to re-authorize.

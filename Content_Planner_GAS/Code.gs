@@ -712,6 +712,10 @@ function setupReminderTrigger() {
       ScriptApp.deleteTrigger(t);
     }
   });
-  ScriptApp.newTrigger('checkReminders').timeBased().everyMinutes(15).create();
+  // checkReminders (the 🚨 overdue-every-2h nag) is intentionally NOT installed —
+  // there's no LINE button for a PM to mark something posted, so a repeating
+  // "overdue" ping nobody can dismiss just becomes noise. Re-add it with:
+  //   ScriptApp.newTrigger('checkReminders').timeBased().everyMinutes(15).create();
+  // if that changes later.
   ScriptApp.newTrigger('sendDailyReminders').timeBased().atHour(8).nearMinute(15).everyDays(1).inTimezone('Asia/Bangkok').create();
 }
