@@ -521,6 +521,13 @@ function syncCalendarEvent(item) {
   ].filter(Boolean).join('\n');
   const ownerEmailMap = getOwnerEmailMap();
   const targetGuestEmail = ownerEmailMap[normalizeOwnerTag(item.Owner)] || null;
+  // Temporary debug line — check Apps Script → Executions after saving an
+  // item to see the exact raw text on both sides. Remove once guest-invite
+  // is confirmed working.
+  Logger.log('Guest-invite debug: item.Owner=' + JSON.stringify(item.Owner) +
+    ' normalized=' + JSON.stringify(normalizeOwnerTag(item.Owner)) +
+    ' ownerEmailMapKeys=' + JSON.stringify(Object.keys(ownerEmailMap)) +
+    ' matchedEmail=' + targetGuestEmail);
 
   let event = null;
   if (item.CalendarEventId) {
