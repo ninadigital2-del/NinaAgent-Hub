@@ -787,6 +787,7 @@ function toggleSelectRow(id, checked){
 function toggleSelectAll(checked){
   const rows = visibleListRows();
   rows.forEach(i => checked ? selectedIds.add(i.id) : selectedIds.delete(i.id));
+  updateBulkToolbar();
   renderList();
 }
 function clearBulkSelection(){
