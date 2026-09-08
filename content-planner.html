@@ -576,10 +576,19 @@ function visibleItems(){
   );
 }
 
-// ---------- Client (read-only) mode ----------
+// ---------- Client mode (view + status/comment only, no create/edit/delete) ----------
 let clientMode = false;
+let clientModeLocked = false; // true when forced via ?client=1 link — toggle button hidden
+const CLIENT_STATUS_OPTIONS = ['Review', 'Revision', 'Approved']; // statuses a client is allowed to set
 function toggleClientMode(){
+  if (clientModeLocked) return;
   clientMode = !clientMode;
+  try { localStorage.setItem('cp_clientMode', clientMode ? '1' : '0'); } catch(e) {}
+  applyClientModeUI();
+  clearBulkSelection();
+  refreshAll();
+}
+function applyClientModeUI(){
   const btn = document.getElementById('client-mode-btn');
   btn.classList.toggle('bg-emerald-50', clientMode);
   btn.classList.toggle('border-emerald-300', clientMode);
@@ -587,9 +596,8 @@ function toggleClientMode(){
   btn.innerHTML = clientMode
     ? '<i class="fa-solid fa-eye"></i> โหมดลูกค้า (เปิดอยู่)'
     : '<i class="fa-regular fa-eye"></i> โหมดลูกค้า (อ่านอย่างเดียว)';
+  btn.classList.toggle('hidden', clientModeLocked);
   document.getElementById('create-btn').classList.toggle('hidden', clientMode);
-  clearBulkSelection();
-  refreshAll();
 }
 
 // ---------- Bulk actions (List) ----------
@@ -1119,7 +1127,9 @@ function viewDetail(id){
         <h3 class="font-semibold text-lg">${i.title}</h3>
       </div>
       ${clientMode
-        ? `<span class="status-pill status-${i.status}">${i.status}</span>`
+        ? `<select class="status-pill status-${i.status}" style="border:none;cursor:pointer;" onchange="changeDetailStatus('${i.id}', this.value)">
+             ${[...new Set([i.status, ...CLIENT_STATUS_OPTIONS])].map(s=>`<option value="${s}" ${s===i.status?'selected':''}>${s}</option>`).join('')}
+           </select>`
         : `<select class="status-pill status-${i.status}" style="border:none;cursor:pointer;" onchange="changeDetailStatus('${i.id}', this.value)">
              ${['Draft','Review','Revision','Approved','Ready','Posted','Cancelled'].map(s=>`<option value="${s}" ${s===i.status?'selected':''}>${s}</option>`).join('')}
            </select>`
@@ -1354,6 +1364,14 @@ function refreshAll(){
 }
 
 async function initApp(){
+  const params = new URLSearchParams(location.search);
+  if (params.get('client') === '1') {
+    clientMode = true;
+    clientModeLocked = true;
+  } else {
+    try { clientMode = localStorage.getItem('cp_clientMode') === '1'; } catch(e) {}
+  }
+  applyClientModeUI();
   if (API_URL) {
     const badge = document.getElementById('data-mode-badge');
     const ok = await loadFromApi();
