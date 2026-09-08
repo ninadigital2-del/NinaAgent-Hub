@@ -89,16 +89,27 @@ that instead.
 
 ## Notes
 
-- The reminder rules (2 days / 1 day / 24h / 1h / overdue every 2h) live in
-  `checkReminders()`. Each rule has a `Sent_*` column per row so it never
-  fires twice for the same item.
+- Reminders now run on two triggers, both installed by `setupReminderTrigger`:
+  - `sendDailyReminders` — once a day at **8:15 (Asia/Bangkok)**. Sends up to
+    two LINE **Flex ("carousel") messages**: one bundling every item due in
+    2 days that isn't Ready/Approved yet, one bundling every item due *today*
+    (regardless of status). All items due the same day go in **one** message
+    as separate cards, not one push per item.
+  - `checkReminders` — every 15 minutes, only for the 🚨 overdue safety-net
+    message (resent every 2 hours per item until it's no longer overdue).
+  - Items with status **Scheduled** are skipped by both triggers entirely —
+    use that status for anything already queued in another tool (e.g. Meta
+    Business Suite) so it doesn't get nagged about here.
+  - Each rule has a `Sent_*` column per row so it never fires twice for the
+    same item.
 - Two-way LINE replies (buttons to mark "Ready" or "Posted") are intentionally
   **not** built here — that's the Make.com scenario, scoped separately, which
   writes directly to the same `Content` sheet via its own Google Sheets
   connector.
-- If you already had this backend deployed before the calendar/2-day-reminder
-  update, just re-paste `Code.gs` and run `setupSheets` once more — it
-  migrates the existing sheet's header row (renames `Sent_Prep3d` to
-  `Sent_Prep2d`, adds `CalendarEventId`) without touching existing data.
-  The next Deploy → Manage deployments → New version will also prompt you to
-  re-authorize (Calendar access is new).
+- If you already had this backend deployed before this update, just re-paste
+  `Code.gs`, run `setupSheets` once more (adds the `Sent_DayOf` column
+  without touching existing data), and run **`setupReminderTrigger`** again
+  too — it now installs the new daily 8:15 trigger alongside the existing
+  15-minute one (old `checkReminders`-only trigger is replaced, not
+  duplicated). The next Deploy → Manage deployments → New version may prompt
+  you to re-authorize.

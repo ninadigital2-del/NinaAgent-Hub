@@ -19,12 +19,13 @@ const COLUMNS = [
   'MediaUrl',
   'ScheduledAt',       // ISO datetime
   'Owner', 'Reviewer',
-  'Status',            // Draft|Review|Revision|Approved|Ready|Posted|Cancelled
+  'Status',            // Draft|Review|Revision|Approved|Ready|Scheduled|Posted|Cancelled
   'PublishedUrls',     // JSON string, keyed by platform
   'Comments',          // JSON array
   'CreatedAt', 'UpdatedAt',
-  'Sent_Prep2d', 'Sent_Prep1d', 'Sent_24h', 'Sent_1h', 'Sent_OverdueAt', // reminder dedup flags
+  'Sent_Prep2d', 'Sent_Prep1d', 'Sent_24h', 'Sent_1h', 'Sent_OverdueAt', // reminder dedup flags (Prep1d/24h/1h unused, kept so existing columns don't shift)
   'CalendarEventId', // event on the shared "Content Planner" Google Calendar
+  'Sent_DayOf', // dedup flag for the day-of-post morning reminder
 ];
 
 // ---------- Sheet setup ----------
@@ -517,12 +518,65 @@ function extractCalendarImage(base64, mimeType) {
   return items;
 }
 
-// ---------- Reminders (LINE push via time-driven trigger) ----------
+// ---------- Reminders (LINE push via time-driven triggers) ----------
+// Statuses that never get reminded about at all — Posted/Cancelled are done,
+// Scheduled means it's already queued elsewhere (e.g. Meta Business Suite),
+// so no nag is needed for it.
+const REMINDER_SKIP_STATUSES = ['Posted', 'Cancelled', 'Scheduled'];
+
+/**
+ * Run once a day at 8:15 (Asia/Bangkok) by a time-driven trigger (see
+ * setupReminderTrigger()). Sends two LINE Flex "carousel" messages — one for
+ * everything due in 2 days that isn't Ready/Approved yet, one for everything
+ * due today — bundling all items for that day into a single message instead
+ * of one push per item. Sent_Prep2d / Sent_DayOf mark a row as done so it's
+ * never included twice.
+ */
+function sendDailyReminders() {
+  const sheet = getContentSheet();
+  const values = sheet.getDataRange().getValues();
+  const header = values.shift();
+  const col = name => header.indexOf(name);
+  const tz = 'Asia/Bangkok';
+  const todayStr = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+  const in2DaysStr = Utilities.formatDate(new Date(Date.now() + 2 * 86400000), tz, 'yyyy-MM-dd');
+
+  const prep2dItems = [];
+  const dayOfItems = [];
+
+  values.forEach((row, i) => {
+    const rowIdx = i + 2;
+    const status = row[col('Status')];
+    if (REMINDER_SKIP_STATUSES.indexOf(status) !== -1) return;
+    const scheduledAt = new Date(row[col('ScheduledAt')]);
+    if (isNaN(scheduledAt)) return;
+    const dateStr = Utilities.formatDate(scheduledAt, tz, 'yyyy-MM-dd');
+    const info = {
+      title: row[col('Title')],
+      brand: row[col('Brand')],
+      platforms: row[col('Platforms')],
+      owner: row[col('Owner')],
+    };
+
+    const notReady = status !== 'Ready' && status !== 'Approved';
+    if (dateStr === in2DaysStr && notReady && !row[col('Sent_Prep2d')]) {
+      prep2dItems.push(info);
+      sheet.getRange(rowIdx, col('Sent_Prep2d') + 1).setValue(new Date().toISOString());
+    }
+    if (dateStr === todayStr && !row[col('Sent_DayOf')]) {
+      dayOfItems.push(info);
+      sheet.getRange(rowIdx, col('Sent_DayOf') + 1).setValue(new Date().toISOString());
+    }
+  });
+
+  if (prep2dItems.length) sendFlexReminder(prep2dItems, 'prep2d');
+  if (dayOfItems.length) sendFlexReminder(dayOfItems, 'dayOf');
+}
+
 /**
  * Run every 15 minutes by a time-driven trigger (see setupReminderTrigger()).
- * Sends LINE push messages for each rule, using the Sent_* columns to avoid
- * duplicate sends. Requires Script Properties: LINE_CHANNEL_TOKEN, LINE_TARGET_ID
- * (a group ID or user ID — see SETUP.md for how to get a group ID).
+ * Only handles the overdue safety-net message now — the 2-day-before and
+ * day-of reminders are handled by the once-a-day sendDailyReminders() above.
  */
 function checkReminders() {
   const sheet = getContentSheet();
@@ -534,48 +588,68 @@ function checkReminders() {
   values.forEach((row, i) => {
     const rowIdx = i + 2;
     const status = row[col('Status')];
-    if (status === 'Posted' || status === 'Cancelled') return;
+    if (REMINDER_SKIP_STATUSES.indexOf(status) !== -1) return;
     const scheduledAt = new Date(row[col('ScheduledAt')]);
     if (isNaN(scheduledAt)) return;
     const hoursUntil = (scheduledAt - now) / 3600000;
-    const notReady = status !== 'Ready' && status !== 'Approved';
+    if (hoursUntil >= 0) return;
+
+    const lastSentStr = row[col('Sent_OverdueAt')];
+    const lastSent = lastSentStr ? new Date(lastSentStr) : null;
+    const dueForResend = !lastSent || (now - lastSent) / 3600000 >= 2;
+    if (!dueForResend) return;
+
     const title = row[col('Title')];
     const brand = row[col('Brand')];
-
-    maybeSend(sheet, rowIdx, col('Sent_Prep2d'), notReady && hoursUntil <= 48 && hoursUntil > 24,
-      `📋 เตรียมงาน 2 วันก่อนโพส: "${title}" (${brand}) ยังไม่พร้อม กำหนดโพส ${formatTH(scheduledAt)}`);
-
-    maybeSend(sheet, rowIdx, col('Sent_Prep1d'), notReady && hoursUntil <= 24 && hoursUntil > 1,
-      `⚠️ เหลือ 1 วัน: "${title}" (${brand}) ยังไม่พร้อม กำหนดโพส ${formatTH(scheduledAt)}`);
-
-    maybeSend(sheet, rowIdx, col('Sent_24h'), hoursUntil <= 24 && hoursUntil > 23,
-      `🔔 อีก 24 ชม. จะถึงกำหนดโพส: "${title}" (${brand})`);
-
-    maybeSend(sheet, rowIdx, col('Sent_1h'), hoursUntil <= 1 && hoursUntil > 0,
-      `⏰ อีก 1 ชม. จะถึงกำหนดโพส: "${title}" (${brand})`);
-
-    if (hoursUntil < 0) {
-      const lastSentStr = row[col('Sent_OverdueAt')];
-      const lastSent = lastSentStr ? new Date(lastSentStr) : null;
-      const dueForResend = !lastSent || (now - lastSent) / 3600000 >= 2;
-      if (dueForResend) {
-        sendLineMessage(`🚨 เลยกำหนดโพสแล้ว: "${title}" (${brand}) กำหนดเดิม ${formatTH(scheduledAt)}`);
-        sheet.getRange(rowIdx, col('Sent_OverdueAt') + 1).setValue(now.toISOString());
-      }
-    }
+    const owner = row[col('Owner')];
+    sendLineMessage(`🚨 เลยกำหนดโพสแล้วนะคะ: "${title}" (${brand}) กำหนดเดิม ${formatTH(scheduledAt)} — รับผิดชอบ: ${owner}`);
+    sheet.getRange(rowIdx, col('Sent_OverdueAt') + 1).setValue(now.toISOString());
   });
-}
-
-function maybeSend(sheet, rowIdx, colIdx, condition, message) {
-  if (!condition) return;
-  const cell = sheet.getRange(rowIdx, colIdx + 1);
-  if (cell.getValue()) return; // already sent
-  sendLineMessage(message);
-  cell.setValue(new Date().toISOString());
 }
 
 function formatTH(date) {
   return Utilities.formatDate(date, 'Asia/Bangkok', 'dd MMM HH:mm');
+}
+
+const PLATFORM_SHORT_LABEL = { Facebook: 'Fb', Instagram: 'Ig', TikTok: 'TikTok', LINE: 'LINE', YouTube: 'YouTube' };
+function shortPlatforms(platformsCsv) {
+  return (platformsCsv || '').split(',').filter(Boolean)
+    .map(p => PLATFORM_SHORT_LABEL[p.trim()] || p.trim()).join(', ');
+}
+
+const REMINDER_KIND = {
+  prep2d: { headerColor: '#f59e0b', headerText: '📋 อีก 2 วันจะถึงกำหนดโพส', altText: n => `อีก 2 วัน มีกำหนดโพส ${n} งานที่ยังไม่พร้อมนะคะ` },
+  dayOf: { headerColor: '#4f46e5', headerText: '📅 วันนี้มีกำหนดโพส', altText: n => `วันนี้มีกำหนดโพส ${n} งานนะคะ` },
+};
+
+/** Sends one LINE Flex "carousel" message — one bubble card per item — for a batch of items due the same day. */
+function sendFlexReminder(items, kind) {
+  const meta = REMINDER_KIND[kind];
+  const bubbles = items.map(info => ({
+    type: 'bubble',
+    size: 'kilo',
+    header: {
+      type: 'box', layout: 'vertical', backgroundColor: meta.headerColor, paddingAll: '12px',
+      contents: [{ type: 'text', text: meta.headerText, color: '#ffffff', weight: 'bold', size: 'xs', wrap: true }],
+    },
+    body: {
+      type: 'box', layout: 'vertical', spacing: 'sm', paddingAll: '16px',
+      contents: [
+        { type: 'text', text: info.title, weight: 'bold', size: 'md', wrap: true },
+        { type: 'text', text: info.brand, size: 'sm', color: '#888888' },
+        { type: 'box', layout: 'baseline', spacing: 'sm', contents: [
+          { type: 'text', text: 'Channel:', size: 'xs', color: '#aaaaaa', flex: 2 },
+          { type: 'text', text: shortPlatforms(info.platforms), size: 'xs', color: '#333333', flex: 5, wrap: true },
+        ]},
+        { type: 'box', layout: 'baseline', spacing: 'sm', contents: [
+          { type: 'text', text: 'รับผิดชอบ:', size: 'xs', color: '#aaaaaa', flex: 2 },
+          { type: 'text', text: info.owner || '-', size: 'xs', color: '#333333', flex: 5, wrap: true },
+        ]},
+      ],
+    },
+  }));
+
+  sendLineFlexMessage(meta.altText(items.length), { type: 'carousel', contents: bubbles });
 }
 
 function sendLineMessage(text) {
@@ -595,10 +669,30 @@ function sendLineMessage(text) {
   });
 }
 
+function sendLineFlexMessage(altText, contents) {
+  const props = PropertiesService.getScriptProperties();
+  const token = props.getProperty('LINE_CHANNEL_TOKEN');
+  const targetId = props.getProperty('LINE_TARGET_ID');
+  if (!token || !targetId) {
+    Logger.log('LINE not configured, would have sent flex: ' + altText);
+    return;
+  }
+  UrlFetchApp.fetch('https://api.line.me/v2/bot/message/push', {
+    method: 'post',
+    contentType: 'application/json',
+    headers: { Authorization: 'Bearer ' + token },
+    payload: JSON.stringify({ to: targetId, messages: [{ type: 'flex', altText, contents }] }),
+    muteHttpExceptions: true,
+  });
+}
+
 // ---------- One-time setup helpers ----------
 function setupReminderTrigger() {
   ScriptApp.getProjectTriggers().forEach(t => {
-    if (t.getHandlerFunction() === 'checkReminders') ScriptApp.deleteTrigger(t);
+    if (t.getHandlerFunction() === 'checkReminders' || t.getHandlerFunction() === 'sendDailyReminders') {
+      ScriptApp.deleteTrigger(t);
+    }
   });
   ScriptApp.newTrigger('checkReminders').timeBased().everyMinutes(15).create();
+  ScriptApp.newTrigger('sendDailyReminders').timeBased().atHour(8).nearMinute(15).everyDays(1).inTimezone('Asia/Bangkok').create();
 }

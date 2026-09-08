@@ -23,6 +23,7 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
 .status-Revision { background: #fee2e2; color: #b91c1c; }
 .status-Approved { background: #dbeafe; color: #1d4ed8; }
 .status-Ready { background: #e0e7ff; color: #4338ca; }
+.status-Scheduled { background: #cffafe; color: #0e7490; }
 .status-Posted { background: #dcfce7; color: #15803d; }
 .status-Cancelled { background: #f3f4f6; color: #9ca3af; }
 
@@ -173,7 +174,7 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
 
   <!-- ============ DASHBOARD VIEW ============ -->
   <div id="view-dashboard">
-    <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+    <div class="grid grid-cols-2 md:grid-cols-6 gap-3 mb-6">
       <div class="bg-white rounded-xl border border-slate-200 p-4">
         <div class="text-2xl font-bold text-indigo-600" id="stat-today">0</div>
         <div class="text-xs text-slate-500 mt-1">ต้องโพสต์วันนี้</div>
@@ -185,6 +186,10 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
       <div class="bg-white rounded-xl border border-slate-200 p-4">
         <div class="text-2xl font-bold text-blue-600" id="stat-review">0</div>
         <div class="text-xs text-slate-500 mt-1">รอตรวจ / รออนุมัติ</div>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 p-4">
+        <div class="text-2xl font-bold text-emerald-600" id="stat-complete">0</div>
+        <div class="text-xs text-slate-500 mt-1">ข้อมูลครบแล้ว</div>
       </div>
       <div class="bg-white rounded-xl border border-slate-200 p-4">
         <div class="text-2xl font-bold text-red-600" id="stat-incomplete">0</div>
@@ -220,10 +225,16 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
 
   <!-- ============ LIST VIEW ============ -->
   <div id="view-list" class="hidden">
+    <div class="flex items-center gap-2 mb-3">
+      <button onclick="shiftMonthFilter(-1)" class="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-sm"><i class="fa-solid fa-chevron-left"></i></button>
+      <div class="font-semibold text-sm min-w-[9rem] text-center" id="list-month-label"></div>
+      <button onclick="shiftMonthFilter(1)" class="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-sm"><i class="fa-solid fa-chevron-right"></i></button>
+      <button onclick="resetMonthFilterToToday()" class="text-xs text-indigo-600 hover:underline ml-1">เดือนนี้</button>
+    </div>
     <div class="bg-white rounded-xl border border-slate-200 p-3 mb-4 flex flex-wrap gap-2">
       <select id="f-status" class="form-input !w-auto" onchange="renderList()">
         <option value="">ทุกสถานะ</option>
-        <option>Draft</option><option>Review</option><option>Revision</option><option>Approved</option><option>Ready</option><option>Posted</option><option>Cancelled</option>
+        <option>Draft</option><option>Review</option><option>Revision</option><option>Approved</option><option>Ready</option><option>Scheduled</option><option>Posted</option><option>Cancelled</option>
       </select>
       <input id="f-search" class="form-input !w-48" placeholder="ค้นหาหัวข้อ..." oninput="renderList()">
     </div>
@@ -234,7 +245,7 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
       <span class="text-slate-400">·</span>
       <span>เปลี่ยนสถานะเป็น</span>
       <select id="bulk-status" class="form-input !w-auto">
-        <option>Draft</option><option>Review</option><option>Revision</option><option>Approved</option><option>Ready</option><option>Posted</option><option>Cancelled</option>
+        <option>Draft</option><option>Review</option><option>Revision</option><option>Approved</option><option>Ready</option><option>Scheduled</option><option>Posted</option><option>Cancelled</option>
       </select>
       <button onclick="applyBulkStatus()" class="bg-indigo-600 text-white text-xs font-medium px-3 py-1.5 rounded-lg">ใช้กับรายการที่เลือก</button>
       <button onclick="clearBulkSelection()" class="text-xs text-slate-400 hover:text-slate-600 ml-auto">ยกเลิกการเลือก</button>
@@ -261,6 +272,12 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
 
   <!-- ============ REPORT VIEW ============ -->
   <div id="view-report" class="hidden">
+    <div class="flex items-center gap-2 mb-3">
+      <button onclick="shiftMonthFilter(-1)" class="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-sm"><i class="fa-solid fa-chevron-left"></i></button>
+      <div class="font-semibold text-sm min-w-[9rem] text-center" id="report-month-label"></div>
+      <button onclick="shiftMonthFilter(1)" class="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-sm"><i class="fa-solid fa-chevron-right"></i></button>
+      <button onclick="resetMonthFilterToToday()" class="text-xs text-indigo-600 hover:underline ml-1">เดือนนี้</button>
+    </div>
     <div class="grid md:grid-cols-3 gap-4">
       <div class="bg-white rounded-xl border border-slate-200 p-4">
         <h4 class="font-semibold text-sm mb-3">จำนวนงานแยกตามแพลตฟอร์ม</h4>
@@ -342,7 +359,7 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
       <div>
         <label class="form-label">สถานะ</label>
         <select id="fld-status" class="form-input !w-48">
-          <option>Draft</option><option>Review</option><option>Revision</option><option>Approved</option><option>Ready</option><option>Posted</option><option>Cancelled</option>
+          <option>Draft</option><option>Review</option><option>Revision</option><option>Approved</option><option>Ready</option><option>Scheduled</option><option>Posted</option><option>Cancelled</option>
         </select>
       </div>
     </div>
@@ -355,7 +372,8 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
 
 <!-- ============ DETAIL / COPY MODAL ============ -->
 <div id="detail-modal" class="fixed inset-0 modal-mask hidden items-center justify-center z-50 p-4">
-  <div class="bg-white rounded-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto">
+  <div class="bg-white rounded-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto relative">
+    <button onclick="closeDetail()" class="absolute top-3 right-3 text-slate-400 hover:text-slate-700 bg-white rounded-full w-7 h-7 flex items-center justify-center shadow-sm border border-slate-100 z-10"><i class="fa-solid fa-xmark"></i></button>
     <div id="detail-body" class="p-5"></div>
   </div>
 </div>
@@ -477,7 +495,7 @@ function platformChip(p){
     <span class="platform-badge">${platformIconSvg(p)}</span>${p}
   </span>`;
 }
-const STATUS_FLOW = ['Draft','Review','Revision','Approved','Ready','Posted'];
+const STATUS_FLOW = ['Draft','Review','Revision','Approved','Ready','Scheduled','Posted'];
 
 // ---------- Backend API (Phase 2) ----------
 // Paste the Apps Script Web App /exec URL here once deployed (see
@@ -581,6 +599,30 @@ function resolveWhen(token){
 
 let editingId = null;
 let calCursor = new Date();
+
+// ---------- Month filter (List / Report) ----------
+let monthFilterCursor = new Date();
+monthFilterCursor.setDate(1);
+function shiftMonthFilter(n){
+  monthFilterCursor.setMonth(monthFilterCursor.getMonth()+n);
+  updateMonthFilterUI();
+}
+function resetMonthFilterToToday(){
+  monthFilterCursor = new Date();
+  monthFilterCursor.setDate(1);
+  updateMonthFilterUI();
+}
+function updateMonthFilterUI(){
+  const label = monthFilterCursor.toLocaleDateString('th-TH', { month:'long', year:'numeric' });
+  document.getElementById('list-month-label').textContent = label;
+  document.getElementById('report-month-label').textContent = label;
+  renderList();
+  renderReport();
+}
+function inSelectedMonth(item){
+  return item.scheduledAt.getFullYear()===monthFilterCursor.getFullYear() &&
+    item.scheduledAt.getMonth()===monthFilterCursor.getMonth();
+}
 
 // ---------- Shared filter (Brand / Platform) ----------
 let sharedBrand = '';
@@ -765,8 +807,8 @@ function computeFlags(item){
   const hasCaption = item.platforms.every(p => item.captions[p] && (item.captions[p].caption || item.captions[p].message));
   const hasMedia = !!item.media;
   const incomplete = !hasCaption || !hasMedia || item.platforms.length===0;
-  if (incomplete && !['Posted','Cancelled'].includes(item.status)) flags.push('incomplete');
-  if (item.status !== 'Posted' && item.status !== 'Cancelled') {
+  if (incomplete && !['Posted','Cancelled','Scheduled'].includes(item.status)) flags.push('incomplete');
+  if (!['Posted','Cancelled','Scheduled'].includes(item.status)) {
     const diffH = (item.scheduledAt - now) / 3600000;
     if (diffH < 0) flags.push('overdue');
     else if (diffH <= 24) flags.push('soon');
@@ -795,10 +837,13 @@ function renderDashboard(){
   const review = scoped.filter(i => i.status==='Review' || i.status==='Revision');
   const incomplete = scoped.filter(i => computeFlags(i).includes('incomplete'));
   const overdue = scoped.filter(i => computeFlags(i).includes('overdue'));
+  const active = scoped.filter(i => !['Posted','Cancelled','Scheduled'].includes(i.status));
+  const complete = active.filter(i => !computeFlags(i).includes('incomplete'));
 
   document.getElementById('stat-today').textContent = today.length;
   document.getElementById('stat-soon').textContent = soon.length;
   document.getElementById('stat-review').textContent = review.length;
+  document.getElementById('stat-complete').textContent = complete.length;
   document.getElementById('stat-incomplete').textContent = incomplete.length;
   document.getElementById('stat-overdue').textContent = overdue.length;
 
@@ -838,6 +883,7 @@ function renderList(){
   const search = document.getElementById('f-search').value.toLowerCase();
 
   const filtered = visibleItems().filter(i =>
+    inSelectedMonth(i) &&
     (!status || i.status===status) &&
     (!search || i.title.toLowerCase().includes(search))
   ).sort((a,b)=>a.scheduledAt-b.scheduledAt);
@@ -969,20 +1015,22 @@ async function onCalDrop(ev, isoDate){
 
 // ---------- Report ----------
 function renderReport(){
+  const scoped = visibleItems().filter(inSelectedMonth);
+
   const byPlatform = {};
   PLATFORMS.forEach(p=>byPlatform[p]=0);
-  items.forEach(i=>i.platforms.forEach(p=>byPlatform[p]++));
+  scoped.forEach(i=>i.platforms.forEach(p=>byPlatform[p]++));
   document.getElementById('rep-platform').innerHTML = Object.entries(byPlatform).map(([p,c])=>
     `<div class="flex justify-between"><span class="platform-chip plat-${p}">${p}</span><span class="font-semibold">${c}</span></div>`).join('');
 
   const byBrand = {};
-  items.forEach(i=>byBrand[i.brand]=(byBrand[i.brand]||0)+1);
+  scoped.forEach(i=>byBrand[i.brand]=(byBrand[i.brand]||0)+1);
   document.getElementById('rep-brand').innerHTML = Object.entries(byBrand).map(([b,c])=>
     `<div class="flex justify-between"><span>${b}</span><span class="font-semibold">${c}</span></div>`).join('');
 
-  const posted = items.filter(i=>i.status==='Posted').length;
-  const total = items.length;
-  const onTime = items.filter(i=>i.status==='Posted').length; // mock: assume all posted are on-time in this sample
+  const posted = scoped.filter(i=>i.status==='Posted').length;
+  const total = scoped.length;
+  const onTime = scoped.filter(i=>i.status==='Posted').length; // mock: assume all posted are on-time in this sample
   document.getElementById('rep-summary').innerHTML = `
     <div class="flex justify-between"><span>ทั้งหมด</span><span class="font-semibold">${total}</span></div>
     <div class="flex justify-between"><span>โพสต์แล้ว</span><span class="font-semibold text-emerald-600">${posted}</span></div>
@@ -1251,7 +1299,7 @@ function viewDetail(id){
              ${[...new Set([i.status, ...CLIENT_STATUS_OPTIONS])].map(s=>`<option value="${s}" ${s===i.status?'selected':''}>${s}</option>`).join('')}
            </select>`
         : `<select class="status-pill status-${i.status}" style="border:none;cursor:pointer;" onchange="changeDetailStatus('${i.id}', this.value)">
-             ${['Draft','Review','Revision','Approved','Ready','Posted','Cancelled'].map(s=>`<option value="${s}" ${s===i.status?'selected':''}>${s}</option>`).join('')}
+             ${['Draft','Review','Revision','Approved','Ready','Scheduled','Posted','Cancelled'].map(s=>`<option value="${s}" ${s===i.status?'selected':''}>${s}</option>`).join('')}
            </select>`
       }
     </div>
@@ -1263,7 +1311,7 @@ function viewDetail(id){
     </div>
     <div class="flex gap-1 mb-3 flex-wrap">${i.platforms.map(platformChip).join('')}</div>
     <div class="text-sm mb-3"><b>ผู้รับผิดชอบ:</b> ${i.owner} · <b>ผู้ตรวจ:</b> ${i.reviewer}</div>
-    ${i.media?`<div class="text-sm mb-3"><a href="${i.media}" target="_blank" class="text-indigo-600"><i class="fa-solid fa-link"></i> ไฟล์สื่อ</a></div>`:''}
+    ${i.media?`<div class="text-sm mb-3"><a href="${i.media}" target="_blank" class="text-indigo-600"><i class="fa-solid fa-link"></i> ลิงก์งาน (กดดู/คอมเมนต์ได้)</a></div>`:''}
     <div class="space-y-2">
       ${i.platforms.map(p=>{
         const c = i.captions[p]||{};
@@ -1509,6 +1557,8 @@ async function initApp(){
     }
   }
   populateFilters();
+  document.getElementById('list-month-label').textContent = monthFilterCursor.toLocaleDateString('th-TH', { month:'long', year:'numeric' });
+  document.getElementById('report-month-label').textContent = document.getElementById('list-month-label').textContent;
   refreshAll();
 }
 initApp();
