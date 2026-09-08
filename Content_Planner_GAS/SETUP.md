@@ -123,6 +123,22 @@ one if the item gets reassigned to someone else/unmapped.
 shared calendar above — being both a guest on an event and a subscriber to
 the calendar it lives on can show that event twice on their calendar.
 
+**Do NOT try to fix this at the source by editing the "Owner for Grouping"
+formula (or "Work By") in Notion** — this looks tempting ("just make it
+pull from GEM Team Member directly") but it's genuinely risky: at least 10
+saved views in the Tasks database filter on an exact string match against
+"Owner for Grouping" (e.g. "🔔 ต้องเริ่มเตรียมงาน (อ้อ)", "💰 งานที่ยังไม่วางบิล
+(ยู้)", "📥 Inbox — งานไม่มี Due Date (อ้อ)") — changing the formula's output
+format breaks all of them silently, and other tools/Make.com scenarios
+touching the same field may depend on the current text too, invisibly to
+whoever makes the change. The real correct fix — turning "Work By" from a
+free-typed multi-select into an actual relation to GEM Team Member — is a
+schema migration across a shared, heavily-used database and deserves its
+own careful, dedicated project (audit every dependent view/automation
+first), not a quick edit made in passing. `OWNER_TAG_TO_NICKNAME` above is
+deliberately read-only against Notion's current setup so it can't break
+any of that.
+
 ## Notes
 
 - Reminders now run on two triggers, both installed by `setupReminderTrigger`:
