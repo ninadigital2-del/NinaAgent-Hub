@@ -859,3 +859,20 @@ function setupReminderTrigger() {
   // if that changes later.
   ScriptApp.newTrigger('sendDailyReminders').timeBased().atHour(8).nearMinute(15).everyDays(1).inTimezone('Asia/Bangkok').create();
 }
+
+/**
+ * Installs a once-daily trigger for each Notion sync (Owners, Brands,
+ * OwnerEmails) so the cached names/emails stay current automatically —
+ * run this once instead of adding the three triggers by hand through the
+ * Triggers UI. Safe to re-run any time (removes and reinstalls its own
+ * triggers first, same pattern as setupReminderTrigger).
+ */
+function setupNotionSyncTriggers() {
+  const handlers = ['syncOwnersFromNotion', 'syncBrandsFromNotion', 'syncOwnerEmailsFromNotion'];
+  ScriptApp.getProjectTriggers().forEach(t => {
+    if (handlers.indexOf(t.getHandlerFunction()) !== -1) ScriptApp.deleteTrigger(t);
+  });
+  handlers.forEach(fn => {
+    ScriptApp.newTrigger(fn).timeBased().atHour(7).nearMinute(0).everyDays(1).inTimezone('Asia/Bangkok').create();
+  });
+}

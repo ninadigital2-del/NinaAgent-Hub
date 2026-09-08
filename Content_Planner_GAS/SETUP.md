@@ -53,9 +53,10 @@ the LINE Official Account Manager's group chat details) — copy that ID here.
 Run `syncOwnersFromNotion` and `syncBrandsFromNotion` manually the first
 time to confirm each pulls the right names (`syncBrandsFromNotion` only
 pulls brands where "Active = Yes" is checked). Also run
-`syncOwnerEmailsFromNotion` (see step 7 for what it does). After that, add a
-daily time-driven trigger for each if the Notion data changes often
-(Triggers → Add Trigger → pick the function → Time-driven → Day timer).
+`syncOwnerEmailsFromNotion` (see step 7 for what it does). Not required to
+work — but if the Notion data changes often enough that manually re-running
+these would get missed, select **`setupNotionSyncTriggers`** → Run once to
+install a daily 7:00 trigger for all three (safe to re-run any time).
 
 ## 5. Deploy as Web App
 
