@@ -400,14 +400,26 @@ function writeOwnerEmails(rows) {
   rows.sort((a, b) => a[0].localeCompare(b[0])).forEach(([owner, email]) => sheet.appendRow([owner, email, now]));
 }
 
-/** Reads the OwnerEmails tab into a plain {Owner: Email} object for syncCalendarEvent. */
+/**
+ * Owner tags are typed by humans in Notion and copied by hand into
+ * OWNER_TAG_TO_NICKNAME, so exact-string matching is fragile against
+ * invisible differences (e.g. the underlying "Work By" tag is literally
+ * "PM-ยู้" with no spaces, while "Owner for Grouping" formats it with
+ * spaces as "PM - ยู้") — collapsing whitespace around the dash and
+ * trimming makes the match survive that instead of silently failing.
+ */
+function normalizeOwnerTag(s) {
+  return (s || '').trim().replace(/\s*-\s*/g, ' - ').replace(/\s+/g, ' ');
+}
+
+/** Reads the OwnerEmails tab into a plain {Owner: Email} object for syncCalendarEvent, keyed by normalized tag. */
 function getOwnerEmailMap() {
   const sheet = getSpreadsheet().getSheetByName(SHEET_OWNER_EMAILS);
   if (!sheet) return {};
   const values = sheet.getDataRange().getValues();
   values.shift();
   const map = {};
-  values.forEach(row => { if (row[0] && row[1]) map[row[0]] = row[1]; });
+  values.forEach(row => { if (row[0] && row[1]) map[normalizeOwnerTag(row[0])] = row[1]; });
   return map;
 }
 
@@ -508,7 +520,7 @@ function syncCalendarEvent(item) {
     item.Note ? 'หมายเหตุ: ' + item.Note : '',
   ].filter(Boolean).join('\n');
   const ownerEmailMap = getOwnerEmailMap();
-  const targetGuestEmail = ownerEmailMap[item.Owner] || null;
+  const targetGuestEmail = ownerEmailMap[normalizeOwnerTag(item.Owner)] || null;
 
   let event = null;
   if (item.CalendarEventId) {
