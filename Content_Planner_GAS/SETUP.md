@@ -73,7 +73,8 @@ it skips rows that already have a working event. If the calendar was
 already created before the Thai description text was added, run
 **`setCalendarDescription`** once too to apply it retroactively.
 
-Each PM subscribes once:
+Each PM subscribes once (for anyone NOT in `OWNER_EMAIL_MAP` below — see
+guest-invite instead for the PMs who are):
 1. Ask the owner account (`nina.digital2@gmail.com`) to share the calendar:
    Google Calendar → find "NinaAgent Hub - Content Planner" under "My
    calendars" → ⋮ → Settings and sharing → "Share with specific people" →
@@ -81,11 +82,18 @@ Each PM subscribes once:
 2. Each PM: open the invite email → Add to my calendar. Or, once shared,
    search for the calendar under "Other calendars" → "+" → Subscribe.
 
-This is a **shared team calendar**, not each PM's personal calendar — it
-avoids needing every PM's email mapped to a name in the system. If you'd
-rather push events directly into each PM's own personal calendar instead,
-that needs a name→email mapping and is a separate change — ask if you want
-that instead.
+**Guest-invite (real email reminders) for specific PMs** — `OWNER_EMAIL_MAP`
+in `Code.gs` maps an Owner value (exactly as it appears from Notion's "Owner
+for Grouping" formula, e.g. `"PM - ยู้"`) to that person's Google account.
+Every content item assigned to that Owner automatically adds them as a guest
+on its calendar event (and removes them again if the item gets reassigned to
+someone else) — Google Calendar sends them a real invite + reminder email,
+no subscribing needed. To add or change who's mapped, edit the object in
+`Code.gs` and redeploy — no sheet or UI changes needed.
+
+**Important:** a PM listed in `OWNER_EMAIL_MAP` should NOT also subscribe to
+the shared calendar above — being both a guest on an event and a subscriber
+to the calendar it lives on can show that event twice on their calendar.
 
 ## Notes
 

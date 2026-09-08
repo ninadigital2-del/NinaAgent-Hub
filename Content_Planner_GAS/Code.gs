@@ -413,6 +413,18 @@ function syncCalendarEventSafely(sheet, rowIdx, item) {
   }
 }
 
+// Maps an Owner value (as it literally appears from Notion's "Owner for
+// Grouping" formula, e.g. "PM - ยู้") to the Google account that should be
+// added as a guest on that item's calendar event, so they get a real email
+// reminder. Only PMs who are actively working are listed here — add more
+// entries as needed (name → email) and redeploy; no sheet/UI changes needed.
+// NOTE: a PM listed here should NOT also separately subscribe to the shared
+// "NinaAgent Hub - Content Planner" calendar (see SETUP.md) — being both a
+// guest and a subscriber to the same calendar can show the event twice.
+const OWNER_EMAIL_MAP = {
+  'PM - ยู้': 'supharat@gotheextramile.co',
+};
+
 function syncCalendarEvent(item) {
   const cal = getContentCalendar();
   const start = new Date(item.ScheduledAt);
@@ -425,6 +437,7 @@ function syncCalendarEvent(item) {
     'ผู้ตรวจ: ' + item.Reviewer,
     item.Note ? 'หมายเหตุ: ' + item.Note : '',
   ].filter(Boolean).join('\n');
+  const targetGuestEmail = OWNER_EMAIL_MAP[item.Owner] || null;
 
   let event = null;
   if (item.CalendarEventId) {
@@ -434,10 +447,32 @@ function syncCalendarEvent(item) {
     event.setTitle(title);
     event.setTime(start, end);
     event.setDescription(description);
+    syncEventGuest(event, targetGuestEmail);
     return event.getId();
   }
   const created = cal.createEvent(title, start, end, { description });
+  syncEventGuest(created, targetGuestEmail);
   return created.getId();
+}
+
+/**
+ * Adds targetEmail as a guest if it isn't one already, and removes any
+ * previously-added guest from OWNER_EMAIL_MAP that's no longer the current
+ * Owner (e.g. the item got reassigned) — but never touches a guest that
+ * isn't one of ours (someone could have manually added themselves).
+ */
+function syncEventGuest(event, targetEmail) {
+  const managedEmails = Object.keys(OWNER_EMAIL_MAP).map(k => OWNER_EMAIL_MAP[k]);
+  let current;
+  try { current = event.getGuestList().map(g => g.getEmail()); } catch (e) { current = []; }
+  current.forEach(email => {
+    if (managedEmails.indexOf(email) !== -1 && email !== targetEmail) {
+      try { event.removeGuest(email); } catch (e) { /* ignore */ }
+    }
+  });
+  if (targetEmail && current.indexOf(targetEmail) === -1) {
+    try { event.addGuest(targetEmail); } catch (e) { Logger.log('addGuest failed: ' + e); }
+  }
 }
 
 function deleteCalendarEvent(eventId) {
