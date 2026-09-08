@@ -23,12 +23,13 @@ const COLUMNS = [
   'PublishedUrls',     // JSON string, keyed by platform
   'Comments',          // JSON array
   'CreatedAt', 'UpdatedAt',
-  // Sent_Prep2d and Sent_OverdueAt are the only dedup flags still read/written.
-  // The next 3 are retired (dropped when the reminder ladder was simplified)
-  // but kept as columns — renaming or deleting them would shift every column
-  // after them out of alignment with existing sheet data — so they're
-  // relabeled "(ไม่ใช้แล้ว)" instead. Re-run setupSheets to see the rename.
-  'Sent_Prep2d', 'Sent_Prep1d (ไม่ใช้แล้ว)', 'Sent_24h (ไม่ใช้แล้ว)', 'Sent_1h (ไม่ใช้แล้ว)', 'Sent_OverdueAt',
+  // Sent_24h/Sent_1h are retired (dropped when the reminder ladder was
+  // simplified) but kept as columns — renaming or deleting them would shift
+  // every column after them out of alignment with existing sheet data — so
+  // they're relabeled "(ไม่ใช้แล้ว)" instead. Sent_Prep1d was retired the same
+  // way but is back in active use (see sendDailyReminders' "due tomorrow"
+  // bucket) — reusing the dormant column instead of adding a new one.
+  'Sent_Prep2d', 'Sent_Prep1d', 'Sent_24h (ไม่ใช้แล้ว)', 'Sent_1h (ไม่ใช้แล้ว)', 'Sent_OverdueAt',
   'CalendarEventId', // event on the shared "Content Planner" Google Calendar
   'Sent_DayOf', // dedup flag for the day-of-post morning reminder
 ];
@@ -180,7 +181,7 @@ function updateContent(id, data) {
     const oldTime = new Date(current[COLUMNS.indexOf('ScheduledAt')]).getTime();
     const newTime = new Date(data.ScheduledAt).getTime();
     if (oldTime !== newTime) {
-      ['Sent_Prep2d', 'Sent_OverdueAt', 'Sent_DayOf'].forEach(col => {
+      ['Sent_Prep2d', 'Sent_Prep1d', 'Sent_OverdueAt', 'Sent_DayOf'].forEach(col => {
         current[COLUMNS.indexOf(col)] = '';
       });
     }
@@ -545,11 +546,13 @@ const REMINDER_SKIP_STATUSES = ['Posted', 'Cancelled', 'Scheduled'];
 
 /**
  * Run once a day at 8:15 (Asia/Bangkok) by a time-driven trigger (see
- * setupReminderTrigger()). Sends two LINE Flex "carousel" messages — one for
- * everything due in 2 days that isn't Ready/Approved yet, one for everything
- * due today — bundling all items for that day into a single message instead
- * of one push per item. Sent_Prep2d / Sent_DayOf mark a row as done so it's
- * never included twice.
+ * setupReminderTrigger()). Every morning re-scans three date buckets fresh —
+ * due in 2 days, due tomorrow, due today — so nothing depends on when an
+ * item was created or last edited; a reschedule just lands it in whichever
+ * bucket matches on the next run. Each bucket becomes one LINE Flex
+ * "carousel" message bundling every item in it, instead of one push per
+ * item. Sent_Prep2d / Sent_Prep1d / Sent_DayOf mark a row as done per
+ * bucket so it's never included twice.
  */
 function sendDailyReminders() {
   const sheet = getContentSheet();
@@ -558,9 +561,11 @@ function sendDailyReminders() {
   const col = name => header.indexOf(name);
   const tz = 'Asia/Bangkok';
   const todayStr = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+  const tomorrowStr = Utilities.formatDate(new Date(Date.now() + 1 * 86400000), tz, 'yyyy-MM-dd');
   const in2DaysStr = Utilities.formatDate(new Date(Date.now() + 2 * 86400000), tz, 'yyyy-MM-dd');
 
   const prep2dItems = [];
+  const prep1dItems = [];
   const dayOfItems = [];
 
   values.forEach((row, i) => {
@@ -582,6 +587,10 @@ function sendDailyReminders() {
       prep2dItems.push(info);
       sheet.getRange(rowIdx, col('Sent_Prep2d') + 1).setValue(new Date().toISOString());
     }
+    if (dateStr === tomorrowStr && notReady && !row[col('Sent_Prep1d')]) {
+      prep1dItems.push(info);
+      sheet.getRange(rowIdx, col('Sent_Prep1d') + 1).setValue(new Date().toISOString());
+    }
     if (dateStr === todayStr && !row[col('Sent_DayOf')]) {
       dayOfItems.push(info);
       sheet.getRange(rowIdx, col('Sent_DayOf') + 1).setValue(new Date().toISOString());
@@ -589,6 +598,7 @@ function sendDailyReminders() {
   });
 
   if (prep2dItems.length) sendFlexReminder(prep2dItems, 'prep2d');
+  if (prep1dItems.length) sendFlexReminder(prep1dItems, 'prep1d');
   if (dayOfItems.length) sendFlexReminder(dayOfItems, 'dayOf');
 }
 
@@ -638,6 +648,7 @@ function shortPlatforms(platformsCsv) {
 
 const REMINDER_KIND = {
   prep2d: { headerColor: '#f59e0b', headerText: '📋 อีก 2 วันจะถึงกำหนดโพส', altText: n => `อีก 2 วัน มีกำหนดโพส ${n} งานที่ยังไม่พร้อมนะคะ` },
+  prep1d: { headerColor: '#ea580c', headerText: '⚠️ พรุ่งนี้ถึงกำหนดโพสแล้ว', altText: n => `พรุ่งนี้มีกำหนดโพส ${n} งานที่ยังไม่พร้อมนะคะ` },
   dayOf: { headerColor: '#4f46e5', headerText: '📅 วันนี้มีกำหนดโพส', altText: n => `วันนี้มีกำหนดโพส ${n} งานนะคะ` },
 };
 

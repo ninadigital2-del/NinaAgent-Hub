@@ -90,11 +90,14 @@ that instead.
 ## Notes
 
 - Reminders now run on two triggers, both installed by `setupReminderTrigger`:
-  - `sendDailyReminders` — once a day at **8:15 (Asia/Bangkok)**. Sends up to
-    two LINE **Flex ("carousel") messages**: one bundling every item due in
-    2 days that isn't Ready/Approved yet, one bundling every item due *today*
-    (regardless of status). All items due the same day go in **one** message
-    as separate cards, not one push per item.
+  - `sendDailyReminders` — once a day at **8:15 (Asia/Bangkok)**. Every run
+    re-scans three date buckets fresh (due in 2 days / due tomorrow — both
+    only if not yet Ready/Approved — / due today regardless of status), so
+    it doesn't matter when an item was created or rescheduled: whichever
+    bucket it lands in next gets checked the very next morning. Each bucket
+    that has items becomes **one LINE Flex ("carousel") message** bundling
+    all of them as separate cards, instead of one push per item — up to
+    3 messages a day, never more per item than one per bucket.
   - `checkReminders` (🚨 overdue-every-2h nag) exists in the code but its
     trigger is **not installed** — turned off on purpose, since there's no
     LINE button for a PM to say "posted", so a repeating overdue ping nobody
@@ -110,12 +113,12 @@ that instead.
   **not** built here — that's the Make.com scenario, scoped separately, which
   writes directly to the same `Content` sheet via its own Google Sheets
   connector.
-- The old `Sent_Prep1d` / `Sent_24h` / `Sent_1h` columns are no longer used
-  (that ladder was simplified to just the 2-day and day-of messages above)
-  but are **kept as columns, not deleted** — removing them would shift every
-  column after them out of alignment with existing data. Re-run `setupSheets`
-  and their headers will relabel to "(ไม่ใช้แล้ว)" so it's clear in the sheet
-  they're dead; safe to ignore otherwise.
+- `Sent_24h` / `Sent_1h` are retired and no longer used — kept as columns,
+  not deleted (removing them would shift every column after them out of
+  alignment with existing data). Re-run `setupSheets` and their headers will
+  relabel to "(ไม่ใช้แล้ว)" so it's clear in the sheet they're dead; safe to
+  ignore otherwise. `Sent_Prep1d` was retired the same way at first but is
+  back in active use for the "due tomorrow" bucket above.
 - If you already had this backend deployed before this update, just re-paste
   `Code.gs`, run `setupSheets` once more (adds the `Sent_DayOf` column and
   relabels the retired ones above, without touching existing data), and run
