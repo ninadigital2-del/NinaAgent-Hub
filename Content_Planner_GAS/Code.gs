@@ -167,6 +167,20 @@ function updateContent(id, data) {
   if (rowIdx === -1) throw new Error('Content not found: ' + id);
   const range = sheet.getRange(rowIdx, 1, 1, COLUMNS.length);
   const current = range.getValues()[0];
+
+  // Reschedule -> the reminder ladder must restart for the new date, otherwise
+  // an item already reminded under its old date silently never gets reminded
+  // again (Sent_Prep2d/Sent_DayOf are "sent once ever" flags, not per-date).
+  if (data.ScheduledAt !== undefined) {
+    const oldTime = new Date(current[COLUMNS.indexOf('ScheduledAt')]).getTime();
+    const newTime = new Date(data.ScheduledAt).getTime();
+    if (oldTime !== newTime) {
+      ['Sent_Prep2d', 'Sent_Prep1d', 'Sent_24h', 'Sent_1h', 'Sent_OverdueAt', 'Sent_DayOf'].forEach(col => {
+        current[COLUMNS.indexOf(col)] = '';
+      });
+    }
+  }
+
   COLUMNS.forEach((col, i) => {
     if (col === 'ID' || col === 'CreatedAt' || col === 'CalendarEventId') return;
     if (col === 'UpdatedAt') { current[i] = new Date().toISOString(); return; }
