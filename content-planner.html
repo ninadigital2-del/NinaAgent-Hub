@@ -423,6 +423,11 @@ function platformBadges(platforms){
     `<span class="platform-badge" title="${p}">${PLATFORM_ICON_SVG[p]||''}</span>`
   ).join('')}</span>`;
 }
+function platformChip(p){
+  return `<span class="platform-chip plat-${p}" style="display:inline-flex;align-items:center;gap:5px;">
+    <span class="platform-badge">${PLATFORM_ICON_SVG[p]||''}</span>${p}
+  </span>`;
+}
 const STATUS_FLOW = ['Draft','Review','Revision','Approved','Ready','Posted'];
 
 // ---------- Backend API (Phase 2) ----------
@@ -710,7 +715,7 @@ function renderList(){
       <td class="p-3 ${clientMode?'hidden':''}" onclick="event.stopPropagation()"><input type="checkbox" ${selectedIds.has(i.id)?'checked':''} onchange="toggleSelectRow('${i.id}', this.checked)"></td>
       <td class="p-3"><div class="font-medium">${i.brand}</div><div class="text-xs text-slate-400">${i.campaign}</div></td>
       <td class="p-3">${i.title}</td>
-      <td class="p-3">${i.platforms.map(p=>`<span class="platform-chip plat-${p}">${p}</span>`).join(' ')}</td>
+      <td class="p-3">${i.platforms.map(platformChip).join(' ')}</td>
       <td class="p-3 text-xs">${fmtDate(i.scheduledAt)} ${flagBadge(i)}</td>
       <td class="p-3">${i.owner}</td>
       <td class="p-3"><span class="status-pill status-${i.status}">${i.status}</span></td>
@@ -1117,7 +1122,7 @@ function viewDetail(id){
       ${flags.includes('soon')?' · <span class="flag-soon">ใกล้ถึงกำหนด</span>':''}
       ${flags.includes('incomplete')?' · <span class="flag-incomplete">ข้อมูลไม่ครบ</span>':''}
     </div>
-    <div class="flex gap-1 mb-3">${i.platforms.map(p=>`<span class="platform-chip plat-${p}">${p}</span>`).join('')}</div>
+    <div class="flex gap-1 mb-3 flex-wrap">${i.platforms.map(platformChip).join('')}</div>
     <div class="text-sm mb-3"><b>ผู้รับผิดชอบ:</b> ${i.owner} · <b>ผู้ตรวจ:</b> ${i.reviewer}</div>
     ${i.media?`<div class="text-sm mb-3"><a href="${i.media}" target="_blank" class="text-indigo-600"><i class="fa-solid fa-link"></i> ไฟล์สื่อ</a></div>`:''}
     <div class="space-y-2">
@@ -1126,7 +1131,7 @@ function viewDetail(id){
         const text = c.caption || c.message || '(ยังไม่ได้เตรียมข้อความ)';
         return `<div class="border border-slate-100 rounded-lg p-2">
           <div class="flex items-center justify-between mb-1">
-            <span class="platform-chip plat-${p}">${p}</span>
+            ${platformChip(p)}
             <button class="text-xs text-indigo-600" onclick="navigator.clipboard.writeText(\`${(text||'').replace(/`/g,"'")}\`).then(()=>alert('คัดลอกแล้ว'))"><i class="fa-regular fa-copy"></i> คัดลอก</button>
           </div>
           <div class="text-sm whitespace-pre-wrap">${text}</div>
@@ -1152,6 +1157,7 @@ function viewDetail(id){
       </div>
     </div>
     <div class="mt-4 flex justify-end gap-2">
+      ${clientMode ? '' : `<button onclick="deleteContentItem('${i.id}')" class="px-3 py-1.5 rounded-lg border border-red-200 text-red-600 text-sm hover:bg-red-50 mr-auto"><i class="fa-solid fa-trash"></i> ลบ</button>`}
       <button onclick="closeDetail()" class="px-3 py-1.5 rounded-lg border border-slate-200 text-sm">ปิด</button>
       ${clientMode ? '' : `<button onclick="closeDetail();editContent('${i.id}')" class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-sm">แก้ไข</button>`}
     </div>
@@ -1177,6 +1183,23 @@ async function addComment(id){
     item.comments.push({ author, text, time: new Date() });
   }
   viewDetail(id);
+}
+async function deleteContentItem(id){
+  const item = items.find(x=>x.id===id);
+  if (!item) return;
+  if (!confirm(`ลบ "${item.title}" ถาวร? การกระทำนี้ย้อนกลับไม่ได้`)) return;
+  if (API_URL) {
+    try {
+      await apiCall('delete', { id });
+    } catch (err) {
+      alert('ลบไม่สำเร็จ: ' + err.message);
+      return;
+    }
+  }
+  items = items.filter(x=>x.id!==id);
+  closeDetail();
+  populateFilters();
+  refreshAll();
 }
 function closeDetail(){
   document.getElementById('detail-modal').classList.add('hidden');

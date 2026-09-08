@@ -94,6 +94,7 @@ function doPost(e) {
     if (action === 'addComment') return jsonResponse({ success: true, item: addComment(body.id, body.author, body.text) });
     if (action === 'extractImage') return jsonResponse({ success: true, items: extractCalendarImage(body.imageBase64, body.mimeType) });
     if (action === 'bulkCreate') return jsonResponse({ success: true, items: (body.items || []).map(createContent) });
+    if (action === 'delete') { deleteContent(body.id); return jsonResponse({ success: true }); }
     return jsonResponse({ success: false, error: 'Unknown action: ' + action });
   } catch (err) {
     return jsonResponse({ success: false, error: String(err) });
@@ -191,6 +192,16 @@ function addComment(id, author, text) {
   comments.push({ author, text, time: new Date().toISOString() });
   cell.setValue(JSON.stringify(comments));
   return rowToItem(sheet.getRange(rowIdx, 1, 1, COLUMNS.length).getValues()[0]);
+}
+
+function deleteContent(id) {
+  const sheet = getContentSheet();
+  const rowIdx = findRowIndexById(sheet, id);
+  if (rowIdx === -1) throw new Error('Content not found: ' + id);
+  const row = sheet.getRange(rowIdx, 1, 1, COLUMNS.length).getValues()[0];
+  const item = rowToItem(row);
+  deleteCalendarEvent(item.CalendarEventId);
+  sheet.deleteRow(rowIdx);
 }
 
 // ---------- Owners / Brands (synced from Notion) ----------
