@@ -29,6 +29,7 @@ Project Settings → Script Properties → add:
 | `NOTION_TOKEN` | Notion internal integration token (share the Owner database with this integration) |
 | `NOTION_DATABASE_ID` | `2e69dccd-181d-81df-8919-fbacf921c7d5` (the "Tasks" database, confirmed to have "Owner for Grouping") |
 | `NOTION_BRAND_DATABASE_ID` | `2eb9dccd-181d-808f-b888-cdf883503df6` (the "Brand" database — same integration needs Connections access here too) |
+| `NOTION_TEAM_DATABASE_ID` | `092e35e9-9742-4e4a-9b20-d7df03c31dc6` (the "GEM Team Member" database — same integration needs Connections access here too; used for PM guest-invite emails, see step 7) |
 | `LINE_CHANNEL_TOKEN` | Channel access token from the LINE Official Account (Messaging API) |
 | `LINE_TARGET_ID` | Who to push reminders to — see below |
 | `GEMINI_API_KEY` | For the "import from calendar image" feature — can reuse the same key as `Social_Media_Assistant_GAS` if you already have one |
@@ -47,13 +48,14 @@ webhook event.
 temporarily log the `source.groupId` from an incoming webhook event (or use
 the LINE Official Account Manager's group chat details) — copy that ID here.
 
-## 4. Sync owners and brands once
+## 4. Sync owners, brands, and PM emails once
 
 Run `syncOwnersFromNotion` and `syncBrandsFromNotion` manually the first
 time to confirm each pulls the right names (`syncBrandsFromNotion` only
-pulls brands where "Active = Yes" is checked). After that, add a daily
-time-driven trigger for each if the Notion lists change often (Triggers →
-Add Trigger → pick the function → Time-driven → Day timer).
+pulls brands where "Active = Yes" is checked). Also run
+`syncOwnerEmailsFromNotion` (see step 7 for what it does). After that, add a
+daily time-driven trigger for each if the Notion data changes often
+(Triggers → Add Trigger → pick the function → Time-driven → Day timer).
 
 ## 5. Deploy as Web App
 
@@ -92,18 +94,34 @@ guest-invite instead for the PMs who are):
 2. Each PM: open the invite email → Add to my calendar. Or, once shared,
    search for the calendar under "Other calendars" → "+" → Subscribe.
 
-**Guest-invite (real email reminders) for specific PMs** — `OWNER_EMAIL_MAP`
-in `Code.gs` maps an Owner value (exactly as it appears from Notion's "Owner
-for Grouping" formula, e.g. `"PM - ยู้"`) to that person's Google account.
-Every content item assigned to that Owner automatically adds them as a guest
-on its calendar event (and removes them again if the item gets reassigned to
-someone else) — Google Calendar sends them a real invite + reminder email,
-no subscribing needed. To add or change who's mapped, edit the object in
-`Code.gs` and redeploy — no sheet or UI changes needed.
+**Guest-invite (real email reminders) for specific PMs** — every content
+item's calendar event can add its Owner as a real guest, so Google Calendar
+sends them an actual invite + reminder email, no subscribing needed. This
+has two parts:
 
-**Important:** a PM listed in `OWNER_EMAIL_MAP` should NOT also subscribe to
-the shared calendar above — being both a guest on an event and a subscriber
-to the calendar it lives on can show that event twice on their calendar.
+1. `OWNER_TAG_TO_NICKNAME` in `Code.gs` maps an Owner value (exactly as it
+   appears from Notion's **"Owner for Grouping"** formula in the Tasks
+   database, e.g. `"PM - ยู้"`) to that person's **ชื่อเล่น (nickname)** in
+   the "GEM Team Member" database. This correspondence is human-authored —
+   "Owner for Grouping" values are freely typed tags, not linked to a
+   person record — so a brand-new tag needs one line added here. Existing
+   entries essentially never need to change.
+2. Run **`syncOwnerEmailsFromNotion`** (same caching pattern as
+   `syncOwnersFromNotion`/`syncBrandsFromNotion`, writing to the
+   `OwnerEmails` tab) to pull each mapped nickname's current email from
+   "GEM Team Member" — only nicknames whose Role includes PM and who are
+   Active come through, so deactivating someone there automatically stops
+   them being invited on the next sync, with no code change. Add this to
+   the same daily trigger as step 4's other syncs if the team changes
+   often.
+
+`syncCalendarEvent` reads the `OwnerEmails` tab on every create/update,
+adding the matching guest if there is one and removing a previously-added
+one if the item gets reassigned to someone else/unmapped.
+
+**Important:** a PM handled this way should NOT also subscribe to the
+shared calendar above — being both a guest on an event and a subscriber to
+the calendar it lives on can show that event twice on their calendar.
 
 ## Notes
 

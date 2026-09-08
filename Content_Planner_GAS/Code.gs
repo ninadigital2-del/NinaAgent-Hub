@@ -11,6 +11,7 @@
 const SHEET_CONTENT = 'Content';
 const SHEET_OWNERS = 'Owners';
 const SHEET_BRANDS = 'Brands';
+const SHEET_OWNER_EMAILS = 'OwnerEmails';
 
 const COLUMNS = [
   'ID', 'Brand', 'Campaign', 'Title', 'Note',
@@ -75,6 +76,12 @@ function setupSheets(ss) {
   if (brands.getLastRow() === 0) {
     brands.appendRow(['Name', 'SyncedAt']);
     brands.setFrozenRows(1);
+  }
+  let ownerEmails = ss.getSheetByName(SHEET_OWNER_EMAILS);
+  if (!ownerEmails) ownerEmails = ss.insertSheet(SHEET_OWNER_EMAILS);
+  if (ownerEmails.getLastRow() === 0) {
+    ownerEmails.appendRow(['Owner', 'Email', 'SyncedAt']);
+    ownerEmails.setFrozenRows(1);
   }
 }
 
@@ -330,7 +337,82 @@ function syncBrandsFromNotion() {
   writeSyncedNames(SHEET_BRANDS, names);
 }
 
+// "Owner for Grouping" values (e.g. "PM - ยู้") are literal, human-typed
+// tags from the Tasks database's "Work By" field — they are NOT derived
+// from any person record, so there's no data-driven way to detect who a
+// brand-new tag refers to. This tiny table is the one thing a human must
+// still set by hand (once per new tag, essentially never); everything that
+// actually needs to stay fresh — email address, whether they're still
+// active — is pulled live from Notion by nickname via syncOwnerEmailsFromNotion.
+const OWNER_TAG_TO_NICKNAME = {
+  'PM - ยู้': 'You',
+  // 'PM - อ้อ': 'Aor', // currently inactive in GEM Team Member — left
+  //                     commented out so she's never added as a guest;
+  //                     uncomment if she becomes active again.
+};
+
+/**
+ * Looks up each nickname in OWNER_TAG_TO_NICKNAME against the Notion "GEM
+ * Team Member" database and writes the still-active ones' emails into the
+ * OwnerEmails tab, keyed by their Owner tag. syncCalendarEvent reads this
+ * to decide who to add as a guest on a content item's calendar event — run
+ * this whenever a mapped person's email changes or they go active/inactive
+ * (or on a daily trigger, same as syncOwnersFromNotion) so that part stays
+ * current without editing code. Adding a person tagged with a brand-new
+ * "Work By" text still needs one line added to OWNER_TAG_TO_NICKNAME above.
+ *
+ * Requires Script Property: NOTION_TEAM_DATABASE_ID. Reuses NOTION_TOKEN —
+ * same integration must be connected to this database too.
+ */
+function syncOwnerEmailsFromNotion() {
+  const props = PropertiesService.getScriptProperties();
+  const token = props.getProperty('NOTION_TOKEN');
+  const dbId = props.getProperty('NOTION_TEAM_DATABASE_ID');
+  if (!token || !dbId) throw new Error('Set NOTION_TOKEN and NOTION_TEAM_DATABASE_ID in Script Properties first.');
+
+  const filter = {
+    and: [
+      { property: 'Role', multi_select: { contains: 'PM' } },
+      { property: 'Active', checkbox: { equals: true } },
+    ],
+  };
+  const emailByNickname = {};
+  queryNotionDatabase(dbId, token, filter).forEach(page => {
+    const nickname = extractNotionText(page.properties['ชื่อเล่น']);
+    const email = extractNotionText(page.properties['Email']);
+    if (nickname && email) emailByNickname[nickname] = email;
+  });
+
+  const rows = [];
+  Object.keys(OWNER_TAG_TO_NICKNAME).forEach(tag => {
+    const email = emailByNickname[OWNER_TAG_TO_NICKNAME[tag]];
+    if (email) rows.push([tag, email]); // silently skipped if inactive/not found — no guest added for that tag
+  });
+  writeOwnerEmails(rows);
+}
+
+function writeOwnerEmails(rows) {
+  setupSheets();
+  const sheet = getSpreadsheet().getSheetByName(SHEET_OWNER_EMAILS);
+  sheet.clearContents();
+  sheet.appendRow(['Owner', 'Email', 'SyncedAt']);
+  const now = new Date().toISOString();
+  rows.sort((a, b) => a[0].localeCompare(b[0])).forEach(([owner, email]) => sheet.appendRow([owner, email, now]));
+}
+
+/** Reads the OwnerEmails tab into a plain {Owner: Email} object for syncCalendarEvent. */
+function getOwnerEmailMap() {
+  const sheet = getSpreadsheet().getSheetByName(SHEET_OWNER_EMAILS);
+  if (!sheet) return {};
+  const values = sheet.getDataRange().getValues();
+  values.shift();
+  const map = {};
+  values.forEach(row => { if (row[0] && row[1]) map[row[0]] = row[1]; });
+  return map;
+}
+
 function extractNotionText(prop) {
+  if (prop.type === 'email') return prop.email || '';
   if (prop.type === 'select') return prop.select && prop.select.name;
   if (prop.type === 'title') return (prop.title || []).map(t => t.plain_text).join('');
   if (prop.type === 'rich_text') return (prop.rich_text || []).map(t => t.plain_text).join('');
@@ -413,18 +495,6 @@ function syncCalendarEventSafely(sheet, rowIdx, item) {
   }
 }
 
-// Maps an Owner value (as it literally appears from Notion's "Owner for
-// Grouping" formula, e.g. "PM - ยู้") to the Google account that should be
-// added as a guest on that item's calendar event, so they get a real email
-// reminder. Only PMs who are actively working are listed here — add more
-// entries as needed (name → email) and redeploy; no sheet/UI changes needed.
-// NOTE: a PM listed here should NOT also separately subscribe to the shared
-// "NinaAgent Hub - Content Planner" calendar (see SETUP.md) — being both a
-// guest and a subscriber to the same calendar can show the event twice.
-const OWNER_EMAIL_MAP = {
-  'PM - ยู้': 'supharat@gotheextramile.co',
-};
-
 function syncCalendarEvent(item) {
   const cal = getContentCalendar();
   const start = new Date(item.ScheduledAt);
@@ -437,7 +507,8 @@ function syncCalendarEvent(item) {
     'ผู้ตรวจ: ' + item.Reviewer,
     item.Note ? 'หมายเหตุ: ' + item.Note : '',
   ].filter(Boolean).join('\n');
-  const targetGuestEmail = OWNER_EMAIL_MAP[item.Owner] || null;
+  const ownerEmailMap = getOwnerEmailMap();
+  const targetGuestEmail = ownerEmailMap[item.Owner] || null;
 
   let event = null;
   if (item.CalendarEventId) {
@@ -447,22 +518,22 @@ function syncCalendarEvent(item) {
     event.setTitle(title);
     event.setTime(start, end);
     event.setDescription(description);
-    syncEventGuest(event, targetGuestEmail);
+    syncEventGuest(event, targetGuestEmail, ownerEmailMap);
     return event.getId();
   }
   const created = cal.createEvent(title, start, end, { description });
-  syncEventGuest(created, targetGuestEmail);
+  syncEventGuest(created, targetGuestEmail, ownerEmailMap);
   return created.getId();
 }
 
 /**
  * Adds targetEmail as a guest if it isn't one already, and removes any
- * previously-added guest from OWNER_EMAIL_MAP that's no longer the current
+ * previously-added guest from ownerEmailMap that's no longer the current
  * Owner (e.g. the item got reassigned) — but never touches a guest that
  * isn't one of ours (someone could have manually added themselves).
  */
-function syncEventGuest(event, targetEmail) {
-  const managedEmails = Object.keys(OWNER_EMAIL_MAP).map(k => OWNER_EMAIL_MAP[k]);
+function syncEventGuest(event, targetEmail, ownerEmailMap) {
+  const managedEmails = Object.keys(ownerEmailMap).map(k => ownerEmailMap[k]);
   let current;
   try { current = event.getGuestList().map(g => g.getEmail()); } catch (e) { current = []; }
   current.forEach(email => {
