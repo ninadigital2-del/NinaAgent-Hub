@@ -138,12 +138,20 @@ body { font-family: 'Prompt', sans-serif; background-color: #f8fafc; }
         <p class="text-xs text-slate-500">แปะรูปปฏิทินที่ทำจาก Canva ในหน้า Calendar → AI (Gemini Vision) อ่านและแยกรายการให้ → ตรวจสอบ/แก้ไขในตารางรีวิวก่อน → กดสร้างทั้งหมดเป็น batch เดียว (แบบเดียวกับ GEM Capacity Board) ต้องตั้งค่า GEMINI_API_KEY ใน Script Properties ก่อนใช้งาน</p>
       </div>
 
-      <div class="feature-card opacity-70">
+      <div class="feature-card">
         <div class="flex items-center justify-between mb-1">
-          <h3 class="font-semibold text-sm">แจ้งเตือนอีเมลอัตโนมัติ</h3>
-          <span class="tag tag-soon">Phase 3</span>
+          <h3 class="font-semibold text-sm">แจ้งเตือนผ่าน LINE อัตโนมัติ</h3>
+          <span class="tag tag-ready">ใช้ได้ (ต้องเชื่อม backend)</span>
         </div>
-        <p class="text-xs text-slate-500">เตือนก่อนโพสต์ 24 ชม. / 1 ชม. เตือนข้อมูลไม่ครบ เลยกำหนด — ต้องเชื่อม Google Apps Script ก่อน</p>
+        <p class="text-xs text-slate-500">เช็คทุก 15 นาที ส่งเข้ากลุ่ม LINE: เตรียมงาน 2 วัน/1 วันก่อน (เฉพาะที่ยังไม่ Ready), ใกล้โพส 24 ชม./1 ชม. (ทุกกรณี), และเลยกำหนดแล้วเตือนซ้ำทุก 2 ชม. จนกว่าจะเปลี่ยนเป็น Posted — แต่ละกฎเตือนไม่ซ้ำตัวเอง</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="flex items-center justify-between mb-1">
+          <h3 class="font-semibold text-sm">Sync เข้า Google Calendar กลาง</h3>
+          <span class="tag tag-ready">ใช้ได้ (ต้องเชื่อม backend)</span>
+        </div>
+        <p class="text-xs text-slate-500">ทุกคอนเทนต์จะมี event บนปฏิทินกลาง "NinaAgent Hub - Content Planner" อัตโนมัติ อัปเดตเมื่อแก้ไข ลบเมื่อ Cancelled — PM subscribe ปฏิทินนี้ครั้งเดียวก็เห็นตารางโพสต์ทั้งหมดในปฏิทินตัวเองได้เลย (ดูวิธี subscribe ใน SETUP.md)</p>
       </div>
 
       <div class="feature-card opacity-70">

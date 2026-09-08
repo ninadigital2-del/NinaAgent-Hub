@@ -15,8 +15,8 @@ Google Apps Script backend for the Content Planner. Do these steps from the
 
 1. In the Apps Script editor, select the `setupSheets` function → Run.
    Grant the permissions it asks for. This creates a new Google Sheet
-   ("NinaAgent Hub - Content Planner Data") with the `Content` and `Owners`
-   tabs, and stores its ID in Script Properties automatically.
+   ("NinaAgent Hub - Content Planner Data") with the `Content`, `Owners`,
+   and `Brands` tabs, and stores its ID in Script Properties automatically.
 2. Select `setupReminderTrigger` → Run. This installs the 15-minute
    time-driven trigger that checks and sends reminders.
 
@@ -52,17 +52,45 @@ Anyone. Copy the resulting `/exec` URL.
 
 ## 6. Point the frontend at it
 
-In `content-planner.html`, the mock `items` array and local-only save logic
-need to be replaced with `fetch()` calls to this Web App URL
-(`?action=list` to read, POST `{action:'create'|'update'|...}` to write).
-This wiring is the next piece of work — not done yet in this commit.
+In `content-planner.html`, paste the `/exec` URL from step 5 into the
+`API_URL` constant near the top of the `<script>` block. Leave it empty to
+keep using local mock data only (Phase 1 behavior).
+
+## 7. Subscribe to the shared content calendar
+
+The first time any content item is created or updated, the backend
+auto-creates a Google Calendar named **"NinaAgent Hub - Content Planner"**
+under the owner account and stores its ID in Script Properties
+(`CALENDAR_ID`) — no manual setup needed to create it. Every content item
+gets one event on it (30-minute block at the scheduled post time), kept in
+sync on edits and removed if the item is Cancelled.
+
+Each PM subscribes once:
+1. Ask the owner account (`nina.digital2@gmail.com`) to share the calendar:
+   Google Calendar → find "NinaAgent Hub - Content Planner" under "My
+   calendars" → ⋮ → Settings and sharing → "Share with specific people" →
+   add each PM's Google account (View permission is enough).
+2. Each PM: open the invite email → Add to my calendar. Or, once shared,
+   search for the calendar under "Other calendars" → "+" → Subscribe.
+
+This is a **shared team calendar**, not each PM's personal calendar — it
+avoids needing every PM's email mapped to a name in the system. If you'd
+rather push events directly into each PM's own personal calendar instead,
+that needs a name→email mapping and is a separate change — ask if you want
+that instead.
 
 ## Notes
 
-- The reminder rules (3 days / 1 day / 24h / 1h / overdue every 2h) live in
+- The reminder rules (2 days / 1 day / 24h / 1h / overdue every 2h) live in
   `checkReminders()`. Each rule has a `Sent_*` column per row so it never
   fires twice for the same item.
 - Two-way LINE replies (buttons to mark "Ready" or "Posted") are intentionally
   **not** built here — that's the Make.com scenario, scoped separately, which
   writes directly to the same `Content` sheet via its own Google Sheets
   connector.
+- If you already had this backend deployed before the calendar/2-day-reminder
+  update, just re-paste `Code.gs` and run `setupSheets` once more — it
+  migrates the existing sheet's header row (renames `Sent_Prep3d` to
+  `Sent_Prep2d`, adds `CalendarEventId`) without touching existing data.
+  The next Deploy → Manage deployments → New version will also prompt you to
+  re-authorize (Calendar access is new).

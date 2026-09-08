@@ -23,7 +23,8 @@ const COLUMNS = [
   'PublishedUrls',     // JSON string, keyed by platform
   'Comments',          // JSON array
   'CreatedAt', 'UpdatedAt',
-  'Sent_Prep3d', 'Sent_Prep1d', 'Sent_24h', 'Sent_1h', 'Sent_OverdueAt', // reminder dedup flags
+  'Sent_Prep2d', 'Sent_Prep1d', 'Sent_24h', 'Sent_1h', 'Sent_OverdueAt', // reminder dedup flags
+  'CalendarEventId', // event on the shared "Content Planner" Google Calendar
 ];
 
 // ---------- Sheet setup ----------
@@ -47,6 +48,14 @@ function setupSheets(ss) {
     content.appendRow(COLUMNS);
     content.setFrozenRows(1);
     content.getRange(1, 1, 1, COLUMNS.length).setFontWeight('bold').setBackground('#f3f4f6');
+  } else {
+    // Migrate an already-deployed sheet: fix up renamed columns and append
+    // any new ones so existing data keeps lining up with COLUMNS by index.
+    const headerRange = content.getRange(1, 1, 1, COLUMNS.length);
+    const header = content.getRange(1, 1, 1, Math.max(content.getLastColumn(), COLUMNS.length)).getValues()[0];
+    let changed = false;
+    COLUMNS.forEach((col, i) => { if (header[i] !== col) { header[i] = col; changed = true; } });
+    if (changed) headerRange.setValues([header.slice(0, COLUMNS.length)]);
   }
   let owners = ss.getSheetByName(SHEET_OWNERS);
   if (!owners) owners = ss.insertSheet(SHEET_OWNERS);
@@ -140,11 +149,14 @@ function createContent(data) {
     if (col === 'Captions') return JSON.stringify(data.Captions || {});
     if (col === 'PublishedUrls') return JSON.stringify({});
     if (col === 'Comments') return JSON.stringify([]);
+    if (col === 'CalendarEventId') return '';
     if (col.indexOf('Sent_') === 0) return '';
     return data[col] || '';
   });
   sheet.appendRow(row);
-  return rowToItem(row);
+  const item = rowToItem(row);
+  syncCalendarEventSafely(sheet, findRowIndexById(sheet, id), item);
+  return item;
 }
 
 function updateContent(id, data) {
@@ -154,7 +166,7 @@ function updateContent(id, data) {
   const range = sheet.getRange(rowIdx, 1, 1, COLUMNS.length);
   const current = range.getValues()[0];
   COLUMNS.forEach((col, i) => {
-    if (col === 'ID' || col === 'CreatedAt') return;
+    if (col === 'ID' || col === 'CreatedAt' || col === 'CalendarEventId') return;
     if (col === 'UpdatedAt') { current[i] = new Date().toISOString(); return; }
     if (data[col] === undefined) return;
     if (col === 'Platforms') { current[i] = (data.Platforms || []).join(','); return; }
@@ -164,7 +176,9 @@ function updateContent(id, data) {
     current[i] = data[col];
   });
   range.setValues([current]);
-  return rowToItem(current);
+  const item = rowToItem(current);
+  syncCalendarEventSafely(sheet, rowIdx, item);
+  return item;
 }
 
 function addComment(id, author, text) {
@@ -303,6 +317,86 @@ function extractNotionText(prop) {
   return '';
 }
 
+// ---------- Shared Google Calendar sync ----------
+/**
+ * One shared calendar ("NinaAgent Hub - Content Planner") holding an event
+ * per content item. PMs subscribe to this calendar once (Google Calendar →
+ * Other calendars → Subscribe) rather than each item being pushed into
+ * individual personal calendars — avoids needing everyone's email mapped
+ * to a name, and one setup step covers the whole team.
+ */
+function getContentCalendar() {
+  const props = PropertiesService.getScriptProperties();
+  const id = props.getProperty('CALENDAR_ID');
+  if (id) {
+    try {
+      const cal = CalendarApp.getCalendarById(id);
+      if (cal) return cal;
+    } catch (e) { /* fall through and recreate */ }
+  }
+  const cal = CalendarApp.createCalendar('NinaAgent Hub - Content Planner');
+  props.setProperty('CALENDAR_ID', cal.getId());
+  return cal;
+}
+
+/**
+ * Creates or updates the calendar event for a content item, and removes it
+ * if the item is Cancelled. Never throws — a calendar hiccup shouldn't
+ * block saving the content item itself, so failures are just logged.
+ */
+function syncCalendarEventSafely(sheet, rowIdx, item) {
+  try {
+    const colIdx = COLUMNS.indexOf('CalendarEventId') + 1;
+    if (item.Status === 'Cancelled') {
+      deleteCalendarEvent(item.CalendarEventId);
+      sheet.getRange(rowIdx, colIdx).setValue('');
+      return;
+    }
+    const eventId = syncCalendarEvent(item);
+    if (eventId !== item.CalendarEventId) {
+      sheet.getRange(rowIdx, colIdx).setValue(eventId);
+    }
+  } catch (e) {
+    Logger.log('Calendar sync failed for ' + item.ID + ': ' + e);
+  }
+}
+
+function syncCalendarEvent(item) {
+  const cal = getContentCalendar();
+  const start = new Date(item.ScheduledAt);
+  if (isNaN(start)) return item.CalendarEventId || '';
+  const end = new Date(start.getTime() + 30 * 60000);
+  const title = `[${(item.Platforms || []).join(', ')}] ${item.Brand} - ${item.Title}`;
+  const description = [
+    'สถานะ: ' + item.Status,
+    'ผู้รับผิดชอบ: ' + item.Owner,
+    'ผู้ตรวจ: ' + item.Reviewer,
+    item.Note ? 'หมายเหตุ: ' + item.Note : '',
+  ].filter(Boolean).join('\n');
+
+  let event = null;
+  if (item.CalendarEventId) {
+    try { event = cal.getEventById(item.CalendarEventId); } catch (e) { event = null; }
+  }
+  if (event) {
+    event.setTitle(title);
+    event.setTime(start, end);
+    event.setDescription(description);
+    return event.getId();
+  }
+  const created = cal.createEvent(title, start, end, { description });
+  return created.getId();
+}
+
+function deleteCalendarEvent(eventId) {
+  if (!eventId) return;
+  try {
+    const cal = getContentCalendar();
+    const event = cal.getEventById(eventId);
+    if (event) event.deleteEvent();
+  } catch (e) { /* already gone, ignore */ }
+}
+
 // ---------- Import content plan from a calendar image (Gemini Vision) ----------
 /**
  * Reads a Canva-style content calendar image and returns a draft list of
@@ -380,8 +474,8 @@ function checkReminders() {
     const title = row[col('Title')];
     const brand = row[col('Brand')];
 
-    maybeSend(sheet, rowIdx, col('Sent_Prep3d'), notReady && hoursUntil <= 72 && hoursUntil > 24,
-      `📋 เตรียมงาน 3 วันก่อนโพส: "${title}" (${brand}) ยังไม่พร้อม กำหนดโพส ${formatTH(scheduledAt)}`);
+    maybeSend(sheet, rowIdx, col('Sent_Prep2d'), notReady && hoursUntil <= 48 && hoursUntil > 24,
+      `📋 เตรียมงาน 2 วันก่อนโพส: "${title}" (${brand}) ยังไม่พร้อม กำหนดโพส ${formatTH(scheduledAt)}`);
 
     maybeSend(sheet, rowIdx, col('Sent_Prep1d'), notReady && hoursUntil <= 24 && hoursUntil > 1,
       `⚠️ เหลือ 1 วัน: "${title}" (${brand}) ยังไม่พร้อม กำหนดโพส ${formatTH(scheduledAt)}`);
