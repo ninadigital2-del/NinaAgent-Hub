@@ -166,22 +166,31 @@ any of that.
   gets **"✅ โพสแล้ว"** (→ Posted) and **"📅 ตั้งเวลาไว้แล้ว"** (→ Scheduled, for
   anything already queued in another tool — picking it silences all further
   reminders on its own, since Scheduled is already skipped above). Tapping a
-  button fires a LINE postback, handled by the **"GEM Content Planner - LINE
-  Status Buttons"** scenario in Make.com (folder "GEM Content Planner") — it
-  does NOT write to the sheet directly; it calls this backend's `doPost`
-  (`action: 'updateStatus'`) so every existing side effect (calendar guest
-  sync, `Sent_*` resets on reschedule, etc.) still runs exactly as it does
-  from the web UI. One-time setup for that scenario:
-  1. In the LINE Developers console → your Messaging API channel → Webhook
-     settings: paste in the Make webhook URL, and turn "Use webhook" ON.
-  2. In Make, open the scenario → the 4th module (HTTP → Apps Script) →
-     replace the placeholder URL with this backend's real `/exec` URL.
-  3. Same scenario → the 5th module (HTTP → LINE reply) → replace the
-     placeholder Bearer token with the same `LINE_CHANNEL_TOKEN` value used
-     in Script Properties above.
-  4. Activate the scenario (created inactive by default).
-  A tap only marks the button-presser's own device with a confirmation
-  reply — there's no check that the presser is the item's actual Owner, since
+  button fires a LINE postback — it does NOT write to the sheet directly; it
+  calls this backend's `doPost` (`action: 'updateStatus'`) so every existing
+  side effect (calendar guest sync, `Sent_*` resets on reschedule, etc.)
+  still runs exactly as it does from the web UI.
+
+  The LINE OA used here already has its one allowed webhook URL pointed at
+  an existing Make.com scenario (**"GEM-PM B: Postback + User ID Capture
+  (v4)"**, folder "GEM-PM Meeting Trigger System") that handles unrelated
+  GEM-PM automation — LINE only allows one webhook URL per channel, so this
+  feature was added as a **3rd route on that same scenario's existing
+  router**, not a separate scenario. The new route is gated by its own
+  filter (`postback.data` contains `"updateStatus"`, a signature that never
+  matches GEM-PM's own `event_id=...&action=...` postback format), so the
+  two systems run side by side without touching each other's logic — no
+  LINE console change was needed. It also reuses that scenario's existing
+  per-OA channel token lookup (`{{10.token}}`) instead of a separate one.
+
+  One placeholder is left to fill in before it works: open that scenario in
+  Make → the new route's "Make a request" module (pointed at
+  `.../REPLACE_WITH_YOUR_CONTENT_PLANNER_EXEC_URL/exec`) → replace it with
+  this backend's real `/exec` URL. No activation step needed — the scenario
+  was never deactivated.
+
+  A tap only sends the button-presser's own device a confirmation reply —
+  there's no check that the presser is the item's actual Owner, since
   reminders currently go 1-to-1 per person (not a shared group), so the risk
   of tapping someone else's card is low. Add that check before switching to
   a real shared LINE group.
