@@ -701,6 +701,7 @@ function sendDailyReminders() {
     if (isNaN(scheduledAt)) return;
     const dateStr = Utilities.formatDate(scheduledAt, tz, 'yyyy-MM-dd');
     const info = {
+      id: row[col('ID')],
       title: row[col('Title')],
       brand: row[col('Brand')],
       platforms: row[col('Platforms')],
@@ -779,6 +780,22 @@ const REMINDER_KIND = {
   dayOf: { headerColor: '#4f46e5', headerText: '📅 วันนี้มีกำหนดโพส', closingText: 'ถึงกำหนดโพสวันนี้แล้วค่ะ', altText: n => `วันนี้มีกำหนดโพส ${n} งานนะคะ` },
 };
 
+// Buttons rendered in each card's footer — tapping one fires a LINE postback
+// event (handled by the "GEM Content Planner - LINE Status Buttons" Make.com
+// scenario), which calls this backend's doPost({action:'updateStatus'}).
+// prep2d/prep1d only chase readiness; dayOf chases the actual posting action,
+// with "ตั้งเวลาไว้แล้ว" covering items already queued in another tool (its
+// Scheduled status is in REMINDER_SKIP_STATUSES, so it silences all further
+// reminders for that item on its own — no extra code needed here).
+const REMINDER_KIND_ACTIONS = {
+  prep2d: [{ label: '✅ พร้อมแล้ว', status: 'Ready', color: '#f59e0b' }],
+  prep1d: [{ label: '✅ พร้อมแล้ว', status: 'Ready', color: '#ea580c' }],
+  dayOf: [
+    { label: '✅ โพสแล้ว', status: 'Posted', color: '#4f46e5' },
+    { label: '📅 ตั้งเวลาไว้แล้ว', status: 'Scheduled', style: 'secondary' },
+  ],
+};
+
 /** Sends one LINE Flex "carousel" message — one bubble card per item — for a batch of items due the same day. */
 function sendFlexReminder(items, kind) {
   const meta = REMINDER_KIND[kind];
@@ -808,17 +825,24 @@ function sendFlexReminder(items, kind) {
         ],
       },
     };
-    // Only add the button if there's an actual http(s) link to open — LINE
-    // rejects uri actions with other schemes, and a button that opens
+    const footerButtons = REMINDER_KIND_ACTIONS[kind].map(a => ({
+      type: 'button', style: a.style || 'primary', height: 'sm', color: a.color,
+      action: {
+        type: 'postback', label: a.label, displayText: `${a.label}: ${info.title}`,
+        data: JSON.stringify({ action: 'updateStatus', id: info.id, status: a.status }),
+      },
+    }));
+    // Only add the "open link" button if there's an actual http(s) link —
+    // LINE rejects uri actions with other schemes, and a button that opens
     // nothing is worse than no button.
     if (info.media && /^https?:\/\//i.test(info.media)) {
-      bubble.footer = {
-        type: 'box', layout: 'vertical', paddingAll: '12px',
-        contents: [{
-          type: 'button', style: 'link', height: 'sm',
-          action: { type: 'uri', label: '🔗 เปิดดูงานนี้', uri: info.media },
-        }],
-      };
+      footerButtons.push({
+        type: 'button', style: 'link', height: 'sm',
+        action: { type: 'uri', label: '🔗 เปิดดูงานนี้', uri: info.media },
+      });
+    }
+    if (footerButtons.length) {
+      bubble.footer = { type: 'box', layout: 'vertical', spacing: 'sm', paddingAll: '12px', contents: footerButtons };
     }
     return bubble;
   });
