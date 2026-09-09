@@ -521,13 +521,6 @@ function syncCalendarEvent(item) {
   ].filter(Boolean).join('\n');
   const ownerEmailMap = getOwnerEmailMap();
   const targetGuestEmail = ownerEmailMap[normalizeOwnerTag(item.Owner)] || null;
-  // Temporary debug line — check Apps Script → Executions after saving an
-  // item to see the exact raw text on both sides. Remove once guest-invite
-  // is confirmed working.
-  Logger.log('Guest-invite debug: item.Owner=' + JSON.stringify(item.Owner) +
-    ' normalized=' + JSON.stringify(normalizeOwnerTag(item.Owner)) +
-    ' ownerEmailMapKeys=' + JSON.stringify(Object.keys(ownerEmailMap)) +
-    ' matchedEmail=' + targetGuestEmail);
 
   let event = null;
   if (item.CalendarEventId) {
@@ -859,15 +852,13 @@ function getLineTargetIds() {
 }
 
 function pushLineMessage(token, targetId, message) {
-  const resp = UrlFetchApp.fetch('https://api.line.me/v2/bot/message/push', {
+  UrlFetchApp.fetch('https://api.line.me/v2/bot/message/push', {
     method: 'post',
     contentType: 'application/json',
     headers: { Authorization: 'Bearer ' + token },
     payload: JSON.stringify({ to: targetId, messages: [message] }),
     muteHttpExceptions: true,
   });
-  // TEMPORARY — remove after debugging why no message arrives.
-  Logger.log('LINE push response: ' + resp.getResponseCode() + ' ' + resp.getContentText());
 }
 
 function sendLineMessage(text) {
