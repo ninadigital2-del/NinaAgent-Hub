@@ -152,20 +152,39 @@ any of that.
     all of them as separate cards, instead of one push per item — up to
     3 messages a day, never more per item than one per bucket.
   - `checkReminders` (🚨 overdue-every-2h nag) exists in the code but its
-    trigger is **not installed** — turned off on purpose, since there's no
-    LINE button for a PM to say "posted", so a repeating overdue ping nobody
-    can dismiss would just be noise. Re-enable by uncommenting the trigger
-    line in `setupReminderTrigger()` if a Make.com "mark as posted" flow
-    gets built later.
+    trigger is **not installed** — turned off on purpose, to avoid a
+    repeating ping on top of the day-of card's own buttons above. Re-enable
+    by uncommenting the trigger line in `setupReminderTrigger()` if the
+    day-of reminder alone isn't catching overdue items in practice.
   - Items with status **Scheduled** are skipped by `sendDailyReminders` —
     use that status for anything already queued in another tool (e.g. Meta
     Business Suite) so it doesn't get nagged about here.
   - Each rule has a `Sent_*` column per row so it never fires twice for the
     same item.
-- Two-way LINE replies (buttons to mark "Ready" or "Posted") are intentionally
-  **not** built here — that's the Make.com scenario, scoped separately, which
-  writes directly to the same `Content` sheet via its own Google Sheets
-  connector.
+- Each reminder card has buttons matching what that bucket is chasing:
+  2-day/tomorrow cards get **"✅ พร้อมแล้ว"** (→ Status Ready); the day-of card
+  gets **"✅ โพสแล้ว"** (→ Posted) and **"📅 ตั้งเวลาไว้แล้ว"** (→ Scheduled, for
+  anything already queued in another tool — picking it silences all further
+  reminders on its own, since Scheduled is already skipped above). Tapping a
+  button fires a LINE postback, handled by the **"GEM Content Planner - LINE
+  Status Buttons"** scenario in Make.com (folder "GEM Content Planner") — it
+  does NOT write to the sheet directly; it calls this backend's `doPost`
+  (`action: 'updateStatus'`) so every existing side effect (calendar guest
+  sync, `Sent_*` resets on reschedule, etc.) still runs exactly as it does
+  from the web UI. One-time setup for that scenario:
+  1. In the LINE Developers console → your Messaging API channel → Webhook
+     settings: paste in the Make webhook URL, and turn "Use webhook" ON.
+  2. In Make, open the scenario → the 4th module (HTTP → Apps Script) →
+     replace the placeholder URL with this backend's real `/exec` URL.
+  3. Same scenario → the 5th module (HTTP → LINE reply) → replace the
+     placeholder Bearer token with the same `LINE_CHANNEL_TOKEN` value used
+     in Script Properties above.
+  4. Activate the scenario (created inactive by default).
+  A tap only marks the button-presser's own device with a confirmation
+  reply — there's no check that the presser is the item's actual Owner, since
+  reminders currently go 1-to-1 per person (not a shared group), so the risk
+  of tapping someone else's card is low. Add that check before switching to
+  a real shared LINE group.
 - `Sent_24h` / `Sent_1h` are retired and no longer used — kept as columns,
   not deleted (removing them would shift every column after them out of
   alignment with existing data). Re-run `setupSheets` and their headers will
