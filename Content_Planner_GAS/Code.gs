@@ -859,13 +859,15 @@ function getLineTargetIds() {
 }
 
 function pushLineMessage(token, targetId, message) {
-  UrlFetchApp.fetch('https://api.line.me/v2/bot/message/push', {
+  const resp = UrlFetchApp.fetch('https://api.line.me/v2/bot/message/push', {
     method: 'post',
     contentType: 'application/json',
     headers: { Authorization: 'Bearer ' + token },
     payload: JSON.stringify({ to: targetId, messages: [message] }),
     muteHttpExceptions: true,
   });
+  // TEMPORARY — remove after debugging why no message arrives.
+  Logger.log('LINE push response: ' + resp.getResponseCode() + ' ' + resp.getContentText());
 }
 
 function sendLineMessage(text) {
