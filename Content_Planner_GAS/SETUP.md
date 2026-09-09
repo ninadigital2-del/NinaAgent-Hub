@@ -163,7 +163,7 @@ any of that.
     same item.
 - Each reminder card has buttons matching what that bucket is chasing:
   2-day/tomorrow cards get **"✅ พร้อมแล้ว"** (→ Status Ready); the day-of card
-  gets **"✅ โพสแล้ว"** (→ Posted) and **"📅 ตั้งเวลาไว้แล้ว"** (→ Scheduled, for
+  gets **"✅ โพสแล้ว"** (→ Posted) and **"📅 ตั้งเวลาโพสไว้แล้ว"** (→ Scheduled, for
   anything already queued in another tool — picking it silences all further
   reminders on its own, since Scheduled is already skipped above). Tapping a
   button fires a LINE postback — it does NOT write to the sheet directly; it

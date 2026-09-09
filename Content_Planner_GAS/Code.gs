@@ -792,7 +792,7 @@ const REMINDER_KIND_ACTIONS = {
   prep1d: [{ label: '✅ พร้อมแล้ว', status: 'Ready', color: '#ea580c' }],
   dayOf: [
     { label: '✅ โพสแล้ว', status: 'Posted', color: '#4f46e5' },
-    { label: '📅 ตั้งเวลาไว้แล้ว', status: 'Scheduled', style: 'secondary' },
+    { label: '📅 ตั้งเวลาโพสไว้แล้ว', status: 'Scheduled', style: 'secondary' },
   ],
 };
 
