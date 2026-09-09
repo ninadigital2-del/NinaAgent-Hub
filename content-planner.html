@@ -1,0 +1,1649 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Content Planner</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #f1f1f1; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+.cp-tab { color: #64748b; border-bottom: 2px solid transparent; }
+.cp-tab.active { color: #4f46e5; border-bottom-color: #4f46e5; font-weight: 600; }
+
+.status-pill { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
+.status-Draft { background: #f1f5f9; color: #475569; }
+.status-Review { background: #fef9c3; color: #854d0e; }
+.status-Revision { background: #fee2e2; color: #b91c1c; }
+.status-Approved { background: #dbeafe; color: #1d4ed8; }
+.status-Ready { background: #e0e7ff; color: #4338ca; }
+.status-Scheduled { background: #cffafe; color: #0e7490; }
+.status-Posted { background: #dcfce7; color: #15803d; }
+.status-Cancelled { background: #f3f4f6; color: #9ca3af; }
+
+.flag-overdue { color: #dc2626; }
+.flag-soon { color: #d97706; }
+.flag-incomplete { color: #b91c1c; }
+
+.platform-chip { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 6px; }
+.plat-Facebook { background: #dbeafe; color: #1d4ed8; }
+.plat-Instagram { background: #fce7f3; color: #be185d; }
+.plat-TikTok { background: #f3f4f6; color: #111827; }
+.plat-LINE { background: #dcfce7; color: #15803d; }
+.plat-YouTube { background: #fee2e2; color: #b91c1c; }
+
+.platform-badge {
+  width: 16px; height: 16px; border-radius: 5px; overflow: hidden;
+  display: inline-flex; flex-shrink: 0;
+}
+.platform-badge svg { width: 100%; height: 100%; display: block; }
+.platform-badges { display: inline-flex; align-items: center; gap: 3px; flex-shrink: 0; }
+
+.modal-mask { background: rgba(15, 23, 42, 0.5); }
+.form-input { border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px; width: 100%; font-family: inherit; font-size: 14px; }
+.form-input:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
+.form-label { font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px; display: block; }
+
+.caption-tab { padding: 6px 14px; border-radius: 8px 8px 0 0; font-size: 13px; font-weight: 500; color: #64748b; cursor: pointer; border: 1px solid transparent; }
+.caption-tab.active { background: #fff; color: #4f46e5; border: 1px solid #e2e8f0; border-bottom-color: #fff; }
+
+.check-ok { color: #16a34a; }
+.check-missing { color: #cbd5e1; }
+
+/* ---------- Calendar ---------- */
+.cal-weekday { text-align: center; font-size: 11px; font-weight: 700; letter-spacing: .02em; color: #94a3b8; padding: 4px 0 8px; text-transform: uppercase; }
+.cal-weekday.weekend { color: #dc2626; }
+
+.day-cell {
+  position: relative;
+  min-height: 112px;
+  background: #fff;
+  border: 1px solid #eef0f3;
+  border-radius: 12px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  transition: box-shadow .15s ease, border-color .15s ease, transform .1s ease;
+}
+.day-cell.in-month:hover { border-color: #c7d2fe; box-shadow: 0 4px 14px rgba(79, 70, 229, 0.08); }
+.day-cell.out-month { background: #fafafa; border-color: #f4f5f7; }
+.day-cell.out-month .day-num { color: #d1d5db; }
+.day-cell.weekend:not(.out-month) { background: #fef2f2; }
+.day-cell.weekend:not(.out-month) .day-num { color: #dc2626; }
+.day-cell.today { background: linear-gradient(180deg, #eef2ff 0%, #f5f7ff 100%); border-color: #a5b4fc; }
+.day-cell.drag-over { border-color: #4f46e5; box-shadow: 0 0 0 3px rgba(79,70,229,0.15); transform: scale(1.01); }
+
+.day-num-row { display: flex; align-items: center; justify-content: space-between; }
+.day-num { font-size: 12.5px; font-weight: 600; color: #64748b; }
+.day-num.today-badge {
+  width: 22px; height: 22px; border-radius: 999px; background: #4f46e5; color: #fff;
+  display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px;
+}
+.day-empty-hint { flex: 1; display: flex; align-items: center; justify-content: center; }
+.day-empty-hint i { font-size: 11px; color: #e5e7eb; opacity: 0; transition: opacity .15s ease; }
+.day-cell.in-month:hover .day-empty-hint i { opacity: 1; }
+
+.cal-item {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 10.5px; font-weight: 500; line-height: 1.3;
+  padding: 3px 6px; border-radius: 6px;
+  background: #f8fafc; color: #334155;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  cursor: pointer; border: 1px solid transparent;
+  transition: background .1s ease;
+}
+.cal-item:hover { background: #eef2ff; border-color: #e0e7ff; }
+.cal-item .cal-dot { width: 6px; height: 6px; border-radius: 999px; flex-shrink: 0; }
+.cal-dot-Draft { background: #94a3b8; }
+.cal-dot-Review { background: #eab308; }
+.cal-dot-Revision { background: #ef4444; }
+.cal-dot-Approved { background: #3b82f6; }
+.cal-dot-Ready { background: #6366f1; }
+.cal-dot-Posted { background: #22c55e; }
+.cal-dot-Cancelled { background: #cbd5e1; }
+.cal-item.cal-item-Posted { color: #64748b; text-decoration: line-through; text-decoration-color: #cbd5e1; }
+
+.cal-more { font-size: 10px; font-weight: 600; color: #6366f1; padding: 2px 6px; cursor: pointer; }
+.cal-more:hover { text-decoration: underline; }
+</style>
+</head>
+<body class="text-slate-800">
+
+<div id="client-mode-banner" class="hidden sticky top-0 z-40 bg-emerald-600 text-white">
+  <div class="max-w-7xl mx-auto px-4 md:px-6 py-2 flex items-center justify-between gap-3 text-sm font-medium">
+    <span><i class="fa-solid fa-eye"></i> โหมดลูกค้า — ดูข้อมูลได้ทุกอย่าง เปลี่ยนสถานะและคอมเมนต์ได้ แต่แก้ไข/ลบ/สร้างรายการใหม่ไม่ได้</span>
+    <button id="client-mode-banner-close" onclick="toggleClientMode()" class="hidden shrink-0 px-3 py-1 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-xs">
+      <i class="fa-solid fa-xmark"></i> ปิดโหมดลูกค้า
+    </button>
+  </div>
+</div>
+
+<div class="max-w-7xl mx-auto p-4 md:p-6">
+
+  <!-- Header -->
+  <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-5">
+    <div>
+      <h1 class="text-xl md:text-2xl font-bold flex items-center gap-2">
+        <i class="fa-solid fa-calendar-check text-indigo-600"></i> Content Planner
+      </h1>
+      <p class="text-sm text-slate-500">วางแผนคอนเทนต์และแจ้งเตือนสำหรับทุกแบรนด์และแพลตฟอร์ม</p>
+    </div>
+    <div class="flex items-center gap-2 flex-wrap">
+      <span id="data-mode-badge" class="text-xs px-3 py-1.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+        <i class="fa-solid fa-flask"></i> Phase 1 · ข้อมูลจำลอง (ยังไม่บันทึกจริง)
+      </span>
+      <a id="manual-link" href="content-planner-manual.html" target="_blank" class="text-sm font-medium px-4 py-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 flex items-center gap-2">
+        <i class="fa-solid fa-book"></i> คู่มือการใช้งาน
+      </a>
+      <button id="client-mode-btn" class="text-sm font-medium px-4 py-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 flex items-center gap-2">
+        <i class="fa-regular fa-eye"></i> โหมดลูกค้า (อ่านอย่างเดียว)
+      </button>
+      <button id="create-btn" onclick="openForm()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2 rounded-lg flex items-center gap-2">
+        <i class="fa-solid fa-plus"></i> สร้างคอนเทนต์
+      </button>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="flex gap-6 border-b border-slate-200 mb-5 text-sm">
+    <div class="cp-tab active pb-2 cursor-pointer" data-tab="dashboard" onclick="switchTab('dashboard')"><i class="fa-solid fa-gauge"></i> หน้ารวมงานวันนี้</div>
+    <div class="cp-tab pb-2 cursor-pointer" data-tab="calendar" onclick="switchTab('calendar')"><i class="fa-regular fa-calendar"></i> Calendar</div>
+    <div class="cp-tab pb-2 cursor-pointer" data-tab="list" onclick="switchTab('list')"><i class="fa-solid fa-list"></i> รายการทั้งหมด</div>
+    <div class="cp-tab pb-2 cursor-pointer" data-tab="report" onclick="switchTab('report')"><i class="fa-solid fa-chart-simple"></i> รายงาน</div>
+  </div>
+
+  <!-- ============ SHARED FILTER BAR (Brand / Platform) ============ -->
+  <div class="bg-white rounded-xl border border-slate-200 p-3 mb-5 flex flex-wrap items-center gap-2">
+    <span class="text-xs font-semibold text-slate-500"><i class="fa-solid fa-filter"></i> ดูเฉพาะ:</span>
+    <select id="shared-brand" class="form-input !w-auto" onchange="applySharedFilter()"><option value="">ทุกแบรนด์</option></select>
+    <select id="shared-owner" class="form-input !w-auto" onchange="applySharedFilter()"><option value="">ทุกผู้รับผิดชอบ</option></select>
+    <select id="shared-platform" class="form-input !w-auto" onchange="applySharedFilter()">
+      <option value="">ทุกแพลตฟอร์ม</option>
+      <option>Facebook</option><option>Instagram</option><option>TikTok</option><option>LINE</option><option>YouTube</option>
+    </select>
+    <button onclick="clearSharedFilter()" class="text-xs text-slate-400 hover:text-slate-600 ml-1"><i class="fa-solid fa-xmark"></i> ล้างตัวกรอง</button>
+    <span id="shared-filter-badge" class="text-xs text-indigo-600 font-medium ml-auto"></span>
+  </div>
+
+  <!-- ============ DASHBOARD VIEW ============ -->
+  <div id="view-dashboard">
+    <div class="grid grid-cols-2 md:grid-cols-6 gap-3 mb-6">
+      <div class="bg-white rounded-xl border border-slate-200 p-4">
+        <div class="text-2xl font-bold text-indigo-600" id="stat-today">0</div>
+        <div class="text-xs text-slate-500 mt-1">ต้องโพสต์วันนี้</div>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 p-4">
+        <div class="text-2xl font-bold text-amber-600" id="stat-soon">0</div>
+        <div class="text-xs text-slate-500 mt-1">กำลังจะถึงกำหนด</div>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 p-4">
+        <div class="text-2xl font-bold text-blue-600" id="stat-review">0</div>
+        <div class="text-xs text-slate-500 mt-1">รอตรวจ / รออนุมัติ</div>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 p-4">
+        <div class="text-2xl font-bold text-emerald-600" id="stat-complete">0</div>
+        <div class="text-xs text-slate-500 mt-1">ข้อมูลครบแล้ว</div>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 p-4">
+        <div class="text-2xl font-bold text-red-600" id="stat-incomplete">0</div>
+        <div class="text-xs text-slate-500 mt-1">ข้อมูลยังไม่ครบ</div>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 p-4">
+        <div class="text-2xl font-bold text-rose-700" id="stat-overdue">0</div>
+        <div class="text-xs text-slate-500 mt-1">เลยกำหนด</div>
+      </div>
+    </div>
+
+    <div id="dash-lists" class="grid md:grid-cols-2 gap-4"></div>
+  </div>
+
+  <!-- ============ CALENDAR VIEW ============ -->
+  <div id="view-calendar" class="hidden">
+    <div class="flex items-center justify-between mb-1">
+      <button onclick="shiftMonth(-1)" class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-sm"><i class="fa-solid fa-chevron-left"></i></button>
+      <div class="font-semibold" id="cal-title"></div>
+      <div class="flex items-center gap-2">
+        <button onclick="openImportImage()" class="px-3 py-1.5 rounded-lg border border-purple-200 bg-purple-50 text-sm text-purple-700 hover:bg-purple-100 font-medium">
+          <i class="fa-solid fa-wand-magic-sparkles"></i> นำเข้าจากรูปปฏิทิน
+        </button>
+        <button onclick="shiftMonth(1)" class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-sm"><i class="fa-solid fa-chevron-right"></i></button>
+      </div>
+    </div>
+    <div id="cal-hint" class="text-xs text-slate-400 mb-3"><i class="fa-solid fa-hand"></i> ลากการ์ดไปวางวันที่ต้องการเพื่อเลื่อนกำหนดโพสต์</div>
+    <div class="grid grid-cols-7">
+      <div class="cal-weekday weekend">อา</div><div class="cal-weekday">จ</div><div class="cal-weekday">อ</div><div class="cal-weekday">พ</div><div class="cal-weekday">พฤ</div><div class="cal-weekday">ศ</div><div class="cal-weekday weekend">ส</div>
+    </div>
+    <div id="cal-body" class="grid grid-cols-7 gap-2"></div>
+  </div>
+
+  <!-- ============ LIST VIEW ============ -->
+  <div id="view-list" class="hidden">
+    <div class="flex items-center gap-2 mb-3">
+      <button onclick="shiftMonthFilter(-1)" class="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-sm"><i class="fa-solid fa-chevron-left"></i></button>
+      <div class="font-semibold text-sm min-w-[9rem] text-center" id="list-month-label"></div>
+      <button onclick="shiftMonthFilter(1)" class="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-sm"><i class="fa-solid fa-chevron-right"></i></button>
+      <button onclick="resetMonthFilterToToday()" class="text-xs text-indigo-600 hover:underline ml-1">เดือนนี้</button>
+    </div>
+    <div class="bg-white rounded-xl border border-slate-200 p-3 mb-4 flex flex-wrap gap-2">
+      <select id="f-status" class="form-input !w-auto" onchange="renderList()">
+        <option value="">ทุกสถานะ</option>
+        <option>Draft</option><option>Review</option><option>Revision</option><option>Approved</option><option>Ready</option><option>Scheduled</option><option>Posted</option><option>Cancelled</option>
+      </select>
+      <input id="f-search" class="form-input !w-48" placeholder="ค้นหาหัวข้อ..." oninput="renderList()">
+    </div>
+
+    <!-- Bulk action toolbar -->
+    <div id="bulk-toolbar" class="hidden bg-indigo-50 border border-indigo-200 rounded-xl p-2.5 mb-3 flex items-center gap-2 text-sm">
+      <span id="bulk-count" class="font-medium text-indigo-700"></span>
+      <span class="text-slate-400">·</span>
+      <span>เปลี่ยนสถานะเป็น</span>
+      <select id="bulk-status" class="form-input !w-auto">
+        <option>Draft</option><option>Review</option><option>Revision</option><option>Approved</option><option>Ready</option><option>Scheduled</option><option>Posted</option><option>Cancelled</option>
+      </select>
+      <button onclick="applyBulkStatus()" class="bg-indigo-600 text-white text-xs font-medium px-3 py-1.5 rounded-lg">ใช้กับรายการที่เลือก</button>
+      <span class="text-slate-300">|</span>
+      <button onclick="applyBulkDelete()" class="border border-red-200 text-red-600 text-xs font-medium px-3 py-1.5 rounded-lg hover:bg-red-50"><i class="fa-solid fa-trash"></i> ลบที่เลือก</button>
+      <button onclick="clearBulkSelection()" class="text-xs text-slate-400 hover:text-slate-600 ml-auto">ยกเลิกการเลือก</button>
+    </div>
+
+    <div class="bg-white rounded-xl border border-slate-200 overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 text-slate-500 text-xs">
+          <tr>
+            <th class="p-3 text-left" id="th-bulk"><input type="checkbox" id="bulk-select-all" onchange="toggleSelectAll(this.checked)"></th>
+            <th class="p-3 text-left">แบรนด์ / แคมเปญ</th>
+            <th class="p-3 text-left">หัวข้อ</th>
+            <th class="p-3 text-left">แพลตฟอร์ม</th>
+            <th class="p-3 text-left">กำหนดโพสต์</th>
+            <th class="p-3 text-left">ผู้รับผิดชอบ</th>
+            <th class="p-3 text-left">สถานะ</th>
+            <th class="p-3 text-left"></th>
+          </tr>
+        </thead>
+        <tbody id="list-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ============ REPORT VIEW ============ -->
+  <div id="view-report" class="hidden">
+    <div class="flex items-center gap-2 mb-3">
+      <button onclick="shiftMonthFilter(-1)" class="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-sm"><i class="fa-solid fa-chevron-left"></i></button>
+      <div class="font-semibold text-sm min-w-[9rem] text-center" id="report-month-label"></div>
+      <button onclick="shiftMonthFilter(1)" class="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-sm"><i class="fa-solid fa-chevron-right"></i></button>
+      <button onclick="resetMonthFilterToToday()" class="text-xs text-indigo-600 hover:underline ml-1">เดือนนี้</button>
+    </div>
+    <div class="grid md:grid-cols-3 gap-4">
+      <div class="bg-white rounded-xl border border-slate-200 p-4">
+        <h4 class="font-semibold text-sm mb-3">จำนวนงานแยกตามแพลตฟอร์ม</h4>
+        <div id="rep-platform" class="space-y-2 text-sm"></div>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 p-4">
+        <h4 class="font-semibold text-sm mb-3">จำนวนงานแยกตามแบรนด์</h4>
+        <div id="rep-brand" class="space-y-2 text-sm"></div>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 p-4">
+        <h4 class="font-semibold text-sm mb-3">สรุปภาพรวม</h4>
+        <div id="rep-summary" class="space-y-2 text-sm"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ============ FORM MODAL (Create / Edit) ============ -->
+<div id="form-modal" class="fixed inset-0 modal-mask hidden items-center justify-center z-50 p-4">
+  <div class="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+    <div class="flex items-center justify-between p-4 border-b border-slate-100 sticky top-0 bg-white">
+      <h3 class="font-semibold" id="form-title">สร้างคอนเทนต์ใหม่</h3>
+      <button onclick="closeForm()" class="text-slate-400 hover:text-slate-700"><i class="fa-solid fa-xmark text-lg"></i></button>
+    </div>
+    <div class="p-5 space-y-4">
+      <div class="grid md:grid-cols-2 gap-3">
+        <div>
+          <label class="form-label">แบรนด์ / ลูกค้า</label>
+          <select id="fld-brand" class="form-input" onchange="onBrandSelectChange('fld-brand')"></select>
+          <input id="fld-brand-new" class="form-input mt-2 hidden" placeholder="พิมพ์ชื่อแบรนด์ใหม่">
+        </div>
+        <div><label class="form-label">แคมเปญ</label><input id="fld-campaign" class="form-input" placeholder="เช่น September Launch"></div>
+      </div>
+      <div><label class="form-label">หัวข้อคอนเทนต์</label><input id="fld-title" class="form-input" placeholder="หัวข้อ / concept"></div>
+      <div><label class="form-label">รายละเอียด / หมายเหตุสำหรับทีม</label><textarea id="fld-note" class="form-input" rows="2"></textarea></div>
+
+      <div class="grid md:grid-cols-3 gap-3">
+        <div>
+          <label class="form-label">แพลตฟอร์ม</label>
+          <div class="flex flex-wrap gap-2" id="fld-platforms">
+            <label class="flex items-center gap-1 text-sm border border-slate-200 rounded-lg px-2 py-1"><input type="checkbox" value="Facebook"> Facebook</label>
+            <label class="flex items-center gap-1 text-sm border border-slate-200 rounded-lg px-2 py-1"><input type="checkbox" value="Instagram"> Instagram</label>
+            <label class="flex items-center gap-1 text-sm border border-slate-200 rounded-lg px-2 py-1"><input type="checkbox" value="TikTok"> TikTok</label>
+            <label class="flex items-center gap-1 text-sm border border-slate-200 rounded-lg px-2 py-1"><input type="checkbox" value="LINE"> LINE OA</label>
+            <label class="flex items-center gap-1 text-sm border border-slate-200 rounded-lg px-2 py-1"><input type="checkbox" value="YouTube"> YouTube</label>
+          </div>
+        </div>
+        <div><label class="form-label">วันและเวลาที่กำหนดโพสต์</label><input id="fld-schedule" type="datetime-local" class="form-input"></div>
+        <div><label class="form-label">ลิงก์สื่อ (รูป/วิดีโอ/Drive)</label><input id="fld-media" class="form-input" placeholder="https://drive.google.com/..."></div>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-3">
+        <div>
+          <label class="form-label">ผู้รับผิดชอบ</label>
+          <select id="fld-owner" class="form-input" onchange="onPersonSelectChange('fld-owner')"></select>
+          <input id="fld-owner-new" class="form-input mt-2 hidden" placeholder="พิมพ์ชื่อใหม่">
+        </div>
+        <div>
+          <label class="form-label">ผู้ตรวจ / ผู้อนุมัติ</label>
+          <select id="fld-reviewer" class="form-input" onchange="onPersonSelectChange('fld-reviewer')"></select>
+          <input id="fld-reviewer-new" class="form-input mt-2 hidden" placeholder="พิมพ์ชื่อใหม่">
+        </div>
+      </div>
+
+      <!-- Per-platform captions -->
+      <div>
+        <label class="form-label">ข้อความแยกตามแพลตฟอร์ม</label>
+        <div class="flex gap-1 border-b border-slate-200" id="caption-tabs"></div>
+        <div id="caption-panels" class="border border-slate-200 border-t-0 rounded-b-lg p-3"></div>
+      </div>
+
+      <!-- Checklist preview -->
+      <div class="bg-slate-50 rounded-lg p-3">
+        <div class="text-xs font-semibold text-slate-500 mb-2">Checklist ความพร้อมก่อนโพสต์</div>
+        <div id="checklist-preview" class="grid grid-cols-2 gap-1 text-sm"></div>
+      </div>
+
+      <div>
+        <label class="form-label">สถานะ</label>
+        <select id="fld-status" class="form-input !w-48">
+          <option>Draft</option><option>Review</option><option>Revision</option><option>Approved</option><option>Ready</option><option>Scheduled</option><option>Posted</option><option>Cancelled</option>
+        </select>
+      </div>
+    </div>
+    <div class="p-4 border-t border-slate-100 flex justify-end gap-2 sticky bottom-0 bg-white">
+      <button onclick="closeForm()" class="px-4 py-2 rounded-lg border border-slate-200 text-sm">ยกเลิก</button>
+      <button id="save-content-btn" onclick="saveContent()" class="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium disabled:opacity-50">บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ DETAIL / COPY MODAL ============ -->
+<div id="detail-modal" class="fixed inset-0 modal-mask hidden items-center justify-center z-50 p-4">
+  <div class="bg-white rounded-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto relative">
+    <button onclick="closeDetail()" class="absolute top-3 right-3 text-slate-400 hover:text-slate-700 bg-white rounded-full w-7 h-7 flex items-center justify-center shadow-sm border border-slate-100 z-10"><i class="fa-solid fa-xmark"></i></button>
+    <div id="detail-body" class="p-5"></div>
+  </div>
+</div>
+
+<!-- ============ IMPORT FROM CALENDAR IMAGE MODAL ============ -->
+<div id="import-modal" class="fixed inset-0 modal-mask hidden items-center justify-center z-50 p-4">
+  <div class="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+    <div class="flex items-center justify-between p-4 border-b border-slate-100 sticky top-0 bg-white">
+      <h3 class="font-semibold"><i class="fa-solid fa-image text-indigo-600"></i> นำเข้าจากรูปปฏิทิน</h3>
+      <button onclick="closeImportImage()" class="text-slate-400 hover:text-slate-700"><i class="fa-solid fa-xmark text-lg"></i></button>
+    </div>
+    <div class="p-5">
+      <div class="mb-4">
+        <label class="form-label">แบรนด์ของปฏิทินนี้</label>
+        <select id="import-brand" class="form-input" onchange="onBrandSelectChange('import-brand')"></select>
+        <input id="import-brand-new" class="form-input mt-2 hidden" placeholder="พิมพ์ชื่อแบรนด์ใหม่">
+        <p class="text-xs text-slate-400 mt-1">ทุกรายการที่นำเข้าจากรูปนี้จะถูกตั้งเป็นแบรนด์นี้ทั้งหมด</p>
+      </div>
+      <div class="mb-4 grid grid-cols-2 gap-3">
+        <div>
+          <label class="form-label">ผู้รับผิดชอบ</label>
+          <select id="import-owner" class="form-input" onchange="onPersonSelectChange('import-owner')"></select>
+          <input id="import-owner-new" class="form-input mt-2 hidden" placeholder="พิมพ์ชื่อใหม่">
+        </div>
+        <div>
+          <label class="form-label">ผู้ตรวจ / ผู้อนุมัติ</label>
+          <select id="import-reviewer" class="form-input" onchange="onPersonSelectChange('import-reviewer')"></select>
+          <input id="import-reviewer-new" class="form-input mt-2 hidden" placeholder="พิมพ์ชื่อใหม่">
+        </div>
+        <p class="text-xs text-slate-400 col-span-2">รูปปฏิทินไม่มีข้อมูล 2 อย่างนี้ให้ AI อ่าน — เลือกไว้ที่นี่ครั้งเดียวจะถูกตั้งให้ทุกรายการที่นำเข้า (แก้เป็นรายชิ้นทีหลังได้)</p>
+      </div>
+      <label id="import-dropzone" class="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-slate-200 rounded-xl p-8 text-center cursor-pointer hover:bg-slate-50">
+        <i class="fa-solid fa-cloud-arrow-up text-2xl text-slate-300"></i>
+        <span class="text-sm text-slate-500">แปะรูปปฏิทินที่ทำจาก Canva ที่นี่ หรือกดเพื่อเลือกไฟล์</span>
+        <input id="import-file-input" type="file" accept="image/*" class="hidden" onchange="onImportFilePicked(this.files[0])">
+      </label>
+      <div id="import-preview" class="hidden mt-3 flex items-center justify-between gap-3 border border-slate-200 rounded-xl p-3 bg-slate-50">
+        <div class="flex items-center gap-2 text-sm text-slate-600 min-w-0">
+          <i class="fa-regular fa-image text-indigo-400"></i>
+          <span id="import-preview-filename" class="truncate"></span>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <button onclick="clearImportFile()" class="px-3 py-1.5 rounded-lg border border-slate-200 text-xs text-slate-600 hover:bg-white">เลือกรูปอื่น</button>
+          <button id="import-analyze-btn" onclick="runImportAnalysis()" class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-medium"><i class="fa-solid fa-wand-magic-sparkles"></i> วิเคราะห์รูปด้วย AI</button>
+        </div>
+      </div>
+      <div id="import-status" class="mt-4 text-sm bg-amber-50 border border-amber-200 text-amber-700 rounded-lg p-3">
+        <i class="fa-solid fa-flask"></i> ต้องเชื่อมต่อฐานข้อมูลจริงก่อน (ดูสถานะที่ badge มุมขวาบน) ฟีเจอร์นี้ใช้ Gemini Vision API ผ่าน Apps Script backend ในการอ่านรูป
+      </div>
+      <div id="import-review" class="hidden mt-4">
+        <div class="text-xs font-semibold text-slate-500 mb-2">ตรวจสอบรายการที่ดึงได้ ก่อนสร้างจริง (แก้ไขได้)</div>
+        <div class="overflow-x-auto border border-slate-200 rounded-xl">
+          <table class="w-full text-sm">
+            <thead class="bg-slate-50 text-slate-500 text-xs">
+              <tr>
+                <th class="p-2 text-left"><input type="checkbox" id="import-select-all" checked onchange="toggleImportSelectAll(this.checked)"></th>
+                <th class="p-2 text-left">หัวข้อ</th>
+                <th class="p-2 text-left">วันที่</th>
+                <th class="p-2 text-left">แพลตฟอร์ม</th>
+                <th class="p-2 text-left">หมายเหตุ</th>
+              </tr>
+            </thead>
+            <tbody id="import-review-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="p-4 border-t border-slate-100 flex justify-end gap-2 sticky bottom-0 bg-white">
+      <button onclick="closeImportImage()" class="px-4 py-2 rounded-lg border border-slate-200 text-sm">ปิด</button>
+      <button id="import-confirm-btn" onclick="confirmImport()" class="hidden px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium">สร้างรายการที่เลือก</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ DAY OVERVIEW MODAL (Calendar "+N เพิ่มเติม") ============ -->
+<div id="day-modal" class="fixed inset-0 modal-mask hidden items-center justify-center z-50 p-4">
+  <div class="bg-white rounded-2xl w-full max-w-sm max-h-[80vh] overflow-y-auto">
+    <div class="flex items-center justify-between p-4 border-b border-slate-100 sticky top-0 bg-white">
+      <h3 class="font-semibold" id="day-modal-title">รายการของวันที่...</h3>
+      <button onclick="closeDayModal()" class="text-slate-400 hover:text-slate-700"><i class="fa-solid fa-xmark text-lg"></i></button>
+    </div>
+    <div id="day-modal-body" class="p-3 space-y-1.5"></div>
+  </div>
+</div>
+
+<div id="client-link-modal" class="fixed inset-0 modal-mask hidden items-center justify-center z-50 p-4">
+  <div class="bg-white rounded-2xl w-full max-w-lg max-h-[80vh] overflow-y-auto">
+    <div class="flex items-center justify-between p-4 border-b border-slate-100 sticky top-0 bg-white">
+      <h3 class="font-semibold">สร้างลิงก์สำหรับลูกค้า</h3>
+      <button onclick="closeClientLinkModal()" class="text-slate-400 hover:text-slate-700"><i class="fa-solid fa-xmark text-lg"></i></button>
+    </div>
+    <div class="p-4">
+      <div id="client-link-stage-list">
+        <div class="text-sm text-slate-500 mb-3">เลือกแบรนด์ที่จะส่งลิงก์ให้ลูกค้า</div>
+        <input id="client-link-search" class="form-input mb-3" placeholder="ค้นหาแบรนด์..." oninput="renderClientLinkList()">
+        <div id="client-link-list" class="space-y-1 max-h-72 overflow-y-auto"></div>
+        <div class="border-t border-slate-100 mt-3 pt-3">
+          <button onclick="closeClientLinkModal();toggleClientMode()" class="text-xs text-slate-500 hover:text-slate-700">
+            <i class="fa-regular fa-eye"></i> หรือดูตัวอย่างโหมดลูกค้าในหน้านี้เลย (ไม่ล็อกแบรนด์)
+          </button>
+        </div>
+      </div>
+      <div id="client-link-stage-result" class="hidden">
+        <div class="text-sm text-slate-500 mb-1">ลิงก์สำหรับแบรนด์</div>
+        <div class="font-semibold text-lg mb-3" id="client-link-result-brand"></div>
+        <div class="bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm rounded-lg px-3 py-2 mb-3">
+          <i class="fa-solid fa-check"></i> คัดลอกลิงก์เข้า clipboard ให้แล้ว
+        </div>
+        <div class="flex items-center gap-2 mb-4">
+          <input id="client-link-result-input" readonly class="form-input flex-1 text-xs" onclick="this.select()">
+          <button onclick="copyResultLink(this)" class="px-3 py-2 rounded-lg bg-indigo-600 text-white text-xs shrink-0 whitespace-nowrap"><i class="fa-regular fa-copy"></i> คัดลอกอีกครั้ง</button>
+        </div>
+        <button onclick="backToClientBrandList()" class="text-xs text-slate-500 hover:text-slate-700"><i class="fa-solid fa-arrow-left"></i> เลือกแบรนด์อื่น</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const PLATFORMS = ['Facebook', 'Instagram', 'TikTok', 'LINE', 'YouTube'];
+let __igIconSeq = 0;
+const PLATFORM_ICON_SVG = {
+  Facebook: () => `<svg viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#1877F2"/><path fill="#fff" d="M13.5 21v-7.2h2.4l.36-2.8h-2.76V9.1c0-.81.22-1.36 1.39-1.36h1.48V5.23A19.8 19.8 0 0 0 14.8 5C12.6 5 11.1 6.33 11.1 8.8v2.2H8.7v2.8h2.4V21h2.4Z"/></svg>`,
+  Instagram: () => {
+    const gid = 'igGrad' + (__igIconSeq++);
+    return `<svg viewBox="0 0 24 24"><defs><radialGradient id="${gid}" cx="30%" cy="107%" r="150%"><stop offset="0%" stop-color="#fdf497"/><stop offset="30%" stop-color="#fd5949"/><stop offset="60%" stop-color="#d6249f"/><stop offset="100%" stop-color="#285AEB"/></radialGradient></defs><rect width="24" height="24" rx="6" fill="url(#${gid})"/><rect x="6" y="6" width="12" height="12" rx="4" fill="none" stroke="#fff" stroke-width="1.6"/><circle cx="12" cy="12" r="3.2" fill="none" stroke="#fff" stroke-width="1.6"/><circle cx="16.3" cy="7.7" r="1" fill="#fff"/></svg>`;
+  },
+  TikTok: () => `<svg viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#000"/><path fill="#fff" d="M15.5 4c.4 2 1.9 3.4 3.9 3.6v2.6c-1.4 0-2.7-.4-3.9-1.2v6.1c0 3-2.5 5.4-5.5 5.4s-5.5-2.4-5.5-5.4 2.5-5.4 5.5-5.4c.3 0 .6 0 .9.1v2.7c-.3-.1-.6-.2-.9-.2-1.5 0-2.7 1.2-2.7 2.8s1.2 2.8 2.7 2.8 2.8-1.2 2.8-2.8V4h2.7Z"/></svg>`,
+  LINE: () => `<svg viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#06C755"/><path fill="#fff" d="M12 5c-4.4 0-8 2.9-8 6.5 0 3.2 2.9 5.9 6.8 6.4-.3 1-.9 2.1-.9 2.1s2-.5 3.9-1.7c3.9-.6 6.2-3.1 6.2-6.8C20 7.9 16.4 5 12 5Z"/></svg>`,
+  YouTube: () => `<svg viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#FF0000"/><path fill="#fff" d="M10 8.6 16 12l-6 3.4V8.6Z"/></svg>`,
+};
+function platformIconSvg(p){
+  return PLATFORM_ICON_SVG[p] ? PLATFORM_ICON_SVG[p]() : '';
+}
+function platformBadges(platforms){
+  return `<span class="platform-badges">${platforms.map(p=>
+    `<span class="platform-badge" title="${p}">${platformIconSvg(p)}</span>`
+  ).join('')}</span>`;
+}
+function platformChip(p){
+  return `<span class="platform-chip plat-${p}" style="display:inline-flex;align-items:center;gap:5px;">
+    <span class="platform-badge">${platformIconSvg(p)}</span>${p}
+  </span>`;
+}
+const STATUS_FLOW = ['Draft','Review','Revision','Approved','Ready','Scheduled','Posted'];
+
+// ---------- Backend API (Phase 2) ----------
+// Paste the Apps Script Web App /exec URL here once deployed (see
+// Content_Planner_GAS/SETUP.md). Leave empty to keep using local mock
+// data only (Phase 1 behavior — nothing persists across page reloads).
+const API_URL = 'https://script.google.com/macros/s/AKfycbxdNMBMi323tzTsK80MtBMvJBIBSX1RLEJzbkk_LooESPyWKH7_fniMM9AEhp6aUBPD/exec';
+
+function apiItemToClient(row){
+  return {
+    id: row.ID,
+    brand: row.Brand || '', campaign: row.Campaign || '', title: row.Title || '', note: row.Note || '',
+    platforms: row.Platforms || [],
+    scheduledAt: row.ScheduledAt ? new Date(row.ScheduledAt) : new Date(),
+    owner: row.Owner || '', reviewer: row.Reviewer || '', status: row.Status || 'Draft',
+    captions: row.Captions || {}, media: row.MediaUrl || '',
+    published: row.PublishedUrls || {}, comments: row.Comments || [],
+  };
+}
+function clientPatchToApi(patch){
+  const map = { brand:'Brand', campaign:'Campaign', title:'Title', note:'Note', owner:'Owner', reviewer:'Reviewer', status:'Status', media:'MediaUrl' };
+  const out = {};
+  Object.keys(map).forEach(k => { if (patch[k] !== undefined) out[map[k]] = patch[k]; });
+  if (patch.platforms !== undefined) out.Platforms = patch.platforms;
+  if (patch.captions !== undefined) out.Captions = patch.captions;
+  if (patch.published !== undefined) out.PublishedUrls = patch.published;
+  if (patch.scheduledAt !== undefined) out.ScheduledAt = patch.scheduledAt instanceof Date ? patch.scheduledAt.toISOString() : patch.scheduledAt;
+  return out;
+}
+async function apiCall(action, data){
+  const res = await fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // avoids a CORS preflight against Apps Script
+    body: JSON.stringify(Object.assign({ action }, data)),
+  });
+  const json = await res.json();
+  if (!json.success) throw new Error(json.error || 'API error');
+  return json;
+}
+async function apiGet(action){
+  const res = await fetch(`${API_URL}?action=${action}`);
+  const json = await res.json();
+  if (!json.success) throw new Error(json.error || 'API error');
+  return json;
+}
+async function loadFromApi(){
+  if (!API_URL) return false;
+  try {
+    const [listResp, ownersResp, brandsResp] = await Promise.all([apiGet('list'), apiGet('owners'), apiGet('brands')]);
+    items = listResp.items.map(apiItemToClient);
+    notionOwners = ownersResp.owners;
+    notionBrands = brandsResp.brands;
+    return true;
+  } catch (err) {
+    console.error('Failed to load from API, falling back to mock data:', err);
+    return false;
+  }
+}
+
+// ---------- Mock data ----------
+let items = [
+  mk('mock-1','Nina Cosmetics','September Launch','เปิดตัวลิปสติกคอลเลกชันใหม่',['Facebook','Instagram'],'today+5h','ปาน','แนน','Ready',{Facebook:{caption:'ลิปสติกใหม่มาแล้ว! เนื้อแมทท์ ติดทนทั้งวัน 💄',cta:'ช้อปเลย -> link.co/nina'},Instagram:{caption:'New drop 💄✨ #NinaCosmetics #ลิปสติกใหม่',hashtag:'#NinaCosmetics #Makeup'}},'https://drive.google.com/mock1'),
+  mk('mock-2','Nina Cosmetics','September Launch','Behind the scene ถ่ายภาพสินค้า',['TikTok'],'today+8h','เอิร์ธ','แนน','Review',{TikTok:{caption:'',guide:''}},''),
+  mk('mock-3','GreenLeaf Cafe','Weekly Promo','โปรโมชั่นกาแฟลด 20%',['Facebook','LINE'],'tomorrow','มายด์','ปาน','Approved',{Facebook:{caption:'กาแฟลด 20% วันนี้ถึงอาทิตย์นี้เท่านั้น ☕',cta:'แวะมาชิม'},LINE:{message:'โปรกาแฟลด 20% วันนี้-อาทิตย์นี้',link:'https://line.me/mock'}},'https://drive.google.com/mock3'),
+  mk('mock-4','GreenLeaf Cafe','Weekly Promo','เมนูใหม่ Cold Brew',['Instagram','TikTok'],'+2d','มายด์','ปาน','Draft',{},''),
+  mk('mock-5','Urban Fit Studio','Membership Drive','โปรสมัครสมาชิกรายปี',['Facebook','Instagram','LINE'],'-1d','เอิร์ธ','แนน','Revision',{Facebook:{caption:'สมัครสมาชิกรายปี รับส่วนลด 30%'}},'https://drive.google.com/mock5','',[{author:'แนน (ผู้ตรวจ)',text:'ขอปรับ CTA ให้ชัดกว่านี้ ลูกค้าอ่านแล้วยังไม่รู้ว่าต้องกดตรงไหน',time:new Date(Date.now()-3600000*5)}]),
+  mk('mock-6','Urban Fit Studio','Membership Drive','คลิปรีวิวจากลูกค้า',['TikTok'],'-3h','ปาน','แนน','Posted',{TikTok:{caption:'รีวิวจริงจากสมาชิก 💪'}},'https://drive.google.com/mock6',{Facebook:'',TikTok:'https://tiktok.com/@mock/video/123'}),
+  mk('mock-7','Nina Cosmetics','September Launch','โพสต์ขอบคุณลูกค้า',['Facebook'],'+5d','เอิร์ธ','ปาน','Draft',{},''),
+  mk('mock-8','GreenLeaf Cafe','Weekly Promo','ไลฟ์สไตล์ร้าน',['Instagram'],'+1d3h','มายด์','แนน','Ready',{Instagram:{caption:'บรรยากาศชิลๆ ที่ GreenLeaf ☕🍃',hashtag:'#GreenLeafCafe'}},'https://drive.google.com/mock8'),
+  mk('mock-9','Urban Fit Studio','Membership Drive','คลิปรีวิว Full Version',['YouTube','Facebook'],'today+2h','เอิร์ธ','ปาน','Review',{YouTube:{caption:'รีวิวสมาชิก 1 ปี ผลลัพธ์เป็นยังไงบ้าง?',guide:'สัมภาษณ์สมาชิกจริง 3 คน พร้อม before/after',cta:'สมัครสมาชิก, Urban Fit, รีวิว'}},'https://drive.google.com/mock9'),
+];
+
+function mk(id,brand,campaign,title,platforms,when,owner,reviewer,status,captions,media,published,comments){
+  return {
+    id, brand, campaign, title, platforms,
+    scheduledAt: resolveWhen(when),
+    owner, reviewer, status,
+    captions: captions || {},
+    media: media || '',
+    published: published || {},
+    comments: comments || [],
+  };
+}
+function resolveWhen(token){
+  const now = new Date();
+  if (token === 'today+5h') return new Date(now.getTime() + (5-now.getHours()%5)*0); // placeholder, replaced below
+  const d = new Date(now);
+  if (token.startsWith('today')) {
+    const h = parseInt(token.split('+')[1]) || 3;
+    d.setHours(h,0,0,0);
+  } else if (token === 'tomorrow') {
+    d.setDate(d.getDate()+1); d.setHours(10,0,0,0);
+  } else if (token.startsWith('+')) {
+    const m = token.match(/\+(\d+)d(?:(\d+)h)?/);
+    d.setDate(d.getDate()+parseInt(m[1])); d.setHours(m[2]?parseInt(m[2]):10,0,0,0);
+  } else if (token.startsWith('-')) {
+    const m = token.match(/-(\d+)([dh])/);
+    if (m[2]==='d') d.setDate(d.getDate()-parseInt(m[1])); else d.setHours(d.getHours()-parseInt(m[1]));
+  }
+  return d;
+}
+
+let editingId = null;
+let calCursor = new Date();
+
+// ---------- Month filter (List / Report) ----------
+let monthFilterCursor = new Date();
+monthFilterCursor.setDate(1);
+function shiftMonthFilter(n){
+  monthFilterCursor.setMonth(monthFilterCursor.getMonth()+n);
+  updateMonthFilterUI();
+}
+function resetMonthFilterToToday(){
+  monthFilterCursor = new Date();
+  monthFilterCursor.setDate(1);
+  updateMonthFilterUI();
+}
+function updateMonthFilterUI(){
+  const label = monthFilterCursor.toLocaleDateString('th-TH', { month:'long', year:'numeric' });
+  document.getElementById('list-month-label').textContent = label;
+  document.getElementById('report-month-label').textContent = label;
+  renderList();
+  renderReport();
+}
+function inSelectedMonth(item){
+  return item.scheduledAt.getFullYear()===monthFilterCursor.getFullYear() &&
+    item.scheduledAt.getMonth()===monthFilterCursor.getMonth();
+}
+
+// ---------- Shared filter (Brand / Platform) ----------
+let sharedBrand = '';
+let sharedBrandLocked = false; // true when forced via ?brand=... link — dropdown disabled, survives "clear filter"
+let sharedOwner = '';
+let sharedPlatform = '';
+function populateSharedFilter(){
+  const brands = [...new Set(items.map(i=>i.brand))];
+  document.getElementById('shared-brand').innerHTML = '<option value="">ทุกแบรนด์</option>' + brands.map(b=>`<option ${b===sharedBrand?'selected':''}>${b}</option>`).join('');
+  document.getElementById('shared-brand').disabled = sharedBrandLocked;
+  const owners = [...new Set(items.map(i=>i.owner))];
+  document.getElementById('shared-owner').innerHTML = '<option value="">ทุกผู้รับผิดชอบ</option>' + owners.map(o=>`<option ${o===sharedOwner?'selected':''}>${o}</option>`).join('');
+  document.getElementById('shared-platform').value = sharedPlatform;
+  updateSharedFilterBadge();
+}
+function updateSharedFilterBadge(){
+  const parts = [];
+  if (sharedBrand) parts.push(sharedBrand + (sharedBrandLocked ? ' (ล็อก)' : ''));
+  if (sharedOwner) parts.push(sharedOwner);
+  if (sharedPlatform) parts.push(sharedPlatform);
+  document.getElementById('shared-filter-badge').textContent = parts.length ? `กำลังกรอง: ${parts.join(' · ')}` : '';
+}
+function applySharedFilter(){
+  if (!sharedBrandLocked) sharedBrand = document.getElementById('shared-brand').value;
+  sharedOwner = document.getElementById('shared-owner').value;
+  sharedPlatform = document.getElementById('shared-platform').value;
+  updateSharedFilterBadge();
+  refreshAll();
+}
+function clearSharedFilter(){
+  if (!sharedBrandLocked) sharedBrand = '';
+  sharedOwner = ''; sharedPlatform = '';
+  populateSharedFilter();
+  refreshAll();
+}
+function visibleItems(){
+  return items.filter(i =>
+    (!sharedBrand || i.brand===sharedBrand) &&
+    (!sharedOwner || i.owner===sharedOwner) &&
+    (!sharedPlatform || i.platforms.includes(sharedPlatform))
+  );
+}
+
+// ---------- Client mode (view + status/comment only, no create/edit/delete) ----------
+let clientMode = false;
+let clientModeLocked = false; // true when forced via ?client=1 link — toggle button hidden
+const CLIENT_STATUS_OPTIONS = ['Review', 'Revision', 'Approved']; // statuses a client is allowed to set
+function toggleClientMode(){
+  if (clientModeLocked) return;
+  clientMode = !clientMode;
+  try { localStorage.setItem('cp_clientMode', clientMode ? '1' : '0'); } catch(e) {}
+  applyClientModeUI();
+  clearBulkSelection();
+  refreshAll();
+}
+function openClientLinkModal(){
+  document.getElementById('client-link-search').value = '';
+  showClientLinkListStage();
+  document.getElementById('client-link-modal').classList.remove('hidden');
+  document.getElementById('client-link-modal').classList.add('flex');
+}
+function closeClientLinkModal(){
+  document.getElementById('client-link-modal').classList.add('hidden');
+  document.getElementById('client-link-modal').classList.remove('flex');
+}
+function showClientLinkListStage(){
+  document.getElementById('client-link-stage-list').classList.remove('hidden');
+  document.getElementById('client-link-stage-result').classList.add('hidden');
+  renderClientLinkList();
+}
+function backToClientBrandList(){
+  showClientLinkListStage();
+}
+function clientLinkBrandList(){
+  const fromNotion = (typeof notionBrands !== 'undefined' && notionBrands) ? notionBrands : [];
+  const fromItems = [...new Set(items.map(i=>i.brand))];
+  return [...new Set([...fromNotion, ...fromItems])].filter(Boolean).sort((a,b)=>a.localeCompare(b));
+}
+function buildClientLink(brand){
+  return `${location.origin}${location.pathname}?client=1&brand=${encodeURIComponent(brand)}`;
+}
+function renderClientLinkList(){
+  const search = document.getElementById('client-link-search').value.trim().toLowerCase();
+  const brands = clientLinkBrandList().filter(b => !search || b.toLowerCase().includes(search));
+  const wrap = document.getElementById('client-link-list');
+  if (!brands.length) {
+    wrap.innerHTML = '<div class="text-xs text-slate-400 text-center py-4">ไม่พบแบรนด์</div>';
+    return;
+  }
+  wrap.innerHTML = brands.map(b => `
+    <button onclick="selectClientBrand('${b.replace(/'/g,"\\'")}')" class="w-full flex items-center justify-between gap-2 border-b border-slate-50 last:border-0 py-2.5 px-1 text-left hover:bg-slate-50 rounded-lg">
+      <span class="text-sm font-medium">${b}</span>
+      <i class="fa-solid fa-chevron-right text-slate-300 text-xs"></i>
+    </button>
+  `).join('');
+}
+async function selectClientBrand(brand){
+  document.getElementById('client-link-result-brand').textContent = brand;
+  document.getElementById('client-link-result-input').value = buildClientLink(brand);
+  document.getElementById('client-link-stage-list').classList.add('hidden');
+  document.getElementById('client-link-stage-result').classList.remove('hidden');
+  await copyResultLink();
+}
+async function copyResultLink(btn){
+  const input = document.getElementById('client-link-result-input');
+  try {
+    await navigator.clipboard.writeText(input.value);
+  } catch (err) {
+    input.select();
+    document.execCommand('copy');
+  }
+  if (btn) {
+    const original = btn.innerHTML;
+    btn.innerHTML = '<i class="fa-solid fa-check"></i> คัดลอกแล้ว';
+    setTimeout(() => { btn.innerHTML = original; }, 1500);
+  }
+}
+function applyClientModeUI(){
+  const btn = document.getElementById('client-mode-btn');
+  btn.classList.toggle('bg-emerald-50', clientMode);
+  btn.classList.toggle('border-emerald-300', clientMode);
+  btn.classList.toggle('text-emerald-700', clientMode);
+  if (clientMode) {
+    // already previewing client mode locally -> clicking the button turns it back off
+    btn.innerHTML = '<i class="fa-solid fa-eye"></i> ปิดโหมดลูกค้า';
+    btn.onclick = toggleClientMode;
+  } else {
+    // not in client mode -> clicking opens the brand picker to generate a link
+    btn.innerHTML = '<i class="fa-regular fa-eye"></i> โหมดลูกค้า (อ่านอย่างเดียว)';
+    btn.onclick = openClientLinkModal;
+  }
+  btn.classList.toggle('hidden', clientModeLocked);
+  document.getElementById('create-btn').classList.toggle('hidden', clientMode);
+  document.getElementById('manual-link').classList.toggle('hidden', clientMode);
+
+  const banner = document.getElementById('client-mode-banner');
+  banner.classList.toggle('hidden', !clientMode);
+  document.getElementById('client-mode-banner-close').classList.toggle('hidden', clientModeLocked);
+}
+
+// ---------- Bulk actions (List) ----------
+let selectedIds = new Set();
+function toggleSelectRow(id, checked){
+  if (checked) selectedIds.add(id); else selectedIds.delete(id);
+  updateBulkToolbar();
+}
+function toggleSelectAll(checked){
+  const rows = visibleListRows();
+  rows.forEach(i => checked ? selectedIds.add(i.id) : selectedIds.delete(i.id));
+  updateBulkToolbar();
+  renderList();
+}
+function clearBulkSelection(){
+  selectedIds.clear();
+  updateBulkToolbar();
+}
+function updateBulkToolbar(){
+  const toolbar = document.getElementById('bulk-toolbar');
+  if (!toolbar) return;
+  toolbar.classList.toggle('hidden', selectedIds.size===0);
+  document.getElementById('bulk-count').textContent = `เลือกไว้ ${selectedIds.size} รายการ`;
+}
+async function applyBulkStatus(){
+  const status = document.getElementById('bulk-status').value;
+  const ids = [...selectedIds];
+  if (API_URL) {
+    try {
+      await Promise.all(ids.map(id => apiCall('updateStatus', { id, status })));
+    } catch (err) {
+      alert('อัปเดตสถานะบางรายการไม่สำเร็จ: ' + err.message);
+    }
+  }
+  items.forEach(i => { if (selectedIds.has(i.id)) i.status = status; });
+  clearBulkSelection();
+  refreshAll();
+}
+async function applyBulkDelete(){
+  const ids = [...selectedIds];
+  if (!ids.length) return;
+  if (!confirm(`ลบ ${ids.length} รายการที่เลือกถาวร? การกระทำนี้ย้อนกลับไม่ได้`)) return;
+  const failed = [];
+  if (API_URL) {
+    for (const id of ids) {
+      try { await apiCall('delete', { id }); } catch (err) { failed.push(id); }
+    }
+  }
+  items = items.filter(i => !selectedIds.has(i.id) || failed.includes(i.id));
+  if (failed.length) alert(`ลบไม่สำเร็จ ${failed.length} รายการ (รายการที่เหลือลบสำเร็จแล้ว)`);
+  clearBulkSelection();
+  populateFilters();
+  refreshAll();
+}
+let __lastListRows = [];
+function visibleListRows(){ return __lastListRows; }
+
+// ---------- Derived status ----------
+function computeFlags(item){
+  const now = new Date();
+  const flags = [];
+  const hasCaption = item.platforms.every(p => item.captions[p] && (item.captions[p].caption || item.captions[p].message));
+  const hasMedia = !!item.media;
+  const incomplete = !hasCaption || !hasMedia || item.platforms.length===0;
+  if (incomplete && !['Posted','Cancelled','Scheduled'].includes(item.status)) flags.push('incomplete');
+  if (!['Posted','Cancelled','Scheduled'].includes(item.status)) {
+    const diffH = (item.scheduledAt - now) / 3600000;
+    if (diffH < 0) flags.push('overdue');
+    else if (diffH <= 24) flags.push('soon');
+  }
+  return flags;
+}
+
+// ---------- Tabs ----------
+function switchTab(tab){
+  document.querySelectorAll('.cp-tab').forEach(t=>t.classList.toggle('active', t.dataset.tab===tab));
+  ['dashboard','calendar','list','report'].forEach(v=>{
+    document.getElementById('view-'+v).classList.toggle('hidden', v!==tab);
+  });
+  if (tab==='calendar') renderCalendar();
+  if (tab==='list') renderList();
+  if (tab==='report') renderReport();
+}
+
+// ---------- Dashboard ----------
+function renderDashboard(){
+  const now = new Date();
+  const todayStr = now.toDateString();
+  const scoped = visibleItems();
+  const today = scoped.filter(i => i.scheduledAt.toDateString()===todayStr && !['Posted','Cancelled'].includes(i.status));
+  const soon = scoped.filter(i => computeFlags(i).includes('soon') && !today.includes(i));
+  const review = scoped.filter(i => i.status==='Review' || i.status==='Revision');
+  const incomplete = scoped.filter(i => computeFlags(i).includes('incomplete'));
+  const overdue = scoped.filter(i => computeFlags(i).includes('overdue'));
+  const active = scoped.filter(i => !['Posted','Cancelled','Scheduled'].includes(i.status));
+  const complete = active.filter(i => !computeFlags(i).includes('incomplete'));
+
+  document.getElementById('stat-today').textContent = today.length;
+  document.getElementById('stat-soon').textContent = soon.length;
+  document.getElementById('stat-review').textContent = review.length;
+  document.getElementById('stat-complete').textContent = complete.length;
+  document.getElementById('stat-incomplete').textContent = incomplete.length;
+  document.getElementById('stat-overdue').textContent = overdue.length;
+
+  const sections = [
+    ['ต้องโพสต์วันนี้', today, 'fa-calendar-day', 'text-indigo-600'],
+    ['เลยกำหนด', overdue, 'fa-triangle-exclamation', 'text-rose-700'],
+    ['รอตรวจ / รออนุมัติ', review, 'fa-magnifying-glass', 'text-blue-600'],
+    ['ข้อมูลยังไม่ครบ', incomplete, 'fa-circle-exclamation', 'text-red-600'],
+  ];
+  const wrap = document.getElementById('dash-lists');
+  wrap.innerHTML = sections.map(([label, arr, icon, color]) => `
+    <div class="bg-white rounded-xl border border-slate-200 p-4">
+      <h4 class="font-semibold text-sm mb-3 ${color}"><i class="fa-solid ${icon}"></i> ${label} (${arr.length})</h4>
+      ${arr.length ? arr.map(itemRow).join('') : '<div class="text-xs text-slate-400">ไม่มีรายการ</div>'}
+    </div>
+  `).join('');
+}
+function itemRow(i){
+  return `<div class="flex items-center gap-2.5 py-2 border-b border-slate-50 last:border-0 cursor-pointer" onclick="viewDetail('${i.id}')">
+    <div class="min-w-0 flex-1">
+      <div class="flex items-center gap-1.5 min-w-0">
+        <span class="text-sm font-medium truncate">${i.title}</span>
+        ${platformBadges(i.platforms)}
+      </div>
+      <div class="text-xs text-slate-400">${i.brand} · ${fmtDate(i.scheduledAt)} · ${i.owner}</div>
+    </div>
+    <span class="status-pill status-${i.status}">${i.status}</span>
+  </div>`;
+}
+
+// ---------- List ----------
+function populateFilters(){
+  populateSharedFilter();
+}
+function renderList(){
+  const status = document.getElementById('f-status').value;
+  const search = document.getElementById('f-search').value.toLowerCase();
+
+  const filtered = visibleItems().filter(i =>
+    inSelectedMonth(i) &&
+    (!status || i.status===status) &&
+    (!search || i.title.toLowerCase().includes(search))
+  ).sort((a,b)=>a.scheduledAt-b.scheduledAt);
+  __lastListRows = filtered;
+
+  document.getElementById('th-bulk').classList.toggle('hidden', clientMode);
+  document.getElementById('bulk-toolbar').classList.toggle('hidden', clientMode || selectedIds.size===0);
+  document.getElementById('bulk-select-all').checked = filtered.length>0 && filtered.every(i=>selectedIds.has(i.id));
+
+  document.getElementById('list-body').innerHTML = filtered.map(i => `
+    <tr class="border-t border-slate-100 hover:bg-slate-50 cursor-pointer" onclick="viewDetail('${i.id}')">
+      <td class="p-3 ${clientMode?'hidden':''}" onclick="event.stopPropagation()"><input type="checkbox" ${selectedIds.has(i.id)?'checked':''} onchange="toggleSelectRow('${i.id}', this.checked)"></td>
+      <td class="p-3"><div class="font-medium">${i.brand}</div><div class="text-xs text-slate-400">${i.campaign}</div></td>
+      <td class="p-3">${i.title}</td>
+      <td class="p-3">${i.platforms.map(platformChip).join(' ')}</td>
+      <td class="p-3 text-xs">${fmtDate(i.scheduledAt)} ${flagBadge(i)}</td>
+      <td class="p-3">${i.owner}</td>
+      <td class="p-3"><span class="status-pill status-${i.status}">${i.status}</span></td>
+      <td class="p-3 text-right">${clientMode?'':`<button onclick="event.stopPropagation();editContent('${i.id}')" class="text-indigo-600 text-xs"><i class="fa-solid fa-pen"></i></button>`}</td>
+    </tr>
+  `).join('') || `<tr><td colspan="8" class="p-6 text-center text-slate-400 text-sm">ไม่พบรายการ</td></tr>`;
+}
+function flagBadge(i){
+  const flags = computeFlags(i);
+  if (flags.includes('overdue')) return '<span class="flag-overdue">· เลยกำหนด</span>';
+  if (flags.includes('soon')) return '<span class="flag-soon">· ใกล้ถึงกำหนด</span>';
+  return '';
+}
+function fmtDate(d){
+  return d.toLocaleString('th-TH', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
+}
+
+// ---------- Calendar ----------
+const MAX_CAL_ITEMS = 3;
+function shiftMonth(n){ calCursor.setMonth(calCursor.getMonth()+n); renderCalendar(); }
+function calItemChip(i){
+  return `<div class="cal-item cal-item-${i.status}" ${clientMode?'':`draggable="true" ondragstart="onCalDragStart(event, '${i.id}')"`} onclick="event.stopPropagation();viewDetail('${i.id}')" title="${i.title}">
+    <span class="cal-dot cal-dot-${i.status}"></span><span class="truncate">${i.title}</span>
+  </div>`;
+}
+function renderCalendar(){
+  const y = calCursor.getFullYear(), m = calCursor.getMonth();
+  document.getElementById('cal-title').textContent = calCursor.toLocaleDateString('th-TH', { month:'long', year:'numeric' });
+  const first = new Date(y,m,1);
+  const startDow = first.getDay();
+  const daysInMonth = new Date(y,m+1,0).getDate();
+  const prevMonthDays = new Date(y,m,0).getDate();
+  const today = new Date();
+  const totalCells = Math.ceil((startDow + daysInMonth) / 7) * 7;
+
+  let html = '';
+  for (let cell=0; cell<totalCells; cell++){
+    const dayNum = cell - startDow + 1;
+    const inMonth = dayNum>=1 && dayNum<=daysInMonth;
+    const cellDate = inMonth ? new Date(y,m,dayNum) : (dayNum<1 ? new Date(y,m-1,prevMonthDays+dayNum) : new Date(y,m+1,dayNum-daysInMonth));
+    const isToday = inMonth && cellDate.toDateString()===today.toDateString();
+    const isWeekend = cell%7===0 || cell%7===6;
+    const dayItems = inMonth ? visibleItems().filter(i=>i.scheduledAt.toDateString()===cellDate.toDateString()) : [];
+    const shown = dayItems.slice(0, MAX_CAL_ITEMS);
+    const overflow = dayItems.length - shown.length;
+
+    html += `<div class="day-cell ${inMonth?'in-month':'out-month'} ${isToday?'today':''} ${isWeekend?'weekend':''}"
+      data-date="${cellDate.toISOString()}"
+      ${inMonth && !clientMode ? `ondragover="onCalDragOver(event)" ondragenter="onCalDragEnter(event)" ondragleave="onCalDragLeave(event)" ondrop="onCalDrop(event, '${cellDate.toISOString()}')"` : ''}>
+      <div class="day-num-row">
+        <span class="day-num ${isToday?'today-badge':''}">${cellDate.getDate()}</span>
+      </div>
+      ${shown.map(calItemChip).join('')}
+      ${overflow>0 ? `<div class="cal-more" onclick="openDayModal('${cellDate.toISOString()}')">+${overflow} เพิ่มเติม</div>` : ''}
+      ${inMonth && dayItems.length===0 ? `<div class="day-empty-hint"><i class="fa-solid fa-plus"></i></div>` : ''}
+    </div>`;
+  }
+  document.getElementById('cal-body').innerHTML = html;
+  document.getElementById('cal-hint').classList.toggle('hidden', clientMode);
+}
+function openDayModal(isoDate){
+  const d = new Date(isoDate);
+  const dayItems = visibleItems().filter(i=>i.scheduledAt.toDateString()===d.toDateString());
+  document.getElementById('day-modal-title').textContent = d.toLocaleDateString('th-TH', { day:'numeric', month:'long', year:'numeric' });
+  document.getElementById('day-modal-body').innerHTML = dayItems.map(i => `
+    <div class="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50 cursor-pointer" onclick="closeDayModal();viewDetail('${i.id}')">
+      <div class="min-w-0">
+        <div class="text-sm font-medium truncate">${i.title}</div>
+        <div class="text-xs text-slate-400">${i.brand} · ${i.owner}</div>
+      </div>
+      <span class="status-pill status-${i.status}">${i.status}</span>
+    </div>
+  `).join('') || '<div class="text-xs text-slate-400 p-2">ไม่มีรายการ</div>';
+  document.getElementById('day-modal').classList.remove('hidden');
+  document.getElementById('day-modal').classList.add('flex');
+}
+function closeDayModal(){
+  document.getElementById('day-modal').classList.add('hidden');
+  document.getElementById('day-modal').classList.remove('flex');
+}
+function onCalDragStart(ev, id){
+  ev.dataTransfer.setData('text/plain', String(id));
+}
+function onCalDragOver(ev){
+  ev.preventDefault();
+}
+function onCalDragEnter(ev){
+  ev.currentTarget.classList.add('drag-over');
+}
+function onCalDragLeave(ev){
+  ev.currentTarget.classList.remove('drag-over');
+}
+async function onCalDrop(ev, isoDate){
+  ev.preventDefault();
+  ev.currentTarget.classList.remove('drag-over');
+  if (clientMode) return;
+  const id = ev.dataTransfer.getData('text/plain');
+  const item = items.find(x=>x.id===id);
+  if (!item) return;
+  const target = new Date(isoDate);
+  const old = item.scheduledAt;
+  target.setHours(old.getHours(), old.getMinutes(), 0, 0);
+  if (API_URL) {
+    try {
+      await apiCall('update', { id, data: { ScheduledAt: target.toISOString() } });
+    } catch (err) {
+      alert('เลื่อนวันไม่สำเร็จ: ' + err.message);
+      return;
+    }
+  }
+  item.scheduledAt = target;
+  refreshAll();
+}
+
+// ---------- Report ----------
+function renderReport(){
+  const scoped = visibleItems().filter(inSelectedMonth);
+
+  const byPlatform = {};
+  PLATFORMS.forEach(p=>byPlatform[p]=0);
+  scoped.forEach(i=>i.platforms.forEach(p=>byPlatform[p]++));
+  document.getElementById('rep-platform').innerHTML = Object.entries(byPlatform).map(([p,c])=>
+    `<div class="flex justify-between"><span class="platform-chip plat-${p}">${p}</span><span class="font-semibold">${c}</span></div>`).join('');
+
+  const byBrand = {};
+  scoped.forEach(i=>byBrand[i.brand]=(byBrand[i.brand]||0)+1);
+  document.getElementById('rep-brand').innerHTML = Object.entries(byBrand).map(([b,c])=>
+    `<div class="flex justify-between"><span>${b}</span><span class="font-semibold">${c}</span></div>`).join('');
+
+  const posted = scoped.filter(i=>i.status==='Posted').length;
+  const total = scoped.length;
+  const onTime = scoped.filter(i=>i.status==='Posted').length; // mock: assume all posted are on-time in this sample
+  document.getElementById('rep-summary').innerHTML = `
+    <div class="flex justify-between"><span>ทั้งหมด</span><span class="font-semibold">${total}</span></div>
+    <div class="flex justify-between"><span>โพสต์แล้ว</span><span class="font-semibold text-emerald-600">${posted}</span></div>
+    <div class="flex justify-between"><span>ยังไม่โพสต์</span><span class="font-semibold text-slate-600">${total-posted}</span></div>
+    <div class="flex justify-between"><span>อัตราโพสต์ตรงเวลา</span><span class="font-semibold">${posted?Math.round(onTime/posted*100):0}%</span></div>
+  `;
+}
+
+// ---------- Form ----------
+function populateBrandDropdown(selectId, selected){
+  const notionOnly = notionBrands && notionBrands.length > 0;
+  const brands = notionOnly ? notionBrands : [...new Set(items.map(i=>i.brand))];
+  const sel = document.getElementById(selectId);
+  sel.innerHTML = brands.map(b=>`<option value="${b}">${b}</option>`).join('') +
+    (notionOnly ? '' : `<option value="__new__">+ เพิ่มแบรนด์ใหม่...</option>`);
+  if (selected && brands.includes(selected)) {
+    sel.value = selected;
+  } else if (selected) {
+    // Existing item with a brand not in the current list (legacy data,
+    // or typed before Notion sync was required) — show it so editing
+    // doesn't silently change the brand, but don't offer it as a new pick.
+    const opt = document.createElement('option');
+    opt.value = selected; opt.textContent = selected + (notionOnly ? ' (ไม่อยู่ใน Notion)' : '');
+    sel.appendChild(opt);
+    sel.value = selected;
+  }
+  onBrandSelectChange(selectId);
+}
+function onBrandSelectChange(selectId){
+  const isNew = document.getElementById(selectId).value === '__new__';
+  document.getElementById(selectId + '-new').classList.toggle('hidden', !isNew);
+}
+function resolvedBrand(selectId){
+  const sel = document.getElementById(selectId).value;
+  return sel === '__new__' ? document.getElementById(selectId + '-new').value.trim() : sel;
+}
+
+// ---------- Owner / Reviewer dropdowns (Notion-synced when API is connected) ----------
+let notionOwners = null; // set by loadFromApi() when API_URL is configured
+let notionBrands = null; // set by loadFromApi() when API_URL is configured
+function personRoster(){
+  if (notionOwners && notionOwners.length) return notionOwners;
+  return [...new Set(items.flatMap(i => [i.owner, i.reviewer]).filter(Boolean))];
+}
+function populatePersonDropdown(selectId, selected){
+  const roster = personRoster();
+  const sel = document.getElementById(selectId);
+  sel.innerHTML = '<option value="">— ยังไม่ระบุ —</option>' +
+    roster.map(n=>`<option value="${n}">${n}</option>`).join('') +
+    `<option value="__new__">+ เพิ่มชื่อใหม่...</option>`;
+  if (selected && roster.includes(selected)) {
+    sel.value = selected;
+  } else if (selected) {
+    const opt = document.createElement('option');
+    opt.value = selected; opt.textContent = selected;
+    sel.insertBefore(opt, sel.lastElementChild);
+    sel.value = selected;
+  } else {
+    // No value saved for this item — leave it visibly unset instead of
+    // silently defaulting to the first name in the roster (that made an
+    // unassigned item look identical to one actually assigned to
+    // whoever happened to be first alphabetically).
+    sel.value = '';
+  }
+  onPersonSelectChange(selectId);
+}
+function onPersonSelectChange(selectId){
+  const isNew = document.getElementById(selectId).value === '__new__';
+  document.getElementById(selectId + '-new').classList.toggle('hidden', !isNew);
+  renderChecklistPreview();
+}
+function resolvedPerson(selectId){
+  const sel = document.getElementById(selectId).value;
+  return sel === '__new__' ? document.getElementById(selectId + '-new').value.trim() : sel;
+}
+
+function openForm(){
+  if (clientMode) return;
+  editingId = null;
+  document.getElementById('form-title').textContent = 'สร้างคอนเทนต์ใหม่';
+  ['fld-campaign','fld-title','fld-note','fld-schedule','fld-media','fld-brand-new','fld-owner-new','fld-reviewer-new'].forEach(id=>document.getElementById(id).value='');
+  populateBrandDropdown('fld-brand');
+  populatePersonDropdown('fld-owner');
+  populatePersonDropdown('fld-reviewer');
+  document.getElementById('fld-status').value = 'Draft';
+  document.querySelectorAll('#fld-platforms input').forEach(cb=>{ cb.checked=false; cb.onchange=renderCaptionTabs; });
+  renderCaptionTabs();
+  document.getElementById('form-modal').classList.remove('hidden');
+  document.getElementById('form-modal').classList.add('flex');
+}
+function editContent(id){
+  if (clientMode) return;
+  const i = items.find(x=>x.id===id);
+  editingId = id;
+  document.getElementById('form-title').textContent = 'แก้ไขคอนเทนต์';
+  populateBrandDropdown('fld-brand', i.brand);
+  document.getElementById('fld-campaign').value = i.campaign;
+  document.getElementById('fld-title').value = i.title;
+  document.getElementById('fld-note').value = i.note || '';
+  document.getElementById('fld-schedule').value = toLocalInput(i.scheduledAt);
+  document.getElementById('fld-media').value = i.media;
+  populatePersonDropdown('fld-owner', i.owner);
+  populatePersonDropdown('fld-reviewer', i.reviewer);
+  document.getElementById('fld-status').value = i.status;
+  document.querySelectorAll('#fld-platforms input').forEach(cb=>{ cb.checked = i.platforms.includes(cb.value); cb.onchange=renderCaptionTabs; });
+  window.__editCaptions = JSON.parse(JSON.stringify(i.captions));
+  renderCaptionTabs();
+  document.getElementById('form-modal').classList.remove('hidden');
+  document.getElementById('form-modal').classList.add('flex');
+}
+function toLocalInput(d){
+  const pad = n=>String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function closeForm(){
+  document.getElementById('form-modal').classList.add('hidden');
+  document.getElementById('form-modal').classList.remove('flex');
+  window.__editCaptions = null;
+}
+function selectedPlatforms(){
+  return [...document.querySelectorAll('#fld-platforms input:checked')].map(cb=>cb.value);
+}
+let activeCapTab = null;
+function renderCaptionTabs(){
+  const platforms = selectedPlatforms();
+  if (!platforms.includes(activeCapTab)) activeCapTab = platforms[0] || null;
+  document.getElementById('caption-tabs').innerHTML = platforms.map(p =>
+    `<div class="caption-tab ${p===activeCapTab?'active':''}" onclick="activeCapTab='${p}';renderCaptionTabs()">${p}</div>`
+  ).join('') || '<div class="text-xs text-slate-400 py-2">เลือกแพลตฟอร์มก่อน</div>';
+  renderCaptionPanel();
+  renderChecklistPreview();
+}
+function renderCaptionPanel(){
+  const panel = document.getElementById('caption-panels');
+  if (!activeCapTab){ panel.innerHTML=''; return; }
+  const store = window.__editCaptions || (window.__editCaptions = {});
+  const data = store[activeCapTab] || {};
+  let fields = '';
+  if (activeCapTab === 'LINE') {
+    fields = `
+      <label class="form-label">Message</label>
+      <textarea class="form-input mb-2" rows="3" oninput="updateCaption('message', this.value)">${data.message||''}</textarea>
+      <label class="form-label">ลิงก์ปลายทาง</label>
+      <input class="form-input" value="${data.link||''}" oninput="updateCaption('link', this.value)">`;
+  } else if (activeCapTab === 'TikTok') {
+    fields = `
+      <label class="form-label">Caption</label>
+      <textarea class="form-input mb-2" rows="3" oninput="updateCaption('caption', this.value)">${data.caption||''}</textarea>
+      <label class="form-label">แนวทางวิดีโอ</label>
+      <textarea class="form-input" rows="2" oninput="updateCaption('guide', this.value)">${data.guide||''}</textarea>`;
+  } else if (activeCapTab === 'YouTube') {
+    fields = `
+      <label class="form-label">ชื่อวิดีโอ (Title)</label>
+      <input class="form-input mb-2" value="${data.caption||''}" oninput="updateCaption('caption', this.value)">
+      <label class="form-label">คำอธิบาย (Description)</label>
+      <textarea class="form-input mb-2" rows="3" oninput="updateCaption('guide', this.value)">${data.guide||''}</textarea>
+      <label class="form-label">Tags / CTA</label>
+      <input class="form-input" value="${data.cta||''}" oninput="updateCaption('cta', this.value)">`;
+  } else {
+    fields = `
+      <label class="form-label">Caption</label>
+      <textarea class="form-input mb-2" rows="3" oninput="updateCaption('caption', this.value)">${data.caption||''}</textarea>
+      <label class="form-label">${activeCapTab==='Instagram'?'Hashtag':'CTA'}</label>
+      <input class="form-input" value="${activeCapTab==='Instagram'?(data.hashtag||''):(data.cta||'')}" oninput="updateCaption('${activeCapTab==='Instagram'?'hashtag':'cta'}', this.value)">`;
+  }
+  panel.innerHTML = fields + `<button class="mt-2 text-xs text-indigo-600" onclick="copyCaption()"><i class="fa-regular fa-copy"></i> คัดลอกข้อความ</button>`;
+}
+function updateCaption(field, value){
+  const store = window.__editCaptions || (window.__editCaptions = {});
+  store[activeCapTab] = store[activeCapTab] || {};
+  store[activeCapTab][field] = value;
+  renderChecklistPreview();
+}
+function copyCaption(){
+  const data = (window.__editCaptions||{})[activeCapTab] || {};
+  const text = data.caption || data.message || '';
+  navigator.clipboard.writeText(text).then(()=>alert('คัดลอกข้อความแล้ว (จำลอง)'));
+}
+function renderChecklistPreview(){
+  const platforms = selectedPlatforms();
+  const captions = window.__editCaptions || {};
+  const hasCaption = platforms.length>0 && platforms.every(p => captions[p] && (captions[p].caption || captions[p].message));
+  const hasMedia = !!document.getElementById('fld-media').value;
+  const hasCTA = platforms.some(p => captions[p] && (captions[p].cta || captions[p].link));
+  const hasSchedule = !!document.getElementById('fld-schedule').value;
+  const hasOwner = !!resolvedPerson('fld-owner');
+  const checks = [
+    ['มี Caption ครบทุกแพลตฟอร์ม', hasCaption],
+    ['มีรูปหรือวิดีโอแล้ว', hasMedia],
+    ['มี CTA หรือลิงก์ปลายทาง', hasCTA],
+    ['ระบุวันเวลาโพสต์แล้ว', hasSchedule],
+    ['ระบุผู้รับผิดชอบแล้ว', hasOwner],
+    ['ผ่านการอนุมัติแล้ว', document.getElementById('fld-status').value==='Approved' || document.getElementById('fld-status').value==='Ready' || document.getElementById('fld-status').value==='Posted'],
+  ];
+  document.getElementById('checklist-preview').innerHTML = checks.map(([label,ok])=>
+    `<div class="${ok?'check-ok':'check-missing'}"><i class="fa-solid ${ok?'fa-circle-check':'fa-circle'}"></i> ${label}</div>`
+  ).join('');
+}
+document.getElementById('fld-media').addEventListener('input', renderChecklistPreview);
+document.getElementById('fld-schedule').addEventListener('input', renderChecklistPreview);
+document.getElementById('fld-owner-new').addEventListener('input', renderChecklistPreview);
+document.getElementById('fld-status').addEventListener('change', renderChecklistPreview);
+
+async function saveContent(){
+  const platforms = selectedPlatforms();
+  if (!document.getElementById('fld-title').value.trim()){ alert('กรุณาระบุหัวข้อคอนเทนต์'); return; }
+  const brand = resolvedBrand('fld-brand');
+  if (!brand){ alert('กรุณาระบุแบรนด์ / ลูกค้า'); return; }
+  const payload = {
+    brand,
+    campaign: document.getElementById('fld-campaign').value,
+    title: document.getElementById('fld-title').value,
+    note: document.getElementById('fld-note').value,
+    platforms,
+    scheduledAt: document.getElementById('fld-schedule').value ? new Date(document.getElementById('fld-schedule').value) : new Date(),
+    media: document.getElementById('fld-media').value,
+    owner: resolvedPerson('fld-owner'),
+    reviewer: resolvedPerson('fld-reviewer'),
+    status: document.getElementById('fld-status').value,
+    captions: window.__editCaptions || {},
+    published: {},
+  };
+
+  const saveBtn = document.getElementById('save-content-btn');
+  saveBtn.disabled = true;
+
+  if (API_URL) {
+    try {
+      if (editingId) {
+        const resp = await apiCall('update', { id: editingId, data: clientPatchToApi(payload) });
+        const idx = items.findIndex(x=>x.id===editingId);
+        items[idx] = apiItemToClient(resp.item);
+      } else {
+        const resp = await apiCall('create', { data: clientPatchToApi(payload) });
+        items.push(apiItemToClient(resp.item));
+      }
+    } catch (err) {
+      saveBtn.disabled = false;
+      alert('บันทึกไปที่ระบบหลังบ้านไม่สำเร็จ: ' + err.message);
+      return;
+    }
+  } else {
+    saveLocalOnly(payload);
+  }
+
+  saveBtn.disabled = false;
+  closeForm();
+  populateFilters();
+  refreshAll();
+}
+function saveLocalOnly(payload){
+  if (editingId) {
+    const idx = items.findIndex(x=>x.id===editingId);
+    items[idx] = { ...items[idx], ...payload };
+  } else {
+    items.push({ id: 'local-' + Date.now(), comments: [], ...payload });
+  }
+}
+
+// ---------- Detail modal ----------
+function viewDetail(id){
+  const i = items.find(x=>x.id===id);
+  const flags = computeFlags(i);
+  document.getElementById('detail-body').innerHTML = `
+    <div class="flex items-start justify-between mb-3">
+      <div>
+        <div class="text-xs text-slate-400">${i.brand} · ${i.campaign}</div>
+        <h3 class="font-semibold text-lg">${i.title}</h3>
+      </div>
+      ${clientMode
+        ? `<select class="status-pill status-${i.status}" style="border:none;cursor:pointer;" onchange="changeDetailStatus('${i.id}', this.value)">
+             ${[...new Set([i.status, ...CLIENT_STATUS_OPTIONS])].map(s=>`<option value="${s}" ${s===i.status?'selected':''}>${s}</option>`).join('')}
+           </select>`
+        : `<select class="status-pill status-${i.status}" style="border:none;cursor:pointer;" onchange="changeDetailStatus('${i.id}', this.value)">
+             ${['Draft','Review','Revision','Approved','Ready','Scheduled','Posted','Cancelled'].map(s=>`<option value="${s}" ${s===i.status?'selected':''}>${s}</option>`).join('')}
+           </select>`
+      }
+    </div>
+    <div class="text-sm text-slate-500 mb-3">
+      <i class="fa-regular fa-clock"></i> ${fmtDate(i.scheduledAt)}
+      ${flags.includes('overdue')?' · <span class="flag-overdue">เลยกำหนด</span>':''}
+      ${flags.includes('soon')?' · <span class="flag-soon">ใกล้ถึงกำหนด</span>':''}
+      ${flags.includes('incomplete')?' · <span class="flag-incomplete">ข้อมูลไม่ครบ</span>':''}
+    </div>
+    <div class="flex gap-1 mb-3 flex-wrap">${i.platforms.map(platformChip).join('')}</div>
+    <div class="text-sm mb-3"><b>ผู้รับผิดชอบ:</b> ${i.owner} · <b>ผู้ตรวจ:</b> ${i.reviewer}</div>
+    ${i.media?`<div class="text-sm mb-3"><a href="${i.media}" target="_blank" class="text-indigo-600"><i class="fa-solid fa-link"></i> ลิงก์งาน (กดดู/คอมเมนต์ได้)</a></div>`:''}
+    <div class="space-y-2">
+      ${i.platforms.map(p=>{
+        const c = i.captions[p]||{};
+        const text = c.caption || c.message || '(ยังไม่ได้เตรียมข้อความ)';
+        return `<div class="border border-slate-100 rounded-lg p-2">
+          <div class="flex items-center justify-between mb-1">
+            ${platformChip(p)}
+            <button class="text-xs text-indigo-600" onclick="navigator.clipboard.writeText(\`${(text||'').replace(/`/g,"'")}\`).then(()=>alert('คัดลอกแล้ว'))"><i class="fa-regular fa-copy"></i> คัดลอก</button>
+          </div>
+          <div class="text-sm whitespace-pre-wrap">${text}</div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div class="mt-4 border-t border-slate-100 pt-3">
+      <div class="text-xs font-semibold text-slate-500 mb-2"><i class="fa-regular fa-comments"></i> ความคิดเห็น (${i.comments.length})</div>
+      <div id="comment-list" class="space-y-2 mb-2 max-h-40 overflow-y-auto">
+        ${i.comments.length ? i.comments.map(c=>`
+          <div class="bg-slate-50 rounded-lg p-2 text-sm">
+            <div class="flex items-center justify-between text-xs text-slate-400 mb-0.5">
+              <span class="font-medium text-slate-600">${c.author}</span>
+              <span>${fmtDate(new Date(c.time))}</span>
+            </div>
+            <div>${c.text}</div>
+          </div>
+        `).join('') : '<div class="text-xs text-slate-400">ยังไม่มีความคิดเห็น</div>'}
+      </div>
+      <div class="flex gap-2">
+        <input id="comment-input" class="form-input" placeholder="แสดงความคิดเห็น / ขอแก้ไข...">
+        <button onclick="addComment('${i.id}')" class="px-3 py-2 rounded-lg bg-indigo-600 text-white text-sm shrink-0"><i class="fa-solid fa-paper-plane"></i></button>
+      </div>
+    </div>
+    <div class="mt-4 flex justify-end gap-2">
+      ${clientMode ? '' : `<button onclick="deleteContentItem('${i.id}')" class="px-3 py-1.5 rounded-lg border border-red-200 text-red-600 text-sm hover:bg-red-50 mr-auto"><i class="fa-solid fa-trash"></i> ลบ</button>`}
+      <button onclick="closeDetail()" class="px-3 py-1.5 rounded-lg border border-slate-200 text-sm">ปิด</button>
+      ${clientMode ? '' : `<button onclick="closeDetail();editContent('${i.id}')" class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-sm">แก้ไข</button>`}
+    </div>
+  `;
+  document.getElementById('detail-modal').classList.remove('hidden');
+  document.getElementById('detail-modal').classList.add('flex');
+}
+async function addComment(id){
+  const input = document.getElementById('comment-input');
+  const text = input.value.trim();
+  if (!text) return;
+  const author = clientMode ? 'ลูกค้า (จำลอง)' : 'คุณ (จำลอง)';
+  const item = items.find(x=>x.id===id);
+  if (API_URL) {
+    try {
+      const resp = await apiCall('addComment', { id, author, text });
+      item.comments = apiItemToClient(resp.item).comments;
+    } catch (err) {
+      alert('ส่งความคิดเห็นไม่สำเร็จ: ' + err.message);
+      return;
+    }
+  } else {
+    item.comments.push({ author, text, time: new Date() });
+  }
+  viewDetail(id);
+}
+async function deleteContentItem(id){
+  const item = items.find(x=>x.id===id);
+  if (!item) return;
+  if (!confirm(`ลบ "${item.title}" ถาวร? การกระทำนี้ย้อนกลับไม่ได้`)) return;
+  if (API_URL) {
+    try {
+      await apiCall('delete', { id });
+    } catch (err) {
+      alert('ลบไม่สำเร็จ: ' + err.message);
+      return;
+    }
+  }
+  items = items.filter(x=>x.id!==id);
+  closeDetail();
+  populateFilters();
+  refreshAll();
+}
+function closeDetail(){
+  document.getElementById('detail-modal').classList.add('hidden');
+  document.getElementById('detail-modal').classList.remove('flex');
+}
+async function changeDetailStatus(id, status){
+  const item = items.find(x=>x.id===id);
+  if (API_URL) {
+    try {
+      await apiCall('updateStatus', { id, status });
+    } catch (err) {
+      alert('เปลี่ยนสถานะไม่สำเร็จ: ' + err.message);
+      viewDetail(id);
+      return;
+    }
+  }
+  item.status = status;
+  refreshAll();
+  viewDetail(id);
+}
+
+// ---------- Import from calendar image (Gemini Vision via Apps Script) ----------
+let importDraft = [];
+let importPendingFile = null;
+function openImportImage(){
+  document.getElementById('import-modal').classList.remove('hidden');
+  document.getElementById('import-modal').classList.add('flex');
+  document.getElementById('import-review').classList.add('hidden');
+  document.getElementById('import-confirm-btn').classList.add('hidden');
+  document.getElementById('import-dropzone').classList.remove('hidden');
+  document.getElementById('import-brand-new').value = '';
+  document.getElementById('import-owner-new').value = '';
+  document.getElementById('import-reviewer-new').value = '';
+  populateBrandDropdown('import-brand', sharedBrand || null);
+  populatePersonDropdown('import-owner');
+  populatePersonDropdown('import-reviewer');
+  importDraft = [];
+  importPendingFile = null;
+  document.getElementById('import-preview').classList.add('hidden');
+  document.getElementById('import-file-input').value = '';
+  resetImportStatus();
+}
+function resetImportStatus(){
+  const status = document.getElementById('import-status');
+  if (API_URL) {
+    status.className = 'mt-4 text-sm bg-slate-50 border border-slate-200 text-slate-500 rounded-lg p-3';
+    status.innerHTML = '<i class="fa-solid fa-circle-info"></i> เลือกรูปปฏิทินเพื่อเริ่มอ่านข้อมูล';
+  } else {
+    status.className = 'mt-4 text-sm bg-amber-50 border border-amber-200 text-amber-700 rounded-lg p-3';
+    status.innerHTML = '<i class="fa-solid fa-flask"></i> ต้องเชื่อมต่อฐานข้อมูลจริงก่อน (ดูสถานะที่ badge มุมขวาบน) ฟีเจอร์นี้ใช้ Gemini Vision API ผ่าน Apps Script backend ในการอ่านรูป';
+  }
+}
+function closeImportImage(){
+  document.getElementById('import-modal').classList.add('hidden');
+  document.getElementById('import-modal').classList.remove('flex');
+}
+function onImportFilePicked(file){
+  if (!file) return;
+  importPendingFile = file;
+  document.getElementById('import-preview-filename').textContent = file.name;
+  document.getElementById('import-preview').classList.remove('hidden');
+  const status = document.getElementById('import-status');
+  if (API_URL) {
+    status.className = 'mt-4 text-sm bg-slate-50 border border-slate-200 text-slate-500 rounded-lg p-3';
+    status.innerHTML = '<i class="fa-solid fa-circle-info"></i> เลือกรูปแล้ว ตรวจดูให้ถูกไฟล์ก่อนกด "วิเคราะห์รูปด้วย AI"';
+  }
+}
+function clearImportFile(){
+  importPendingFile = null;
+  document.getElementById('import-file-input').value = '';
+  document.getElementById('import-preview').classList.add('hidden');
+  resetImportStatus();
+}
+async function runImportAnalysis(){
+  const file = importPendingFile;
+  if (!file) return;
+  if (!API_URL) { resetImportStatus(); return; }
+  if (!resolvedBrand('import-brand')) { alert('กรุณาเลือกแบรนด์ก่อน'); return; }
+  const analyzeBtn = document.getElementById('import-analyze-btn');
+  analyzeBtn.disabled = true;
+  const status = document.getElementById('import-status');
+  status.className = 'mt-4 text-sm bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-lg p-3';
+  status.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังอ่านรูปด้วย AI... (อาจใช้เวลาสักครู่)';
+
+  try {
+    const base64 = await fileToBase64(file);
+    const resp = await apiCall('extractImage', { imageBase64: base64, mimeType: file.type || 'image/png' });
+    importDraft = resp.items.map((it, idx) => ({
+      tempId: idx,
+      title: it.title || '',
+      date: it.date || '',
+      platform: PLATFORMS.includes(it.platform) ? it.platform : 'Facebook',
+      note: it.note || '',
+      selected: true,
+    }));
+    if (!importDraft.length) {
+      status.className = 'mt-4 text-sm bg-amber-50 border border-amber-200 text-amber-700 rounded-lg p-3';
+      status.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> ไม่พบรายการคอนเทนต์ในรูปนี้ ลองรูปอื่นดูครับ';
+      return;
+    }
+    status.className = 'mt-4 text-sm bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-lg p-3';
+    status.innerHTML = `<i class="fa-solid fa-circle-check"></i> อ่านได้ ${importDraft.length} รายการ — ตรวจสอบด้านล่างก่อนสร้างจริง`;
+    renderImportReview();
+    document.getElementById('import-review').classList.remove('hidden');
+    document.getElementById('import-confirm-btn').classList.remove('hidden');
+    document.getElementById('import-dropzone').classList.add('hidden');
+    document.getElementById('import-preview').classList.add('hidden');
+  } catch (err) {
+    status.className = 'mt-4 text-sm bg-red-50 border border-red-200 text-red-700 rounded-lg p-3';
+    status.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> อ่านรูปไม่สำเร็จ: ' + err.message;
+  } finally {
+    analyzeBtn.disabled = false;
+  }
+}
+function fileToBase64(file){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+function renderImportReview(){
+  document.getElementById('import-review-body').innerHTML = importDraft.map(it => `
+    <tr class="border-t border-slate-100">
+      <td class="p-2"><input type="checkbox" ${it.selected?'checked':''} onchange="importDraft[${it.tempId}].selected=this.checked"></td>
+      <td class="p-2"><input class="form-input" value="${it.title.replace(/"/g,'&quot;')}" oninput="importDraft[${it.tempId}].title=this.value"></td>
+      <td class="p-2"><input type="date" class="form-input" value="${it.date}" oninput="importDraft[${it.tempId}].date=this.value"></td>
+      <td class="p-2">
+        <select class="form-input" onchange="importDraft[${it.tempId}].platform=this.value">
+          ${PLATFORMS.map(p=>`<option ${p===it.platform?'selected':''}>${p}</option>`).join('')}
+        </select>
+      </td>
+      <td class="p-2"><input class="form-input" value="${(it.note||'').replace(/"/g,'&quot;')}" oninput="importDraft[${it.tempId}].note=this.value"></td>
+    </tr>
+  `).join('');
+}
+function toggleImportSelectAll(checked){
+  importDraft.forEach(it => it.selected = checked);
+  renderImportReview();
+}
+async function confirmImport(){
+  const selected = importDraft.filter(it => it.selected && it.title.trim());
+  if (!selected.length) { alert('เลือกอย่างน้อย 1 รายการ'); return; }
+  const brand = resolvedBrand('import-brand');
+  if (!brand) { alert('กรุณาเลือกแบรนด์ก่อน'); return; }
+  const owner = resolvedPerson('import-owner');
+  const reviewer = resolvedPerson('import-reviewer');
+  const btn = document.getElementById('import-confirm-btn');
+  btn.disabled = true;
+  try {
+    const payload = selected.map(it => ({
+      Brand: brand, Campaign: '', Title: it.title, Note: it.note,
+      Platforms: [it.platform],
+      ScheduledAt: it.date ? new Date(it.date).toISOString() : new Date().toISOString(),
+      Owner: owner, Reviewer: reviewer, Status: 'Draft',
+    }));
+    const resp = await apiCall('bulkCreate', { items: payload });
+    resp.items.forEach(row => items.push(apiItemToClient(row)));
+    closeImportImage();
+    populateFilters();
+    refreshAll();
+    switchTab('list');
+  } catch (err) {
+    alert('สร้างรายการไม่สำเร็จ: ' + err.message);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function refreshAll(){
+  renderDashboard();
+  renderList();
+  renderCalendar();
+  renderReport();
+}
+
+async function initApp(){
+  const params = new URLSearchParams(location.search);
+  if (params.get('client') === '1') {
+    clientMode = true;
+    clientModeLocked = true;
+  } else {
+    try { clientMode = localStorage.getItem('cp_clientMode') === '1'; } catch(e) {}
+  }
+  applyClientModeUI();
+  const brandParam = params.get('brand');
+  if (brandParam) {
+    sharedBrand = brandParam;
+    sharedBrandLocked = true;
+  }
+  if (API_URL) {
+    const badge = document.getElementById('data-mode-badge');
+    const ok = await loadFromApi();
+    if (ok) {
+      badge.className = 'text-xs px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200';
+      badge.innerHTML = '<i class="fa-solid fa-database"></i> เชื่อมต่อฐานข้อมูลจริงแล้ว';
+    } else {
+      badge.className = 'text-xs px-3 py-1.5 rounded-full bg-red-50 text-red-700 border border-red-200';
+      badge.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> เชื่อมฐานข้อมูลไม่สำเร็จ — กำลังใช้ข้อมูลจำลอง (ดู Console เพื่อดูข้อผิดพลาด)';
+    }
+  }
+  populateFilters();
+  document.getElementById('list-month-label').textContent = monthFilterCursor.toLocaleDateString('th-TH', { month:'long', year:'numeric' });
+  document.getElementById('report-month-label').textContent = document.getElementById('list-month-label').textContent;
+  refreshAll();
+}
+initApp();
+</script>
+</body>
+</html>

@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>คู่มือ Content Planner</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+body { font-family: 'Prompt', sans-serif; background-color: #f8fafc; }
+.feature-card { border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; background: #fff; }
+.tag { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; }
+.tag-ready { background: #dcfce7; color: #15803d; }
+.tag-soon { background: #fef9c3; color: #854d0e; }
+.step-num { width: 24px; height: 24px; border-radius: 999px; background: #4f46e5; color: #fff; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+</style>
+</head>
+<body class="text-slate-800">
+
+<div class="max-w-4xl mx-auto p-5 md:p-8">
+
+  <div class="mb-8">
+    <a href="content-planner.html" class="text-sm text-indigo-600 mb-3 inline-flex items-center gap-1"><i class="fa-solid fa-arrow-left"></i> กลับไป Content Planner</a>
+    <h1 class="text-2xl md:text-3xl font-bold flex items-center gap-2 mt-2">
+      <i class="fa-solid fa-book text-indigo-600"></i> คู่มือการใช้งาน Content Planner
+    </h1>
+    <p class="text-slate-500 mt-1">ระบบวางแผนคอนเทนต์และแจ้งเตือนของ NinaAgent Hub — เชื่อมต่อฐานข้อมูลจริงแล้ว (Google Sheets + Notion + LINE + Google Calendar)</p>
+  </div>
+
+  <!-- ============ FEATURE OVERVIEW ============ -->
+  <section class="mb-10">
+    <h2 class="text-lg font-bold mb-4"><i class="fa-solid fa-list-check text-indigo-600"></i> แอพนี้ทำอะไรได้บ้าง</h2>
+    <div class="grid md:grid-cols-2 gap-3">
+
+      <div class="feature-card">
+        <div class="flex items-center justify-between mb-1">
+          <h3 class="font-semibold text-sm">สร้าง / แก้ไขแผนคอนเทนต์</h3>
+          <span class="tag tag-ready">ใช้ได้</span>
+        </div>
+        <p class="text-xs text-slate-500">ระบุแบรนด์ แคมเปญ หัวข้อ แพลตฟอร์ม วันเวลาโพสต์ ผู้รับผิดชอบ ผู้อนุมัติ และลิงก์สื่อ</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="flex items-center justify-between mb-1">
+          <h3 class="font-semibold text-sm">Caption แยกตามแพลตฟอร์ม</h3>
+          <span class="tag tag-ready">ใช้ได้</span>
+        </div>
+        <p class="text-xs text-slate-500">เตรียมข้อความ/CTA/Hashtag แยก Facebook, Instagram, TikTok, LINE OA, YouTube พร้อมปุ่มคัดลอก</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="flex items-center justify-between mb-1">
+          <h3 class="font-semibold text-sm">หน้ารวมงานวันนี้ (Dashboard)</h3>
+          <span class="tag tag-ready">ใช้ได้</span>
+        </div>
+        <p class="text-xs text-slate-500">สรุปงานที่ต้องโพสต์วันนี้ ใกล้ถึงกำหนด รอตรวจ/อนุมัติ ข้อมูลไม่ครบ และเลยกำหนด</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="flex items-center justify-between mb-1">
+          <h3 class="font-semibold text-sm">Content Calendar</h3>
+          <span class="tag tag-ready">ใช้ได้</span>
+        </div>
+        <p class="text-xs text-slate-500">ดูงานรายเดือน สลับเดือนได้ คลิกรายการเพื่อดูรายละเอียด</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="flex items-center justify-between mb-1">
+          <h3 class="font-semibold text-sm">ลากวางเลื่อนวันโพสต์</h3>
+          <span class="tag tag-ready">ใช้ได้</span>
+        </div>
+        <p class="text-xs text-slate-500">ลากการ์ดใน Calendar ไปวางวันใหม่เพื่อเลื่อนกำหนดโพสต์ โดยไม่ต้องเปิดฟอร์มแก้ไข</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="flex items-center justify-between mb-1">
+          <h3 class="font-semibold text-sm">Checklist ก่อนโพสต์</h3>
+          <span class="tag tag-ready">ใช้ได้</span>
+        </div>
+        <p class="text-xs text-slate-500">ตรวจสถานะความพร้อม: มี Caption ครบ / มีสื่อ / มี CTA / ระบุวันเวลา / ผู้รับผิดชอบ / ผ่านอนุมัติ</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="flex items-center justify-between mb-1">
+          <h3 class="font-semibold text-sm">ตัวกรอง แบรนด์ / ผู้รับผิดชอบ / แพลตฟอร์ม</h3>
+          <span class="tag tag-ready">ใช้ได้</span>
+        </div>
+        <p class="text-xs text-slate-500">แถบตัวกรองด้านบนสุด เลือกดูเฉพาะแบรนด์ ผู้รับผิดชอบ หรือแพลตฟอร์มที่ต้องการ ใช้ร่วมกันทั้ง Dashboard, Calendar, List, รายงาน</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="flex items-center justify-between mb-1">
+          <h3 class="font-semibold text-sm">เลือกเดือนในหน้ารายการทั้งหมด / รายงาน</h3>
+          <span class="tag tag-ready">ใช้ได้</span>
+        </div>
+        <p class="text-xs text-slate-500">มีปุ่มเลื่อนเดือนก่อนหน้า/ถัดไป และปุ่ม "เดือนนี้" (ค่าเริ่มต้นคือเดือนปัจจุบัน) ให้ดูข้อมูลเฉพาะเดือนที่เลือกในหน้า "รายการทั้งหมด" และ "รายงาน" (Dashboard ไม่ใช้ตัวกรองนี้ — ดูข้อมูลทั้งระบบเสมอ)</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="flex items-center justify-between mb-1">
+          <h3 class="font-semibold text-sm">Bulk Actions (เลือกหลายรายการ)</h3>
+          <span class="tag tag-ready">ใช้ได้</span>
+        </div>
+        <p class="text-xs text-slate-500">ติ๊กเลือกหลายรายการในหน้า List แล้วเปลี่ยนสถานะพร้อมกันได้ทีเดียว</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="flex items-center justify-between mb-1">
+          <h3 class="font-semibold text-sm">ลบรายการถาวร</h3>
+          <span class="tag tag-ready">ใช้ได้</span>
+        </div>
+        <p class="text-xs text-slate-500">เปิดรายละเอียดคอนเทนต์ (จาก Calendar หรือ List ก็ได้) กดปุ่ม "ลบ" สีแดงมุมล่างซ้าย ยืนยันแล้วลบทั้งแถวในชีทและ event ในปฏิทินให้อัตโนมัติ — ย้อนกลับไม่ได้ ใช้อย่างระวัง</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="flex items-center justify-between mb-1">
+          <h3 class="font-semibold text-sm">ไอคอนแพลตฟอร์มจริง</h3>
+          <span class="tag tag-ready">ใช้ได้</span>
+        </div>
+        <p class="text-xs text-slate-500">หน้า "รายการทั้งหมด" และหน้ารายละเอียด แสดงโลโก้ Facebook/Instagram/TikTok/LINE/YouTube จริงคู่กับชื่อแพลตฟอร์ม แทนตัวหนังสือล้วน</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="flex items-center justify-between mb-1">
+          <h3 class="font-semibold text-sm">ลิงก์งานสำหรับให้ลูกค้าคอมเมนต์</h3>
+          <span class="tag tag-ready">ใช้ได้</span>
+        </div>
+        <p class="text-xs text-slate-500">ลิงก์ที่แปะไว้ตอนสร้างคอนเทนต์ (เช่น Canva/Drive) จะแสดงเป็น "ลิงก์งาน (กดดู/คอมเมนต์ได้)" ใต้ชื่อผู้รับผิดชอบในหน้ารายละเอียด ให้ลูกค้ากดเข้าไปดูหรือคอมเมนต์ที่ต้นทางได้เลย</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="flex items-center justify-between mb-1">
+          <h3 class="font-semibold text-sm">โหมดลูกค้า + สร้างลิงก์ส่งให้ลูกค้า</h3>
+          <span class="tag tag-ready">ใช้ได้</span>
+        </div>
+        <p class="text-xs text-slate-500">กดปุ่ม "โหมดลูกค้า" มุมขวาบน → เลือกแบรนด์ลูกค้าจาก popup → ระบบสร้างลิงก์เฉพาะแบรนด์นั้นและคัดลอกเข้า clipboard ให้อัตโนมัติ ส่งลิงก์นี้ให้ลูกค้าได้เลย เปิดแล้วจะเห็นเฉพาะแบรนด์ตัวเอง มีแถบสีเขียวบอกชัดว่ากำลังอยู่โหมดลูกค้า ดูได้ทุกอย่าง เปลี่ยนสถานะ (Review/Revision/Approved) และคอมเมนต์ได้ แต่แก้ไข/ลบ/สร้างรายการใหม่ไม่ได้ — ลิงก์แบบนี้ไม่มีปุ่มให้สลับกลับไปโหมดแก้ไขเต็มด้วย</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="flex items-center justify-between mb-1">
+          <h3 class="font-semibold text-sm">ความคิดเห็นต่อรายการ (Comments)</h3>
+          <span class="tag tag-ready">ใช้ได้</span>
+        </div>
+        <p class="text-xs text-slate-500">แสดงความเห็น/ขอแก้ไขตรงจุดในแต่ละคอนเทนต์ ทั้งทีมและลูกค้า (โหมดลูกค้า) คอมเมนต์ได้</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="flex items-center justify-between mb-1">
+          <h3 class="font-semibold text-sm">รายงานเบื้องต้น</h3>
+          <span class="tag tag-ready">ใช้ได้</span>
+        </div>
+        <p class="text-xs text-slate-500">สรุปจำนวนงานแยกตามแพลตฟอร์ม/แบรนด์ และอัตราการโพสต์ตรงเวลา — รองรับตัวกรองแบรนด์/ผู้รับผิดชอบ/แพลตฟอร์ม และตัวเลือกเดือนแล้ว</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="flex items-center justify-between mb-1">
+          <h3 class="font-semibold text-sm">เลือกแบรนด์ / ผู้รับผิดชอบแบบ Dropdown</h3>
+          <span class="tag tag-ready">ใช้ได้</span>
+        </div>
+        <p class="text-xs text-slate-500"><b>แบรนด์ต้องเลือกจาก Notion "Brand" database เท่านั้น</b> (เฉพาะที่ Active) — ไม่มีปุ่มเพิ่มแบรนด์ใหม่เองแล้ว ถ้าเป็นแบรนด์ใหม่จริงต้องไปสร้างใน Notion ก่อน แล้วรอ sync ถึงจะเลือกได้ที่นี่ (กันชื่อแบรนด์เพี้ยน/ซ้ำซ้อน) ส่วนผู้รับผิดชอบ/ผู้ตรวจ (จาก "Owner for Grouping") ยังพิมพ์ชื่อใหม่เองได้ถ้าจำเป็น</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="flex items-center justify-between mb-1">
+          <h3 class="font-semibold text-sm">นำเข้าจากรูปปฏิทิน (Canva)</h3>
+          <span class="tag tag-ready">ใช้ได้ (ต้องเชื่อม backend)</span>
+        </div>
+        <p class="text-xs text-slate-500">แปะรูปปฏิทินที่ทำจาก Canva ในหน้า Calendar → AI (Gemini Vision) อ่านและแยกรายการให้ → ตรวจสอบ/แก้ไขในตารางรีวิวก่อน → กดสร้างทั้งหมดเป็น batch เดียว (แบบเดียวกับ GEM Capacity Board) ต้องตั้งค่า GEMINI_API_KEY ใน Script Properties ก่อนใช้งาน</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="flex items-center justify-between mb-1">
+          <h3 class="font-semibold text-sm">แจ้งเตือนผ่าน LINE อัตโนมัติ</h3>
+          <span class="tag tag-ready">ใช้ได้ (ต้องเชื่อม backend)</span>
+        </div>
+        <p class="text-xs text-slate-500">ทุกเช้า 8:15 น. ระบบส่งการ์ด LINE Flex Message สวยๆ (รวมทุกงานวันเดียวกันไว้ในข้อความเดียว) เตือน 3 จังหวะ: <b>อีก 2 วัน</b> และ <b>พรุ่งนี้</b> (เฉพาะงานที่ยังไม่ Ready/Approved) และ <b>วันนี้</b> (ทุกกรณี) — แต่ละการ์ดโชว์ชื่องาน แบรนด์ แพลตฟอร์ม ผู้รับผิดชอบ และวันเวลาที่ต้องโพสชัดเจน สถานะ <b>Scheduled</b> จะไม่ถูกเตือนเลย</p>
+        <p class="text-xs text-slate-500 mt-2"><b>กดปุ่มในการ์ดได้เลย ไม่ต้องเปิดเว็บ</b> — การ์ด "อีก 2 วัน"/"พรุ่งนี้" มีปุ่ม <b>✅ พร้อมแล้ว</b> (เปลี่ยนสถานะเป็น Ready ทันที) การ์ด "วันนี้" มีปุ่ม <b>✅ โพสแล้ว</b> (Posted) และ <b>📅 ตั้งเวลาโพสไว้แล้ว</b> (Scheduled — เผื่อไปตั้งคิวไว้ในเครื่องมืออื่นแล้ว) กดแล้ว LINE จะตอบกลับยืนยันทันที และสถานะในระบบจะเปลี่ยนจริง — ถ้างานมีหลายแพลตฟอร์ม ให้กด "โพสแล้ว" ตอนโพสครบทุกแพลตฟอร์มแล้วเท่านั้น</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="flex items-center justify-between mb-1">
+          <h3 class="font-semibold text-sm">Sync เข้า Google Calendar กลาง</h3>
+          <span class="tag tag-ready">ใช้ได้ (ต้องเชื่อม backend)</span>
+        </div>
+        <p class="text-xs text-slate-500">ทุกคอนเทนต์จะมี event บนปฏิทินกลาง "NinaAgent Hub - Content Planner" อัตโนมัติ อัปเดตเมื่อแก้ไข ลบเมื่อ Cancelled — PM subscribe ปฏิทินนี้ครั้งเดียวก็เห็นตารางโพสต์ทั้งหมดในปฏิทินตัวเองได้เลย (ดูวิธี subscribe ใน SETUP.md)</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="flex items-center justify-between mb-1">
+          <h3 class="font-semibold text-sm">บันทึกข้อมูลถาวร (Google Sheets)</h3>
+          <span class="tag tag-ready">ใช้ได้</span>
+        </div>
+        <p class="text-xs text-slate-500">ข้อมูลทุกอย่างบันทึกลง Google Sheets จริง ไม่หายเมื่อรีเฟรชหน้า — ถ้าเห็นแถบสีแดง "เชื่อมฐานข้อมูลไม่สำเร็จ" มุมขวาบน แปลว่าเน็ตเวิร์กมีปัญหาชั่วคราว ระบบจะสลับไปใช้ข้อมูลจำลองแทนจนกว่าจะเชื่อมได้ใหม่</p>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============ HOW TO USE ============ -->
+  <section class="mb-10">
+    <h2 class="text-lg font-bold mb-4"><i class="fa-solid fa-graduation-cap text-indigo-600"></i> วิธีใช้งานเบื้องต้น</h2>
+    <div class="space-y-3">
+      <div class="flex gap-3">
+        <div class="step-num">1</div>
+        <div class="text-sm"><b>สร้างคอนเทนต์ใหม่</b> — กดปุ่ม "สร้างคอนเทนต์" มุมขวาบน กรอกแบรนด์ แคมเปญ หัวข้อ เลือกแพลตฟอร์ม แล้วเตรียม Caption ของแต่ละแพลตฟอร์มในแท็บที่ปรากฏ</div>
+      </div>
+      <div class="flex gap-3">
+        <div class="step-num">2</div>
+        <div class="text-sm"><b>ตรวจความพร้อม</b> — ดู Checklist ด้านล่างฟอร์ม ถ้ายังไม่ครบจะมีจุดสีเทาบอกว่าขาดอะไร กรอกให้ครบก่อนเปลี่ยนสถานะเป็น Approved/Ready</div>
+      </div>
+      <div class="flex gap-3">
+        <div class="step-num">3</div>
+        <div class="text-sm"><b>ติดตามงานประจำวัน</b> — เข้าแท็บ "หน้ารวมงานวันนี้" เพื่อดูงานที่ต้องโพสต์วันนี้ เลยกำหนด หรือรอตรวจ</div>
+      </div>
+      <div class="flex gap-3">
+        <div class="step-num">4</div>
+        <div class="text-sm"><b>วางแผนล่วงหน้า</b> — เข้าแท็บ Calendar ดูภาพรวมทั้งเดือน ลากการ์ดไปวันอื่นได้ถ้าต้องเลื่อนกำหนด</div>
+      </div>
+      <div class="flex gap-3">
+        <div class="step-num">5</div>
+        <div class="text-sm"><b>กรองดูเฉพาะที่ต้องการ</b> — ใช้ filter bar ด้านบน (แบรนด์/ผู้รับผิดชอบ/แพลตฟอร์ม) เพื่อโฟกัสเฉพาะงานที่เกี่ยวข้อง และในหน้า "รายการทั้งหมด"/"รายงาน" เลื่อนเดือนดูย้อนหลังหรือล่วงหน้าได้จากปุ่มเลือกเดือนด้านบน</div>
+      </div>
+      <div class="flex gap-3">
+        <div class="step-num">6</div>
+        <div class="text-sm"><b>อัปเดตหลังโพสต์จริง</b> — เปิดรายการ กดแก้ไข เปลี่ยนสถานะเป็น "Posted" แล้วบันทึกลิงก์โพสต์จริง (ปิด popup ได้ทั้งปุ่ม "ปิด" ด้านล่าง หรือกากบาทมุมขวาบน) งานที่ตั้งไว้ล่วงหน้าในเครื่องมืออื่นแล้วให้เปลี่ยนเป็น "Scheduled" แทน จะได้ไม่โดนแจ้งเตือนซ้ำ ส่วนงานที่สร้างผิด/ไม่ใช้แล้วกดปุ่ม "ลบ" สีแดงในหน้ารายละเอียดได้เลย (ลบถาวร ย้อนกลับไม่ได้)</div>
+      </div>
+      <div class="flex gap-3">
+        <div class="step-num">7</div>
+        <div class="text-sm"><b>ส่งลิงก์ให้ลูกค้าดูความคืบหน้า</b> — กดปุ่ม "โหมดลูกค้า" มุมขวาบน → เลือกแบรนด์ของลูกค้าจาก popup → ลิงก์เฉพาะแบรนด์นั้นถูกคัดลอกเข้า clipboard ให้อัตโนมัติ วางส่งให้ลูกค้าได้เลย เปิดลิงก์แล้วลูกค้าจะเห็นเฉพาะแบรนด์ตัวเอง ดูทุกอย่างได้ เปลี่ยนสถานะ/คอมเมนต์ได้ แต่แก้ไข/ลบ/สร้างใหม่ไม่ได้ — ถ้าแค่อยากดูตัวอย่างเองในเครื่อง กดลิงก์เล็กๆ ท้าย popup "ดูตัวอย่างโหมดลูกค้าในหน้านี้เลย" แทนได้</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ STATUS FLOW ============ -->
+  <section class="mb-10">
+    <h2 class="text-lg font-bold mb-4"><i class="fa-solid fa-diagram-project text-indigo-600"></i> สถานะของคอนเทนต์</h2>
+    <div class="flex flex-wrap items-center gap-2 text-sm">
+      <span class="status-badge px-3 py-1 rounded-full bg-slate-100 text-slate-600 font-medium">Draft</span>
+      <i class="fa-solid fa-arrow-right text-slate-300"></i>
+      <span class="px-3 py-1 rounded-full bg-yellow-100 text-yellow-800 font-medium">Review</span>
+      <i class="fa-solid fa-arrow-right text-slate-300"></i>
+      <span class="px-3 py-1 rounded-full bg-red-100 text-red-700 font-medium">Revision</span>
+      <i class="fa-solid fa-arrow-right text-slate-300"></i>
+      <span class="px-3 py-1 rounded-full bg-blue-100 text-blue-700 font-medium">Approved</span>
+      <i class="fa-solid fa-arrow-right text-slate-300"></i>
+      <span class="px-3 py-1 rounded-full bg-indigo-100 text-indigo-700 font-medium">Ready</span>
+      <i class="fa-solid fa-arrow-right text-slate-300"></i>
+      <span class="px-3 py-1 rounded-full bg-cyan-100 text-cyan-700 font-medium">Scheduled</span>
+      <i class="fa-solid fa-arrow-right text-slate-300"></i>
+      <span class="px-3 py-1 rounded-full bg-green-100 text-green-700 font-medium">Posted</span>
+    </div>
+    <p class="text-xs text-slate-500 mt-3">ระบบจะคำนวณสถานะเพิ่มเติมให้อัตโนมัติ: <b>กำลังจะถึงกำหนด</b> (ภายใน 24 ชม.), <b>เลยกำหนด</b>, <b>ข้อมูลครบแล้ว</b> และ <b>ข้อมูลไม่ครบ</b> — แสดงเป็นสีบนหน้า Dashboard และ List</p>
+    <p class="text-xs text-slate-500 mt-2"><b>Scheduled</b> = ตั้งเวลาโพสต์ล่วงหน้าไว้ในเครื่องมืออื่นแล้ว (เช่น Meta Business Suite) ระบบจะไม่ส่งการแจ้งเตือน LINE ให้รายการที่อยู่ในสถานะนี้เลย</p>
+  </section>
+
+  <!-- ============ ROADMAP ============ -->
+  <section>
+    <h2 class="text-lg font-bold mb-4"><i class="fa-solid fa-road text-indigo-600"></i> สิ่งที่ยังไม่รวมในเวอร์ชันนี้</h2>
+    <ul class="text-sm text-slate-600 space-y-1.5 list-disc list-inside">
+      <li>การโพสต์เข้าแพลตฟอร์มอัตโนมัติ — ยังต้องคัดลอกข้อความไปโพสต์เองในแต่ละแอป</li>
+      <li>ระบบตรวจสอบว่า "ผู้กดปุ่ม" ใน LINE เป็นเจ้าของงานจริงมั้ย — ตอนนี้ยังไม่มี guard เพราะแต่ละคนได้รับข้อความแยกกันคนละแชท (ยังไม่ใช่ group เดียวกัน) ความเสี่ยงกดผิดคนต่ำ แต่ถ้าย้ายไปเป็น LINE group เดียวกันในอนาคตควรเพิ่มการตรวจสอบนี้</li>
+      <li>ระบบ Login และสิทธิ์ผู้ใช้แบบเต็มรูปแบบ — "โหมดลูกค้า" ตอนนี้ป้องกันได้แค่ระดับ UI (ซ่อนปุ่มแก้ไข/ลบ + ลิงก์เฉพาะแบรนด์) ยังไม่ใช่การล็อกสิทธิ์จากฝั่ง server จริง ผู้ใช้ที่มีความรู้ทางเทคนิคยังสามารถเลี่ยงได้ทางหลักการ</li>
+    </ul>
+  </section>
+
+</div>
+</body>
+</html>
