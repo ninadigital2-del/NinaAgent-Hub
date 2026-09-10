@@ -1033,6 +1033,18 @@ function getNotionProjects() {
   }).sort((a, b) => a.name.localeCompare(b.name));
 }
 
+// รายชื่อ PM สำหรับ dropdown "Project Owner" / "PM ผู้สร้างงาน" — ดึงจาก
+// schema จริงของ Owner property (Projects DB) ตรงๆ แทนการเดาจาก Task ที่
+// บังเอิญแสดงอยู่บนจอตอนนั้น (ของเดิมใช้ getAvailablePmNames_() ซึ่งพังง่าย
+// เพราะ Task ที่ยังไม่ assign อาจไม่มีอันไหนผูก Project ที่มี Owner เลย).
+function getProjectOwnerOptions() {
+  const key = PropertiesService.getScriptProperties().getProperty('NOTION_API_KEY');
+  const dbId = '2e69dccd181d81fabee1e65a00e86e72'; // Projects DB
+  const res = notionFetch(`databases/${dbId}`, 'GET', null, key);
+  if (!res || !res.properties || !res.properties['Owner'] || !res.properties['Owner'].multi_select) return [];
+  return res.properties['Owner'].multi_select.options.map(o => o.name).sort((a, b) => a.localeCompare(b, 'th'));
+}
+
 function createNotionProject(name, brandName, ownerName, key) {
   const payload = {
     parent: { type: 'data_source_id', data_source_id: '2e69dccd-181d-81d0-83af-000b1fd9260b' },
@@ -2318,10 +2330,18 @@ function getAvailablePmNames_() {
   return pmNames.sort(function(a, b) { return a.localeCompare(b, 'th'); });
 }
 
+function ensureProjectOwnersLoaded_(callback) {
+  if (state.projectOwners) { callback(); return; }
+  google.script.run
+    .withSuccessHandler(function(list) { state.projectOwners = list || []; callback(); })
+    .withFailureHandler(function() { state.projectOwners = []; callback(); })
+    .getProjectOwnerOptions();
+}
+
 function fillProjectOwnerSelect_(selectId) {
   const select = document.getElementById(selectId);
   if (!select) return;
-  const pmNames = getAvailablePmNames_();
+  const pmNames = (state.projectOwners || []).slice();
   select.innerHTML = '<option value="">— เลือก PM —</option>';
   pmNames.forEach(function(name) {
     const option = document.createElement('option');
@@ -2604,8 +2624,10 @@ function openCreateModal() {
   ((state.settings && state.settings.brands) || []).forEach(function(b) {
     var o = document.createElement('option'); o.value = b; o.textContent = b; br.appendChild(o);
   });
-  fillProjectOwnerSelect_('ct-new-project-owner');
-  fillProjectOwnerSelect_('ct-pm-owner');
+  ensureProjectOwnersLoaded_(function() {
+    fillProjectOwnerSelect_('ct-new-project-owner');
+    fillProjectOwnerSelect_('ct-pm-owner');
+  });
   // reset
   document.getElementById('ct-task-name').value = '';
   document.getElementById('ct-due-date').value = '';
@@ -2751,7 +2773,7 @@ function fillCalendarImportSelects() {
     contentOption.value = 'Content'; contentOption.textContent = 'Content'; workTypeSelect.appendChild(contentOption);
   }
   workTypeSelect.value = 'Content';
-  fillProjectOwnerSelect_('calendar-project-owner');
+  ensureProjectOwnersLoaded_(function() { fillProjectOwnerSelect_('calendar-project-owner'); });
 }
 
 function handleCalendarFileInput(files) {
