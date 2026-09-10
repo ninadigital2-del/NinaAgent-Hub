@@ -1185,7 +1185,7 @@ header{background:#fff;border-bottom:1px solid #e5e3dd;padding:10px 20px;display
 .btn-done:disabled,.btn-edit:disabled,.btn-return:disabled,.btn-delete:disabled{opacity:0.5;cursor:default}
 .modal-backdrop{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;z-index:1000;opacity:0;pointer-events:none;transition:opacity .2s}
 .modal-backdrop.show{opacity:1;pointer-events:auto}
-.modal-box{background:#fff;border-radius:12px;border:1px solid #e5e3dd;width:95%;max-width:720px;padding:24px;box-shadow:0 8px 30px rgba(0,0,0,0.12);transform:scale(0.95);transition:transform .2s}
+.modal-box{background:#fff;border-radius:12px;border:1px solid #e5e3dd;width:95%;max-width:720px;max-height:90vh;overflow-y:auto;padding:24px;box-shadow:0 8px 30px rgba(0,0,0,0.12);transform:scale(0.95);transition:transform .2s}
 .modal-backdrop.show .modal-box{transform:scale(1)}
 .chip-group{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
 .chip{background:#f0efea;border:1px solid #e5e3dd;border-radius:20px;padding:4px 10px;font-size:11px;color:#555;cursor:pointer;transition:all 0.2s;user-select:none;font-weight:500;}
