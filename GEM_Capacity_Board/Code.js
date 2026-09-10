@@ -993,12 +993,40 @@ function handleAssign(body) {
 // ============================================================
 // สร้าง Task ใหม่จากหน้า Capacity Board (feature: Create Task)
 // ============================================================
+// Owner ของ Bot Inbox project ต้องตรงกับ PM ที่กำลังสร้าง Task ให้ถูกต้อง —
+// map ตายตัวไปที่ Project ที่มีอยู่แล้ว (คนละอันต่อ PM คนละคน) แทนการสร้างใหม่
+const PM_INBOX_PROJECT_ID = {
+  'PM - อ้อ': '39e9dccd181d81d68199cce9fdd27675', // 🤖 Bot Inbox — รอจัด Project (PM - อ้อ)
+  'PM - ยู้': '3889dccd181d81b6af2bc0a3cb4983c7', // Bot Inbox — รอจัด Project (PM - ยู้)
+};
+
+// Service Type "Brand Management" — Project กลุ่มนี้ไม่มี Task ประเภท Graphic
+// ให้สร้างผ่านบอร์ดนี้ เลยตัดออกจาก dropdown
+const SERVICE_TYPE_BRAND_MANAGEMENT_ID = '2f09dccd-181d-8059-b2a6-cfa7b4a18b1e';
+
 function getNotionProjects() {
   const key = PropertiesService.getScriptProperties().getProperty('NOTION_API_KEY');
   const dbId = '2e69dccd181d81fabee1e65a00e86e72'; // Projects DB
-  const res = notionFetch(`databases/${dbId}/query`, 'POST', { page_size: 100 }, key);
-  if (!res || !res.results) return [];
-  return res.results.map(p => {
+  const filter = {
+    and: [
+      { property: 'Status', status: { does_not_equal: 'Done' } },
+      { property: 'Status', status: { does_not_equal: 'Archived' } },
+      { property: 'Service Type', relation: { does_not_contain: SERVICE_TYPE_BRAND_MANAGEMENT_ID } },
+    ]
+  };
+
+  let allResults = [];
+  let cursor = null;
+  do {
+    const payload = { page_size: 100, filter: filter };
+    if (cursor) payload.start_cursor = cursor;
+    const res = notionFetch(`databases/${dbId}/query`, 'POST', payload, key);
+    if (!res || !res.results) break;
+    allResults = allResults.concat(res.results);
+    cursor = res.has_more ? res.next_cursor : null;
+  } while (cursor);
+
+  return allResults.map(p => {
     const t = p.properties['Project Name'];
     const name = (t && t.title && t.title[0] && t.title[0].plain_text) ? t.title[0].plain_text : 'Untitled';
     return { id: p.id, name: name };
@@ -1039,6 +1067,11 @@ function handleCreateTask(body) {
     const created = createNotionProject(body.newProjectName, body.newProjectBrand, body.newProjectOwner, key);
     if (!created.ok) return { ok: false, error: 'สร้าง Project ไม่สำเร็จ: ' + created.error };
     projectId = created.id;
+  }
+  // ไม่ระบุ Project เลย → จัดเข้า Bot Inbox ของ PM ที่เลือก (Project เดิมที่มีอยู่แล้ว
+  // ต่อ PM แต่ละคน) แทนการปล่อยว่างไว้ ให้ Owner ถูกต้องตั้งแต่แรก
+  if (!projectId && !body.newProjectName && body.pmOwner && PM_INBOX_PROJECT_ID[body.pmOwner]) {
+    projectId = PM_INBOX_PROJECT_ID[body.pmOwner];
   }
 
   // 2) สร้างหน้า Task ใน Notion
@@ -1790,6 +1823,10 @@ header{background:#fff;border-bottom:1px solid #e5e3dd;padding:10px 20px;display
     <div class="modal-form-group">
       <label for="ct-project">Project</label>
       <select id="ct-project" onchange="onCtProjectChange()" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;"><option value="">— เลือก Project —</option></select>
+    </div>
+    <div id="ct-pminbox-box" style="display:none; padding:10px 12px; margin-bottom:12px; border-left:3px solid #EF9F27; background:#fffaf0;">
+      <label for="ct-pm-owner" style="display:block; font-size:13px; font-weight:500; color:#555; margin-bottom:5px;">PM ผู้สร้างงาน <span style="color:#888;font-weight:normal;">(ไม่ระบุ Project — งานจะเข้า Bot Inbox ของ PM ที่เลือก รอ PM ย้ายไป Project จริงทีหลัง)</span></label>
+      <select id="ct-pm-owner" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;"><option value="">— เลือก PM —</option></select>
     </div>
     <div id="ct-newproject-box" style="display:none; padding:10px 12px; margin-bottom:12px; border-left:3px solid #22A06B; background:#f6fdf9;">
       <label for="ct-new-project-name" style="display:block; font-size:13px; font-weight:500; color:#555; margin-bottom:5px;">ชื่อ Project ใหม่</label>
@@ -2568,12 +2605,14 @@ function openCreateModal() {
     var o = document.createElement('option'); o.value = b; o.textContent = b; br.appendChild(o);
   });
   fillProjectOwnerSelect_('ct-new-project-owner');
+  fillProjectOwnerSelect_('ct-pm-owner');
   // reset
   document.getElementById('ct-task-name').value = '';
   document.getElementById('ct-due-date').value = '';
   document.getElementById('ct-new-project-name').value = '';
   document.getElementById('ct-brief-link').value = '';
   document.getElementById('ct-newproject-box').style.display = 'none';
+  document.getElementById('ct-pminbox-box').style.display = 'block';
   // Project (lazy load)
   var pj = document.getElementById('ct-project');
   if (!state.projects) {
@@ -2596,8 +2635,9 @@ function fillProjectSelect() {
   var nw = document.createElement('option'); nw.value = '__new__'; nw.textContent = '+ สร้าง Project ใหม่'; pj.appendChild(nw);
 }
 function onCtProjectChange() {
-  document.getElementById('ct-newproject-box').style.display =
-    (document.getElementById('ct-project').value === '__new__') ? 'block' : 'none';
+  var val = document.getElementById('ct-project').value;
+  document.getElementById('ct-newproject-box').style.display = (val === '__new__') ? 'block' : 'none';
+  document.getElementById('ct-pminbox-box').style.display = (val === '') ? 'block' : 'none';
 }
 function closeCreateModal() {
   document.getElementById('create-modal').classList.remove('show');
@@ -2631,6 +2671,10 @@ function submitCreateTask() {
     payload.newProjectOwner = projectOwner;
   } else if (projectSel) {
     payload.projectId = projectSel;
+  } else {
+    var pmOwner = document.getElementById('ct-pm-owner').value;
+    if (!pmOwner) { showToast('กรุณาเลือก PM (ไม่ระบุ Project — งานจะเข้า Bot Inbox ของ PM ที่เลือก)'); return; }
+    payload.pmOwner = pmOwner;
   }
   var btn = document.getElementById('ct-save-btn');
   btn.disabled = true; btn.textContent = 'กำลังสร้าง...';
