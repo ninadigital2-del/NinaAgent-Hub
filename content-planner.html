@@ -394,7 +394,7 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
         <input id="import-brand-new" class="form-input mt-2 hidden" placeholder="พิมพ์ชื่อแบรนด์ใหม่">
         <p class="text-xs text-slate-400 mt-1">ทุกรายการที่นำเข้าจากรูปนี้จะถูกตั้งเป็นแบรนด์นี้ทั้งหมด</p>
       </div>
-      <div class="mb-4 grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div class="mb-4 grid grid-cols-2 md:grid-cols-3 gap-3">
         <div>
           <label class="form-label">ผู้รับผิดชอบ</label>
           <select id="import-owner" class="form-input" onchange="onPersonSelectChange('import-owner')"></select>
@@ -409,11 +409,11 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
           <label class="form-label">เวลาโพสเริ่มต้น</label>
           <input id="import-default-time" type="time" class="form-input" value="10:00">
         </div>
-        <div>
-          <label class="form-label">แพลตฟอร์มเริ่มต้น</label>
-          <div class="flex flex-wrap gap-2" id="import-default-platform"></div>
-        </div>
-        <p class="text-xs text-slate-400 col-span-2 md:col-span-4">รูปปฏิทินไม่มีข้อมูล 4 อย่างนี้ให้ AI อ่าน — เลือกไว้ที่นี่ครั้งเดียวจะถูกตั้งให้ทุกรายการที่นำเข้า (แก้เป็นรายชิ้นทีหลังได้) — ถ้า AI อ่านแพลตฟอร์มจากรูปได้เอง จะใช้ค่าที่ AI อ่านแทน ใช้ค่าเริ่มต้นนี้เฉพาะตอนอ่านไม่ได้</p>
+      </div>
+      <div class="mb-4">
+        <label class="form-label">แพลตฟอร์มเริ่มต้น</label>
+        <div class="flex flex-wrap gap-2" id="import-default-platform"></div>
+        <p class="text-xs text-slate-400 mt-1">รูปปฏิทินไม่มีข้อมูล 4 อย่างนี้ให้ AI อ่าน — เลือกไว้ที่นี่ครั้งเดียวจะถูกตั้งให้ทุกรายการที่นำเข้า (แก้เป็นรายชิ้นทีหลังได้) — ถ้า AI อ่านแพลตฟอร์มจากรูปได้เอง จะใช้ค่าที่ AI อ่านแทน ใช้ค่าเริ่มต้นนี้เฉพาะตอนอ่านไม่ได้</p>
       </div>
       <label id="import-dropzone" class="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-slate-200 rounded-xl p-8 text-center cursor-pointer hover:bg-slate-50">
         <i class="fa-solid fa-cloud-arrow-up text-2xl text-slate-300"></i>
