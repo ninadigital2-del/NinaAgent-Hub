@@ -1732,7 +1732,7 @@ header{background:#fff;border-bottom:1px solid #e5e3dd;padding:10px 20px;display
 .tag{font-size:12px;padding:2px 8px;border-radius:4px;background:#f5f4f0;border:1px solid #e5e3dd;color:#777}
 .tag-due{color:#854F0B}
 .tag-late{color:#A32D2D}
-.abar{padding:12px 16px;border-top:1px solid #e5e3dd;background:#fafaf8;display:flex;gap:10px;align-items:center;flex-shrink:0}
+.abar{padding:12px 16px;border-top:1px solid #e5e3dd;background:#fafaf8;display:flex;flex-wrap:wrap;gap:10px;align-items:center;flex-shrink:0}
 .abar select{flex:1;font-size:14px;padding:8px 12px;border:1px solid #ddd;border-radius:7px;background:#fff;color:#1a1a18}
 .abtn{padding:8px 18px;font-size:14px;font-weight:500;border:1px solid #378ADD;border-radius:7px;background:#EBF4FD;color:#185FA5;cursor:pointer;white-space:nowrap}
 .abtn:not(:disabled):hover{background:#378ADD;color:#fff}
