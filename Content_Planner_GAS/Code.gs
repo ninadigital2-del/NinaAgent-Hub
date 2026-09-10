@@ -522,6 +522,8 @@ function syncCalendarEvent(item) {
   const ownerEmailMap = getOwnerEmailMap();
   const targetGuestEmail = ownerEmailMap[normalizeOwnerTag(item.Owner)] || null;
 
+  const color = brandEventColor(item.Brand);
+
   let event = null;
   if (item.CalendarEventId) {
     try { event = cal.getEventById(item.CalendarEventId); } catch (e) { event = null; }
@@ -530,12 +532,33 @@ function syncCalendarEvent(item) {
     event.setTitle(title);
     event.setTime(start, end);
     event.setDescription(description);
+    event.setColor(color);
     syncEventGuest(event, targetGuestEmail, ownerEmailMap);
     return event.getId();
   }
   const created = cal.createEvent(title, start, end, { description });
+  created.setColor(color);
   syncEventGuest(created, targetGuestEmail, ownerEmailMap);
   return created.getId();
+}
+
+// Google Calendar only offers 11 fixed colors per event — hash the brand
+// name to one of them so the same brand always lands on the same color and
+// different brands (scheduled the same day) are visually distinct at a
+// glance, without needing to maintain a manual brand->color mapping.
+const BRAND_EVENT_COLORS = [
+  CalendarApp.EventColor.PALE_BLUE, CalendarApp.EventColor.PALE_GREEN,
+  CalendarApp.EventColor.MAUVE, CalendarApp.EventColor.PALE_RED,
+  CalendarApp.EventColor.YELLOW, CalendarApp.EventColor.ORANGE,
+  CalendarApp.EventColor.CYAN, CalendarApp.EventColor.GRAY,
+  CalendarApp.EventColor.BLUE, CalendarApp.EventColor.GREEN,
+  CalendarApp.EventColor.RED,
+];
+function brandEventColor(brand) {
+  const str = brand || '';
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) hash = (hash * 31 + str.charCodeAt(i)) >>> 0;
+  return BRAND_EVENT_COLORS[hash % BRAND_EVENT_COLORS.length];
 }
 
 /**
