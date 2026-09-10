@@ -374,9 +374,9 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
 
 <!-- ============ DETAIL / COPY MODAL ============ -->
 <div id="detail-modal" class="fixed inset-0 modal-mask hidden items-center justify-center z-50 p-4">
-  <div class="bg-white rounded-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto relative">
+  <div class="bg-white rounded-2xl w-full max-w-lg max-h-[85vh] relative overflow-hidden">
     <button onclick="closeDetail()" class="absolute top-3 right-3 text-slate-400 hover:text-slate-700 bg-white rounded-full w-7 h-7 flex items-center justify-center shadow-sm border border-slate-100 z-10"><i class="fa-solid fa-xmark"></i></button>
-    <div id="detail-body" class="p-5"></div>
+    <div id="detail-body" class="p-5 overflow-y-auto max-h-[85vh]"></div>
   </div>
 </div>
 
@@ -413,7 +413,7 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
       <div class="mb-4">
         <label class="form-label">แพลตฟอร์มเริ่มต้น</label>
         <div class="flex flex-wrap gap-2" id="import-default-platform"></div>
-        <p class="text-xs text-slate-400 mt-1">รูปปฏิทินไม่มีข้อมูล 4 อย่างนี้ให้ AI อ่าน — เลือกไว้ที่นี่ครั้งเดียวจะถูกตั้งให้ทุกรายการที่นำเข้า (แก้เป็นรายชิ้นทีหลังได้) — ถ้า AI อ่านแพลตฟอร์มจากรูปได้เอง จะใช้ค่าที่ AI อ่านแทน ใช้ค่าเริ่มต้นนี้เฉพาะตอนอ่านไม่ได้</p>
+        <p class="text-xs text-slate-400 mt-1">รูปปฏิทินไม่มีข้อมูล 4 อย่างนี้ให้ AI อ่าน — เลือกไว้ที่นี่ครั้งเดียวจะถูกตั้งให้ทุกรายการที่นำเข้าเหมือนกันหมด (แก้เป็นรายชิ้นทีหลังในตารางรีวิวด้านล่างได้)</p>
       </div>
       <label id="import-dropzone" class="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-slate-200 rounded-xl p-8 text-center cursor-pointer hover:bg-slate-50">
         <i class="fa-solid fa-cloud-arrow-up text-2xl text-slate-300"></i>
@@ -1540,7 +1540,7 @@ async function runImportAnalysis(){
       tempId: idx,
       title: it.title || '',
       date: it.date || '',
-      platforms: PLATFORMS.includes(it.platform) ? [it.platform] : defaultPlatforms,
+      platforms: [...defaultPlatforms],
       note: it.note || '',
       selected: true,
     }));
