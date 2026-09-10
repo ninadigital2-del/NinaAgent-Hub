@@ -411,7 +411,7 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
         </div>
         <div>
           <label class="form-label">แพลตฟอร์มเริ่มต้น</label>
-          <select id="import-default-platform" class="form-input"></select>
+          <div class="flex flex-wrap gap-2" id="import-default-platform"></div>
         </div>
         <p class="text-xs text-slate-400 col-span-2 md:col-span-4">รูปปฏิทินไม่มีข้อมูล 4 อย่างนี้ให้ AI อ่าน — เลือกไว้ที่นี่ครั้งเดียวจะถูกตั้งให้ทุกรายการที่นำเข้า (แก้เป็นรายชิ้นทีหลังได้) — ถ้า AI อ่านแพลตฟอร์มจากรูปได้เอง จะใช้ค่าที่ AI อ่านแทน ใช้ค่าเริ่มต้นนี้เฉพาะตอนอ่านไม่ได้</p>
       </div>
@@ -1478,7 +1478,9 @@ function openImportImage(){
   document.getElementById('import-owner-new').value = '';
   document.getElementById('import-reviewer-new').value = '';
   document.getElementById('import-default-time').value = '10:00';
-  document.getElementById('import-default-platform').innerHTML = PLATFORMS.map(p => `<option>${p}</option>`).join('');
+  document.getElementById('import-default-platform').innerHTML = PLATFORMS.map((p, idx) =>
+    `<label class="flex items-center gap-1 text-sm border border-slate-200 rounded-lg px-2 py-1"><input type="checkbox" value="${p}" ${idx===0?'checked':''}> ${p}</label>`
+  ).join('');
   populateBrandDropdown('import-brand', sharedBrand || null);
   populatePersonDropdown('import-owner');
   populatePersonDropdown('import-reviewer');
@@ -1533,12 +1535,12 @@ async function runImportAnalysis(){
   try {
     const base64 = await fileToBase64(file);
     const resp = await apiCall('extractImage', { imageBase64: base64, mimeType: file.type || 'image/png' });
-    const defaultPlatform = document.getElementById('import-default-platform').value || 'Facebook';
+    const defaultPlatforms = importDefaultPlatforms();
     importDraft = resp.items.map((it, idx) => ({
       tempId: idx,
       title: it.title || '',
       date: it.date || '',
-      platform: PLATFORMS.includes(it.platform) ? it.platform : defaultPlatform,
+      platforms: PLATFORMS.includes(it.platform) ? [it.platform] : defaultPlatforms,
       note: it.note || '',
       selected: true,
     }));
@@ -1569,6 +1571,18 @@ function fileToBase64(file){
     reader.readAsDataURL(file);
   });
 }
+function importDefaultPlatforms(){
+  const checked = [...document.querySelectorAll('#import-default-platform input:checked')].map(cb => cb.value);
+  return checked.length ? checked : ['Facebook'];
+}
+function toggleImportPlatform(tempId, platform, checked){
+  const it = importDraft[tempId];
+  if (checked) {
+    if (!it.platforms.includes(platform)) it.platforms.push(platform);
+  } else {
+    it.platforms = it.platforms.filter(p => p !== platform);
+  }
+}
 function renderImportReview(){
   document.getElementById('import-review-body').innerHTML = importDraft.map(it => `
     <tr class="border-t border-slate-100">
@@ -1576,9 +1590,9 @@ function renderImportReview(){
       <td class="p-2"><input class="form-input" value="${it.title.replace(/"/g,'&quot;')}" oninput="importDraft[${it.tempId}].title=this.value"></td>
       <td class="p-2"><input type="date" class="form-input" value="${it.date}" oninput="importDraft[${it.tempId}].date=this.value"></td>
       <td class="p-2">
-        <select class="form-input" onchange="importDraft[${it.tempId}].platform=this.value">
-          ${PLATFORMS.map(p=>`<option ${p===it.platform?'selected':''}>${p}</option>`).join('')}
-        </select>
+        <div class="flex flex-wrap gap-1">
+          ${PLATFORMS.map(p=>`<label class="flex items-center gap-1 text-xs border border-slate-200 rounded-lg px-1.5 py-0.5"><input type="checkbox" value="${p}" ${it.platforms.includes(p)?'checked':''} onchange="toggleImportPlatform(${it.tempId}, '${p}', this.checked)"> ${p}</label>`).join('')}
+        </div>
       </td>
       <td class="p-2"><input class="form-input" value="${(it.note||'').replace(/"/g,'&quot;')}" oninput="importDraft[${it.tempId}].note=this.value"></td>
     </tr>
@@ -1591,6 +1605,7 @@ function toggleImportSelectAll(checked){
 async function confirmImport(){
   const selected = importDraft.filter(it => it.selected && it.title.trim());
   if (!selected.length) { alert('เลือกอย่างน้อย 1 รายการ'); return; }
+  if (selected.some(it => !it.platforms.length)) { alert('มีรายการที่ยังไม่ได้เลือกแพลตฟอร์มเลยสักอัน กรุณาเลือกให้ครบ'); return; }
   const brand = resolvedBrand('import-brand');
   if (!brand) { alert('กรุณาเลือกแบรนด์ก่อน'); return; }
   const owner = resolvedPerson('import-owner');
@@ -1601,7 +1616,7 @@ async function confirmImport(){
   try {
     const payload = selected.map(it => ({
       Brand: brand, Campaign: '', Title: it.title, Note: it.note,
-      Platforms: [it.platform],
+      Platforms: it.platforms,
       ScheduledAt: it.date ? new Date(`${it.date}T${defaultTime}:00+07:00`).toISOString() : new Date().toISOString(),
       Owner: owner, Reviewer: reviewer, Status: 'Draft',
     }));
