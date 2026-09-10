@@ -216,11 +216,15 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
         <button onclick="shiftMonth(1)" class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-sm"><i class="fa-solid fa-chevron-right"></i></button>
       </div>
     </div>
-    <div id="cal-hint" class="text-xs text-slate-400 mb-3"><i class="fa-solid fa-hand"></i> ลากการ์ดไปวางวันที่ต้องการเพื่อเลื่อนกำหนดโพสต์</div>
-    <div class="grid grid-cols-7">
-      <div class="cal-weekday weekend">อา</div><div class="cal-weekday">จ</div><div class="cal-weekday">อ</div><div class="cal-weekday">พ</div><div class="cal-weekday">พฤ</div><div class="cal-weekday">ศ</div><div class="cal-weekday weekend">ส</div>
+    <div id="cal-hint" class="text-xs text-slate-400 mb-3"><i class="fa-solid fa-hand"></i> ลากการ์ดไปวางวันที่ต้องการเพื่อเลื่อนกำหนดโพสต์ — บนมือถือปัดซ้าย/ขวาเพื่อดูทั้งสัปดาห์ได้</div>
+    <div class="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
+      <div class="min-w-[640px]">
+        <div class="grid grid-cols-7">
+          <div class="cal-weekday weekend">อา</div><div class="cal-weekday">จ</div><div class="cal-weekday">อ</div><div class="cal-weekday">พ</div><div class="cal-weekday">พฤ</div><div class="cal-weekday">ศ</div><div class="cal-weekday weekend">ส</div>
+        </div>
+        <div id="cal-body" class="grid grid-cols-7 gap-2"></div>
+      </div>
     </div>
-    <div id="cal-body" class="grid grid-cols-7 gap-2"></div>
   </div>
 
   <!-- ============ LIST VIEW ============ -->
@@ -1306,7 +1310,9 @@ async function saveContent(){
   };
 
   const saveBtn = document.getElementById('save-content-btn');
+  const originalSaveBtnHtml = saveBtn.innerHTML;
   saveBtn.disabled = true;
+  saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังบันทึก...';
 
   if (API_URL) {
     try {
@@ -1320,6 +1326,7 @@ async function saveContent(){
       }
     } catch (err) {
       saveBtn.disabled = false;
+      saveBtn.innerHTML = originalSaveBtnHtml;
       alert('บันทึกไปที่ระบบหลังบ้านไม่สำเร็จ: ' + err.message);
       return;
     }
@@ -1328,6 +1335,7 @@ async function saveContent(){
   }
 
   saveBtn.disabled = false;
+  saveBtn.innerHTML = originalSaveBtnHtml;
   closeForm();
   populateFilters();
   refreshAll();
@@ -1527,7 +1535,9 @@ async function runImportAnalysis(){
   if (!API_URL) { resetImportStatus(); return; }
   if (!resolvedBrand('import-brand')) { alert('กรุณาเลือกแบรนด์ก่อน'); return; }
   const analyzeBtn = document.getElementById('import-analyze-btn');
+  const originalAnalyzeBtnHtml = analyzeBtn.innerHTML;
   analyzeBtn.disabled = true;
+  analyzeBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังวิเคราะห์...';
   const status = document.getElementById('import-status');
   status.className = 'mt-4 text-sm bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-lg p-3';
   status.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังอ่านรูปด้วย AI... (อาจใช้เวลาสักครู่)';
@@ -1561,6 +1571,7 @@ async function runImportAnalysis(){
     status.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> อ่านรูปไม่สำเร็จ: ' + err.message;
   } finally {
     analyzeBtn.disabled = false;
+    analyzeBtn.innerHTML = originalAnalyzeBtnHtml;
   }
 }
 function fileToBase64(file){
@@ -1612,7 +1623,9 @@ async function confirmImport(){
   const reviewer = resolvedPerson('import-reviewer');
   const defaultTime = document.getElementById('import-default-time').value || '10:00';
   const btn = document.getElementById('import-confirm-btn');
+  const originalBtnHtml = btn.innerHTML;
   btn.disabled = true;
+  btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> กำลังสร้าง ${selected.length} รายการ...`;
   try {
     const payload = selected.map(it => ({
       Brand: brand, Campaign: '', Title: it.title, Note: it.note,
@@ -1630,6 +1643,7 @@ async function confirmImport(){
     alert('สร้างรายการไม่สำเร็จ: ' + err.message);
   } finally {
     btn.disabled = false;
+    btn.innerHTML = originalBtnHtml;
   }
 }
 
