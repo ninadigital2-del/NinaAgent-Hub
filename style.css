@@ -133,6 +133,8 @@ body {
 .sidebar-scroll {
     flex: 1;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
     padding: 0 1.5rem 2rem 1.5rem;
 }
 
@@ -603,13 +605,16 @@ body.tool-only-mode #tool-frame {
     .sidebar {
         position: fixed;
         top: 0; left: 0; bottom: 0;
+        height: 100vh;
+        height: 100dvh;
         transform: translateX(-100%);
         width: 280px;
         box-shadow: 10px 0 30px rgba(0,0,0,0.1);
+        touch-action: pan-y;
     }
-    
+
     .sidebar.open { transform: translateX(0); }
-    
+
     .sidebar-overlay {
         position: fixed;
         top: 0; left: 0; right: 0; bottom: 0;
@@ -629,6 +634,16 @@ body.tool-only-mode #tool-frame {
     
     .modal-overlay { padding: 0.5rem; }
     .modal-container { height: 95vh; border-radius: 1rem; }
+
+    /* Rounded corners + shadow force the iframe onto a clipped compositing
+       layer on some Android Chrome builds, which has been linked to touch
+       events landing on the wrong on-screen position inside the iframe
+       (scroll only responding near one edge). Drop the clip on mobile where
+       the iframe is full-bleed anyway. */
+    #tool-frame {
+        border-radius: 0 !important;
+        box-shadow: none !important;
+    }
 }
 
 /* A rotated phone is often wider than 768px, so it missed the mobile block
@@ -661,9 +676,12 @@ body.tool-only-mode #tool-frame {
     .sidebar {
         position: fixed;
         top: 0; left: 0; bottom: 0;
+        height: 100vh;
+        height: 100dvh;
         transform: translateX(-100%);
         width: 280px;
         box-shadow: 10px 0 30px rgba(0,0,0,0.1);
+        touch-action: pan-y;
     }
 
     .sidebar.open { transform: translateX(0); }
@@ -681,5 +699,10 @@ body.tool-only-mode #tool-frame {
     .sidebar-overlay.active {
         opacity: 1;
         pointer-events: all;
+    }
+
+    #tool-frame {
+        border-radius: 0 !important;
+        box-shadow: none !important;
     }
 }
