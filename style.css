@@ -630,3 +630,56 @@ body.tool-only-mode #tool-frame {
     .modal-overlay { padding: 0.5rem; }
     .modal-container { height: 95vh; border-radius: 1rem; }
 }
+
+/* A rotated phone is often wider than 768px, so it missed the mobile block
+   above entirely and fell back to the desktop sidebar -- fine on an actual
+   desktop, but on a short landscape screen that fixed 280px-wide sidebar
+   eats most of the little vertical room there is. Key this off height
+   instead of width so phones get the same collapsible drawer regardless of
+   orientation. */
+@media (max-height: 500px) and (orientation: landscape) {
+    .desktop-only { display: none !important; }
+    .mobile-only { display: flex !important; }
+
+    body {
+        overflow: auto;
+        height: auto;
+    }
+
+    .layout-wrapper, .main-content {
+        flex-direction: column;
+        overflow: visible;
+        height: auto;
+    }
+
+    .content-scroll {
+        overflow: visible;
+    }
+
+    .mobile-header { display: flex; }
+
+    .sidebar {
+        position: fixed;
+        top: 0; left: 0; bottom: 0;
+        transform: translateX(-100%);
+        width: 280px;
+        box-shadow: 10px 0 30px rgba(0,0,0,0.1);
+    }
+
+    .sidebar.open { transform: translateX(0); }
+
+    .sidebar-overlay {
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(15, 23, 42, 0.4);
+        z-index: 95;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s ease;
+    }
+
+    .sidebar-overlay.active {
+        opacity: 1;
+        pointer-events: all;
+    }
+}

@@ -75,6 +75,25 @@ function showDashboard(element, skipHash = false) {
     if (sidebarOverlay) sidebarOverlay.classList.remove('active');
 }
 
+// The iframe that hosts each tool needs an explicit pixel height (it's the
+// only reliable way to get a cross-origin iframe -- e.g. an Apps Script
+// tool -- to scroll its own content correctly on mobile). A fixed
+// "calc(100vh - 6rem)" only happened to match the desktop header's height;
+// on mobile the header/sidebar chrome is a different size (and changes
+// between portrait/landscape), so that guess left too little or a
+// mismatched amount of room and made the iframe's internal scrolling feel
+// broken or tiny. Measuring the element's actual on-screen position adapts
+// to any header height, orientation, or device automatically.
+function sizeIframeView() {
+    const iframeView = document.getElementById('iframe-view');
+    if (!iframeView || iframeView.style.display === 'none') return;
+    const top = iframeView.getBoundingClientRect().top;
+    const available = window.innerHeight - top;
+    if (available > 100) iframeView.style.height = available + 'px';
+}
+window.addEventListener('resize', sizeIframeView);
+window.addEventListener('orientationchange', () => setTimeout(sizeIframeView, 200));
+
 function loadToolInFrame(element, toolName, url, skipHash = false) {
     if (window.event && window.event.preventDefault) window.event.preventDefault();
     let targetHash = window.location.hash;
@@ -93,18 +112,19 @@ function loadToolInFrame(element, toolName, url, skipHash = false) {
     document.getElementById('dashboard-view').style.display = 'none';
     const iframeView = document.getElementById('iframe-view');
     iframeView.style.display = 'block';
-    
+
     // Remove padding for iframe view to prevent cropping
     if (window.innerWidth <= 768) {
         document.querySelector('.content-scroll').style.padding = '0';
     } else {
         document.querySelector('.content-scroll').style.padding = '0 1rem';
     }
-    
+
     // Show loader and set src
     document.getElementById('iframe-loader').style.display = 'flex';
     document.getElementById('tool-frame').src = url;
-    
+    sizeIframeView();
+
     // Close mobile sidebar if open
     sidebar.classList.remove('open');
     sidebarOverlay.classList.remove('active');
