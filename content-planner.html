@@ -112,6 +112,24 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
 
 .cal-more { font-size: 10px; font-weight: 600; color: #6366f1; padding: 2px 6px; cursor: pointer; }
 .cal-more:hover { text-decoration: underline; }
+
+/* Narrow phones: 7 columns of full event pills don't fit and forcing a
+   min-width forced a horizontal scroll that fought the page's own vertical
+   scroll (iOS routes ambiguous diagonal drags to whichever axis it guesses,
+   so both ended up feeling broken). Shrink the grid to fit instead -- drop
+   the event title down to just its status dot so every column stays
+   tappable without needing any horizontal scroll at all. */
+@media (max-width: 640px) {
+  .cal-weekday { font-size: 9px; padding: 2px 0 4px; }
+  .day-cell { min-height: 46px; padding: 4px 2px; gap: 2px; border-radius: 8px; }
+  .day-num { font-size: 10.5px; }
+  .day-num.today-badge { width: 17px; height: 17px; font-size: 10px; }
+  .cal-item { padding: 2px; justify-content: center; border-radius: 999px; }
+  .cal-item .truncate { display: none; }
+  .cal-item .cal-dot { width: 7px; height: 7px; }
+  .cal-more { font-size: 8.5px; padding: 1px 2px; text-align: center; }
+  .day-empty-hint { display: none; }
+}
 </style>
 </head>
 <body class="text-slate-800">
@@ -216,15 +234,11 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
         <button onclick="shiftMonth(1)" class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-sm"><i class="fa-solid fa-chevron-right"></i></button>
       </div>
     </div>
-    <div id="cal-hint" class="text-xs text-slate-400 mb-3"><i class="fa-solid fa-hand"></i> ลากการ์ดไปวางวันที่ต้องการเพื่อเลื่อนกำหนดโพสต์ — บนมือถือปัดซ้าย/ขวาเพื่อดูทั้งสัปดาห์ได้</div>
-    <div class="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
-      <div class="min-w-[640px]">
-        <div class="grid grid-cols-7">
-          <div class="cal-weekday weekend">อา</div><div class="cal-weekday">จ</div><div class="cal-weekday">อ</div><div class="cal-weekday">พ</div><div class="cal-weekday">พฤ</div><div class="cal-weekday">ศ</div><div class="cal-weekday weekend">ส</div>
-        </div>
-        <div id="cal-body" class="grid grid-cols-7 gap-2"></div>
-      </div>
+    <div id="cal-hint" class="text-xs text-slate-400 mb-3"><i class="fa-solid fa-hand"></i> ลากการ์ดไปวางวันที่ต้องการเพื่อเลื่อนกำหนดโพสต์ — บนมือถือแตะที่จุดสีเพื่อดูรายละเอียด</div>
+    <div class="grid grid-cols-7">
+      <div class="cal-weekday weekend">อา</div><div class="cal-weekday">จ</div><div class="cal-weekday">อ</div><div class="cal-weekday">พ</div><div class="cal-weekday">พฤ</div><div class="cal-weekday">ศ</div><div class="cal-weekday weekend">ส</div>
     </div>
+    <div id="cal-body" class="grid grid-cols-7 gap-1 md:gap-2"></div>
   </div>
 
   <!-- ============ LIST VIEW ============ -->
