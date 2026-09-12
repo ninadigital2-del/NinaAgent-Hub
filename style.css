@@ -132,6 +132,11 @@ body {
 
 .sidebar-scroll {
     flex: 1;
+    min-height: 0; /* without this, a flex child's default auto min-size
+       stops it shrinking below its content height, so it grows past the
+       fixed-position drawer's edge instead of scrolling internally --
+       invisible in portrait (there's room for everything) but cuts the
+       nav list short with no way to scroll to the rest in landscape. */
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     touch-action: pan-y;
@@ -605,12 +610,11 @@ body.tool-only-mode #tool-frame {
     .sidebar {
         position: fixed;
         top: 0; left: 0; bottom: 0;
-        height: 100vh;
-        height: 100dvh;
         transform: translateX(-100%);
         width: 280px;
         box-shadow: 10px 0 30px rgba(0,0,0,0.1);
         touch-action: pan-y;
+        overflow: hidden;
     }
 
     .sidebar.open { transform: translateX(0); }
@@ -626,12 +630,12 @@ body.tool-only-mode #tool-frame {
         pointer-events: none;
         transition: opacity 0.3s ease;
     }
-    
+
     .sidebar-overlay.active {
         opacity: 1;
         pointer-events: all;
     }
-    
+
     .modal-overlay { padding: 0.5rem; }
     .modal-container { height: 95vh; border-radius: 1rem; }
 
@@ -676,12 +680,11 @@ body.tool-only-mode #tool-frame {
     .sidebar {
         position: fixed;
         top: 0; left: 0; bottom: 0;
-        height: 100vh;
-        height: 100dvh;
         transform: translateX(-100%);
         width: 280px;
         box-shadow: 10px 0 30px rgba(0,0,0,0.1);
         touch-action: pan-y;
+        overflow: hidden;
     }
 
     .sidebar.open { transform: translateX(0); }
