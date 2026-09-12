@@ -963,15 +963,15 @@ function renderList(){
   document.getElementById('bulk-select-all').checked = filtered.length>0 && filtered.every(i=>selectedIds.has(i.id));
 
   document.getElementById('list-body').innerHTML = filtered.map(i => `
-    <tr class="border-t border-slate-100 hover:bg-slate-50 cursor-pointer" ${i._pending?'style="opacity:.55"':''} onclick="${i._pending?'':`viewDetail('${i.id}')`}">
-      <td class="p-3 ${clientMode?'hidden':''}" onclick="event.stopPropagation()"><input type="checkbox" ${selectedIds.has(i.id)?'checked':''} ${i._pending?'disabled':''} onchange="toggleSelectRow('${i.id}', this.checked)"></td>
+    <tr class="border-t border-slate-100 hover:bg-slate-50 cursor-pointer" onclick="viewDetail('${i.id}')">
+      <td class="p-3 ${clientMode?'hidden':''}" onclick="event.stopPropagation()"><input type="checkbox" ${selectedIds.has(i.id)?'checked':''} onchange="toggleSelectRow('${i.id}', this.checked)"></td>
       <td class="p-3"><div class="font-medium">${i.brand}</div><div class="text-xs text-slate-400">${i.campaign}</div></td>
       <td class="p-3">${i.title}</td>
       <td class="p-3">${i.platforms.map(platformChip).join(' ')}</td>
       <td class="p-3 text-xs">${fmtDate(i.scheduledAt)} ${flagBadge(i)}</td>
       <td class="p-3">${i.owner}</td>
-      <td class="p-3">${i._pending ? '<span class="status-pill"><i class="fa-solid fa-spinner fa-spin"></i> กำลังบันทึก...</span>' : `<span class="status-pill status-${i.status}">${i.status}</span>`}</td>
-      <td class="p-3 text-right">${clientMode||i._pending?'':`<button onclick="event.stopPropagation();editContent('${i.id}')" class="text-indigo-600 text-xs"><i class="fa-solid fa-pen"></i></button>`}</td>
+      <td class="p-3"><span class="status-pill status-${i.status}">${i.status}</span></td>
+      <td class="p-3 text-right">${clientMode?'':`<button onclick="event.stopPropagation();editContent('${i.id}')" class="text-indigo-600 text-xs"><i class="fa-solid fa-pen"></i></button>`}</td>
     </tr>
   `).join('') || `<tr><td colspan="8" class="p-6 text-center text-slate-400 text-sm">ไม่พบรายการ</td></tr>`;
 }
@@ -989,9 +989,8 @@ function fmtDate(d){
 const MAX_CAL_ITEMS = 3;
 function shiftMonth(n){ calCursor.setMonth(calCursor.getMonth()+n); renderCalendar(); }
 function calItemChip(i){
-  const pending = i._pending ? ' style="opacity:.55"' : '';
-  return `<div class="cal-item cal-item-${i.status}"${pending} ${clientMode||i._pending?'':`draggable="true" ondragstart="onCalDragStart(event, '${i.id}')"`} onclick="event.stopPropagation();viewDetail('${i.id}')" title="${i.title}${i._pending?' (กำลังบันทึก...)':''}">
-    ${i._pending ? '<i class="fa-solid fa-spinner fa-spin" style="font-size:8px"></i>' : `<span class="cal-dot cal-dot-${i.status}"></span>`}<span class="truncate">${i.title}</span>
+  return `<div class="cal-item cal-item-${i.status}" ${clientMode?'':`draggable="true" ondragstart="onCalDragStart(event, '${i.id}')"`} onclick="event.stopPropagation();viewDetail('${i.id}')" title="${i.title}">
+    <span class="cal-dot cal-dot-${i.status}"></span><span class="truncate">${i.title}</span>
   </div>`;
 }
 function renderCalendar(){
@@ -1324,53 +1323,36 @@ async function saveContent(){
     published: {},
   };
 
-  if (!API_URL) {
+  const saveBtn = document.getElementById('save-content-btn');
+  const originalSaveBtnHtml = saveBtn.innerHTML;
+  saveBtn.disabled = true;
+  saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังบันทึก...';
+
+  if (API_URL) {
+    try {
+      if (editingId) {
+        const resp = await apiCall('update', { id: editingId, data: clientPatchToApi(payload) });
+        const idx = items.findIndex(x=>x.id===editingId);
+        items[idx] = apiItemToClient(resp.item);
+      } else {
+        const resp = await apiCall('create', { data: clientPatchToApi(payload) });
+        items.push(apiItemToClient(resp.item));
+      }
+    } catch (err) {
+      saveBtn.disabled = false;
+      saveBtn.innerHTML = originalSaveBtnHtml;
+      alert('บันทึกไปที่ระบบหลังบ้านไม่สำเร็จ: ' + err.message);
+      return;
+    }
+  } else {
     saveLocalOnly(payload);
-    closeForm();
-    populateFilters();
-    refreshAll();
-    return;
   }
 
-  // Optimistic UI: each save is one Sheet write + one Calendar sync on the
-  // backend (a couple of seconds), which used to leave the form sitting
-  // there with a spinner. Apply the change locally and close the form right
-  // away; reconcile with the real record once the backend replies, or
-  // revert and alert if it ultimately fails.
-  if (editingId) {
-    const idx = items.findIndex(x=>x.id===editingId);
-    const previous = items[idx];
-    items[idx] = { ...previous, ...payload, _pending: true };
-    closeForm();
-    populateFilters();
-    refreshAll();
-    try {
-      const resp = await apiCall('update', { id: editingId, data: clientPatchToApi(payload) });
-      const stillAt = items.findIndex(x=>x.id===editingId);
-      if (stillAt > -1) items[stillAt] = apiItemToClient(resp.item);
-    } catch (err) {
-      const stillAt = items.findIndex(x=>x.id===editingId);
-      if (stillAt > -1) items[stillAt] = previous;
-      alert('บันทึกไปที่ระบบหลังบ้านไม่สำเร็จ ระบบคืนค่าเดิมให้แล้ว: ' + err.message);
-    }
-    refreshAll();
-  } else {
-    const tempId = `temp-${Date.now()}`;
-    items.push({ id: tempId, comments: [], ...payload, _pending: true });
-    closeForm();
-    populateFilters();
-    refreshAll();
-    try {
-      const resp = await apiCall('create', { data: clientPatchToApi(payload) });
-      const idx = items.findIndex(x=>x.id===tempId);
-      if (idx > -1) items[idx] = apiItemToClient(resp.item);
-    } catch (err) {
-      const idx = items.findIndex(x=>x.id===tempId);
-      if (idx > -1) items.splice(idx, 1);
-      alert('สร้างรายการไม่สำเร็จ เอารายการที่แสดงไว้ชั่วคราวออกแล้ว: ' + err.message);
-    }
-    refreshAll();
-  }
+  saveBtn.disabled = false;
+  saveBtn.innerHTML = originalSaveBtnHtml;
+  closeForm();
+  populateFilters();
+  refreshAll();
 }
 function saveLocalOnly(payload){
   if (editingId) {
@@ -1391,7 +1373,7 @@ function viewDetail(id){
         <div class="text-xs text-slate-400">${i.brand} · ${i.campaign}</div>
         <h3 class="font-semibold text-lg">${i.title}</h3>
       </div>
-      ${i._pending ? `<span class="status-pill"><i class="fa-solid fa-spinner fa-spin"></i> กำลังบันทึก...</span>` : clientMode
+      ${clientMode
         ? `<select class="status-pill status-${i.status}" style="border:none;cursor:pointer;" onchange="changeDetailStatus('${i.id}', this.value)">
              ${[...new Set([i.status, ...CLIENT_STATUS_OPTIONS])].map(s=>`<option value="${s}" ${s===i.status?'selected':''}>${s}</option>`).join('')}
            </select>`
@@ -1655,41 +1637,28 @@ async function confirmImport(){
   const reviewer = resolvedPerson('import-reviewer');
   const defaultTime = document.getElementById('import-default-time').value || '10:00';
 
-  const payload = selected.map(it => ({
-    Brand: brand, Campaign: '', Title: it.title, Note: it.note,
-    Platforms: it.platforms,
-    ScheduledAt: it.date ? new Date(`${it.date}T${defaultTime}:00+07:00`).toISOString() : new Date().toISOString(),
-    Owner: owner, Reviewer: reviewer, Status: 'Draft',
-  }));
-
-  // Optimistic UI: a bulk import means N Sheet writes + N Calendar syncs on
-  // the backend, which can take several seconds and made this feel frozen.
-  // Show the posts on the calendar/list right away using temporary local
-  // items, then swap them for the real records once the backend replies --
-  // roll back with an alert if the save ultimately fails.
-  const tempItems = payload.map((p, i) => ({
-    id: `temp-${Date.now()}-${i}`, _pending: true,
-    brand: p.Brand, campaign: p.Campaign, title: p.Title, note: p.Note,
-    platforms: p.Platforms, scheduledAt: new Date(p.ScheduledAt),
-    owner: p.Owner, reviewer: p.Reviewer, status: p.Status,
-    captions: {}, media: '', published: {}, comments: [],
-  }));
-  items.push(...tempItems);
-  closeImportImage();
-  populateFilters();
-  refreshAll();
-  switchTab('list');
-
+  const btn = document.getElementById('import-confirm-btn');
+  const originalBtnHtml = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> กำลังสร้าง ${selected.length} รายการ...`;
   try {
+    const payload = selected.map(it => ({
+      Brand: brand, Campaign: '', Title: it.title, Note: it.note,
+      Platforms: it.platforms,
+      ScheduledAt: it.date ? new Date(`${it.date}T${defaultTime}:00+07:00`).toISOString() : new Date().toISOString(),
+      Owner: owner, Reviewer: reviewer, Status: 'Draft',
+    }));
     const resp = await apiCall('bulkCreate', { items: payload });
-    tempItems.forEach(t => { const idx = items.findIndex(x=>x.id===t.id); if (idx>-1) items.splice(idx,1); });
     resp.items.forEach(row => items.push(apiItemToClient(row)));
+    closeImportImage();
     populateFilters();
     refreshAll();
+    switchTab('list');
   } catch (err) {
-    tempItems.forEach(t => { const idx = items.findIndex(x=>x.id===t.id); if (idx>-1) items.splice(idx,1); });
-    refreshAll();
-    alert('สร้างรายการไม่สำเร็จ เอารายการที่แสดงไว้ชั่วคราวออกแล้ว กรุณาลองใหม่: ' + err.message);
+    alert('สร้างรายการไม่สำเร็จ: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = originalBtnHtml;
   }
 }
 
