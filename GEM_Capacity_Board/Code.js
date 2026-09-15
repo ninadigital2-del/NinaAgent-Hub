@@ -42,7 +42,7 @@ function doGet(e) {
   if (action === 'getCapacity') return jsonResponse(getCapacityData());
   if (action === 'getBrands')   return jsonResponse(getNotionBrands());
   if (action === 'manual')      return HtmlService.createHtmlOutputFromFile('manual').setTitle('คู่มือการใช้งาน GEM Graphic Capacity Board').setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-  if (action === 'status-board') return HtmlService.createHtmlOutputFromFile('PMTaskStatusBoard').setTitle('PM Task Status Board').setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  if (action === 'status-board') return HtmlService.createHtmlOutputFromFile('PMTaskStatusBoard').setTitle('PM Task Status Board').addMetaTag('viewport', 'width=device-width, initial-scale=1').setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 
   return HtmlService.createHtmlOutput(getHtml())
     .setTitle('GEM Graphic Capacity Board')
