@@ -56,7 +56,6 @@ function showDashboard(element, skipHash = false) {
     if (!skipHash) {
         if (window.location.hash !== '#dashboard') history.pushState(null, null, '#dashboard');
     }
-    document.body.classList.remove('tool-only-mode');
 
     // Update active state in sidebar
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
@@ -102,7 +101,6 @@ function loadToolInFrame(element, toolName, url, skipHash = false) {
         if (window.location.hash !== hashId) history.pushState(null, null, hashId);
         targetHash = hashId;
     }
-    document.body.classList.toggle('tool-only-mode', targetHash === '#gem-');
 
     // Update active state in sidebar
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
