@@ -1,0 +1,1041 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Content Performance</title>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<style>
+  @charset "UTF-8";
+
+  :root{
+    color-scheme: light;
+    --paper:      #f4f6f5;
+    --raised:     #ffffff;
+    --raised-2:   #eef1f0;
+    --border:     #dfe5e2;
+    --border-soft:#e9edeb;
+    --ink:        #10201c;
+    --ink-soft:   #53625c;
+    --ink-faint:  #8a9793;
+    --brand:      #4a3aa7;
+    --brand-soft: #efeaf9;
+    --brand-ink:  #ffffff;
+    --good:       #1e8e5a;
+    --good-soft:  #e6f4ec;
+    --warn:       #b8790a;
+    --warn-soft:  #faf1de;
+    --crit:       #c43d3d;
+    --crit-soft:  #fbe9e9;
+    --s-fb:       #2a78d6;
+    --s-tiktok:   #eb6834;
+    --s-ig:       #1baf7a;
+    --s-line:     #eda100;
+    --s-yt:       #e87ba4;
+    --s-other:    #8a7ba1;
+    --seq-1:      #cde2fb;
+    --seq-2:      #9ec5f4;
+    --seq-3:      #6da7ec;
+    --seq-4:      #3987e5;
+    --seq-5:      #1c5cab;
+    --seq-6:      #0d366b;
+    --shadow: 0 1px 2px rgba(16,32,28,.04), 0 8px 24px -12px rgba(16,32,28,.12);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      color-scheme: dark;
+      --paper:      #14181a;
+      --raised:     #1c2224;
+      --raised-2:   #232a2c;
+      --border:     #313a3b;
+      --border-soft:#293032;
+      --ink:        #f2f5f3;
+      --ink-soft:   #a9b6b1;
+      --ink-faint:  #6f7c78;
+      --brand:      #9085e9;
+      --brand-soft: #2a2540;
+      --brand-ink:  #14181a;
+      --good:       #4bc98a;
+      --good-soft:  #17301f;
+      --warn:       #e0ab3d;
+      --warn-soft:  #332a15;
+      --crit:       #e66767;
+      --crit-soft:  #351d1d;
+      --s-fb:       #3987e5;
+      --s-tiktok:   #d95926;
+      --s-ig:       #199e70;
+      --s-line:     #c98500;
+      --s-yt:       #d55181;
+      --s-other:    #a79bc9;
+      --seq-1:      #16283f;
+      --seq-2:      #1b3a5c;
+      --seq-3:      #23507f;
+      --seq-4:      #3987e5;
+      --seq-5:      #6da7ec;
+      --seq-6:      #9ec5f4;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 28px -14px rgba(0,0,0,.55);
+    }
+  }
+  :root[data-theme="dark"]{
+    color-scheme: dark;
+    --paper:      #14181a;
+    --raised:     #1c2224;
+    --raised-2:   #232a2c;
+    --border:     #313a3b;
+    --border-soft:#293032;
+    --ink:        #f2f5f3;
+    --ink-soft:   #a9b6b1;
+    --ink-faint:  #6f7c78;
+    --brand:      #9085e9;
+    --brand-soft: #2a2540;
+    --brand-ink:  #14181a;
+    --good:       #4bc98a;
+    --good-soft:  #17301f;
+    --warn:       #e0ab3d;
+    --warn-soft:  #332a15;
+    --crit:       #e66767;
+    --crit-soft:  #351d1d;
+    --s-fb:       #3987e5;
+    --s-tiktok:   #d95926;
+    --s-ig:       #199e70;
+    --s-line:     #c98500;
+    --s-yt:       #d55181;
+    --s-other:    #a79bc9;
+    --seq-1:      #16283f;
+    --seq-2:      #1b3a5c;
+    --seq-3:      #23507f;
+    --seq-4:      #3987e5;
+    --seq-5:      #6da7ec;
+    --seq-6:      #9ec5f4;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 28px -14px rgba(0,0,0,.55);
+  }
+
+  *{box-sizing:border-box;}
+  html,body{ margin:0; }
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Prompt',-apple-system,'Noto Sans Thai',sans-serif;
+    padding-inline:20px;
+    padding-block:0 40px;
+  }
+  .num{ font-family:'IBM Plex Mono','Prompt',monospace; font-variant-numeric:tabular-nums; }
+  h1,h2,h3{ text-wrap:balance; margin:0; }
+  a{color:inherit;}
+
+  /* ---------- App shell ---------- */
+  .shell{ max-width:1180px; margin-inline:auto; }
+
+  .topbar{
+    position:sticky; top:0; z-index:20;
+    background:var(--paper); padding-block:16px 12px;
+    border-bottom:1px solid var(--border);
+    display:flex; flex-wrap:wrap; gap:14px 20px; align-items:center; justify-content:space-between;
+  }
+  .brand{ display:flex; align-items:center; gap:10px; }
+  .brand-mark{
+    width:34px; height:34px; border-radius:9px; background:var(--brand); color:var(--brand-ink);
+    display:flex; align-items:center; justify-content:center; font-weight:700; font-size:15px; flex:none;
+  }
+  .brand-text h1{ font-size:16px; font-weight:600; }
+  .brand-text span{ font-size:12.5px; color:var(--ink-soft); }
+
+  .topbar-controls{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+
+  .segctl{ display:flex; background:var(--raised-2); border:1px solid var(--border); border-radius:10px; padding:3px; gap:2px; }
+  .segctl button{
+    font-family:inherit; font-size:13px; font-weight:500; border:none; background:transparent; color:var(--ink-soft);
+    padding:7px 14px; border-radius:8px; cursor:pointer; display:flex; align-items:center; gap:6px;
+  }
+  .segctl button.active{ background:var(--raised); color:var(--ink); box-shadow:var(--shadow); font-weight:600; }
+  .segctl button[disabled]{ cursor:not-allowed; opacity:.55; }
+  .segctl button[disabled]:hover .lock-tip{ opacity:1; transform:translateY(0); pointer-events:auto; }
+  .lock-wrap{ position:relative; }
+  .lock-tip{
+    position:absolute; top:calc(100% + 8px); right:0; width:236px; background:var(--ink); color:var(--paper);
+    font-size:12px; line-height:1.5; padding:10px 12px; border-radius:8px; opacity:0; transform:translateY(-4px);
+    transition:opacity .15s, transform .15s; pointer-events:none; z-index:30; font-weight:400;
+  }
+
+  .chip{
+    font-size:12.5px; font-weight:500; color:var(--ink-soft); background:var(--raised);
+    border:1px solid var(--border); border-radius:999px; padding:6px 12px; display:inline-flex; align-items:center; gap:6px;
+  }
+  .chip i{ font-size:11px; }
+  .chip.live{ color:var(--good); border-color:transparent; background:var(--good-soft); }
+  .chip.mock{ color:var(--warn); border-color:transparent; background:var(--warn-soft); }
+
+  /* ---------- Views ---------- */
+  .view{ display:none; padding-top:22px; flex-direction:column; gap:26px; }
+  .view.active{ display:flex; }
+
+  .section-head{ display:flex; align-items:baseline; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:12px; }
+  .section-head h2{ font-size:15px; font-weight:600; }
+  .section-head .hint{ font-size:12.5px; color:var(--ink-faint); }
+
+  /* ---------- KPI tiles ---------- */
+  .kpi-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:14px; }
+  .kpi{
+    background:var(--raised); border:1px solid var(--border); border-radius:14px; padding:16px 18px;
+    display:flex; flex-direction:column; gap:8px; box-shadow:var(--shadow);
+  }
+  .kpi-label{ font-size:12.5px; color:var(--ink-soft); font-weight:500; }
+  .kpi-value{ font-size:26px; font-weight:600; line-height:1.1; letter-spacing:-.01em; }
+  .kpi-sub{ display:flex; align-items:center; gap:6px; font-size:12.5px; }
+  .delta{ display:inline-flex; align-items:center; gap:3px; font-weight:600; padding:2px 7px; border-radius:999px; }
+  .delta.up{ color:var(--good); background:var(--good-soft); }
+  .delta.down{ color:var(--crit); background:var(--crit-soft); }
+  .delta.flat{ color:var(--ink-faint); background:var(--raised-2); }
+  .kpi-callout{ font-size:12.5px; color:var(--ink-faint); }
+
+  /* ---------- Chart card ---------- */
+  .card{ background:var(--raised); border:1px solid var(--border); border-radius:14px; padding:18px 20px; box-shadow:var(--shadow); }
+  .grid-2{ display:grid; grid-template-columns:1.35fr 1fr; gap:14px; align-items:stretch; }
+
+  .chart-wrap{ position:relative; }
+  svg text{ fill:var(--ink-faint); font-family:'IBM Plex Mono','Prompt',monospace; }
+  svg .axis-line{ stroke:var(--border); stroke-width:1; }
+  svg .gridline{ stroke:var(--border-soft); stroke-width:1; }
+
+  .tooltip{
+    position:fixed; pointer-events:none; background:var(--ink); color:var(--paper); font-size:12px; line-height:1.5;
+    padding:8px 10px; border-radius:8px; z-index:60; opacity:0; transition:opacity .1s; white-space:nowrap;
+    box-shadow:0 8px 20px rgba(0,0,0,.25);
+  }
+  .tooltip strong{ font-weight:600; }
+  .tooltip.show{ opacity:1; }
+
+  .annot{
+    position:absolute; font-size:11.5px; color:var(--warn); background:var(--warn-soft); border:1px solid transparent;
+    padding:3px 8px; border-radius:7px; font-weight:500; white-space:nowrap;
+  }
+
+  .legend-dot{ width:9px; height:9px; border-radius:3px; flex:none; }
+
+  .empty-note{ color:var(--ink-faint); font-size:13px; padding-block:8px; }
+
+  /* ---------- Bar ranking ---------- */
+  .bar-row{ display:flex; align-items:center; gap:10px; padding-block:7px; }
+  .bar-row .plat{ width:100px; flex:none; font-size:12.5px; font-weight:500; display:flex; align-items:center; gap:6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .bar-track{ position:relative; flex:1; height:20px; background:var(--raised-2); border-radius:5px; overflow:visible; }
+  .bar-fill{ position:absolute; inset-block:0; left:0; border-radius:5px; cursor:pointer; min-width:2px; }
+  .bar-row .val{ width:52px; flex:none; text-align:right; font-size:12.5px; font-weight:600; }
+
+  /* ---------- Insights ---------- */
+  .insight-list{ display:flex; flex-direction:column; gap:10px; }
+  .insight{ display:flex; gap:12px; padding:13px 14px; border:1px solid var(--border); border-radius:12px; background:var(--raised); }
+  .insight-icon{
+    width:30px; height:30px; border-radius:8px; flex:none; display:flex; align-items:center; justify-content:center;
+    font-size:13px;
+  }
+  .insight-icon.pos{ background:var(--good-soft); color:var(--good); }
+  .insight-icon.warn{ background:var(--warn-soft); color:var(--warn); }
+  .insight-icon.info{ background:var(--brand-soft); color:var(--brand); }
+  .insight p{ margin:0; font-size:13.5px; line-height:1.55; }
+  .insight .action{ display:block; margin-top:4px; color:var(--ink-soft); }
+  .insight .action b{ color:var(--ink); font-weight:600; }
+
+  /* ---------- Table ---------- */
+  .table-scroll{ overflow-x:auto; }
+  table{ width:100%; border-collapse:collapse; min-width:640px; }
+  th,td{ text-align:left; padding:11px 12px; font-size:13px; border-bottom:1px solid var(--border-soft); white-space:nowrap; }
+  th{ font-size:11.5px; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-faint); font-weight:600; cursor:pointer; user-select:none; }
+  th:hover{ color:var(--ink); }
+  th .sort-i{ font-size:9px; margin-left:4px; opacity:.6; }
+  td.num, th.num{ text-align:right; font-variant-numeric:tabular-nums; }
+  tr:last-child td{ border-bottom:none; }
+  .plat-cell{ display:flex; align-items:center; gap:8px; font-weight:500; }
+  .plat-swatch{ width:9px; height:9px; border-radius:3px; flex:none; }
+
+  .status-chip{ display:inline-flex; align-items:center; gap:5px; font-size:11.5px; font-weight:500; padding:4px 9px; border-radius:999px; }
+  .status-chip.live{ color:var(--good); background:var(--good-soft); }
+  .status-chip.manual{ color:var(--warn); background:var(--warn-soft); }
+  .status-chip.off{ color:var(--ink-faint); background:var(--raised-2); }
+  .status-chip i{ font-size:8px; }
+
+  /* ---------- Ranking cards ---------- */
+  .rank-cols{ display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+  .rank-title{ font-size:12.5px; font-weight:600; margin-bottom:10px; display:flex; align-items:center; gap:6px; }
+  .rank-title.top{ color:var(--good); }
+  .rank-title.bottom{ color:var(--crit); }
+  .rank-card{ display:flex; gap:10px; padding:9px; border:1px solid var(--border); border-radius:11px; margin-bottom:8px; align-items:center; }
+  .rank-thumb{
+    width:44px; height:44px; border-radius:8px; flex:none; display:flex; align-items:center; justify-content:center;
+    color:#fff; font-weight:700; font-size:13px; background-size:cover; background-position:center;
+  }
+  .rank-body{ min-width:0; flex:1; }
+  .rank-cap{ font-size:12.5px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .rank-cap a{ color:inherit; text-decoration:none; }
+  .rank-cap a:hover{ text-decoration:underline; }
+  .rank-meta{ font-size:11.5px; color:var(--ink-faint); margin-top:2px; }
+  .rank-num{ font-size:11.5px; font-weight:600; color:var(--ink-soft); width:16px; flex:none; text-align:center; }
+
+  /* ---------- Graphic gallery ---------- */
+  .gap-note{
+    display:flex; gap:10px; align-items:flex-start; padding:11px 14px; border-radius:11px;
+    background:var(--brand-soft); color:var(--brand); font-size:12.5px; line-height:1.6; margin-bottom:14px;
+  }
+  .gap-note.warn{ background:var(--warn-soft); color:var(--warn); }
+  .gap-note i{ margin-top:2px; flex:none; }
+  .gap-note b{ font-weight:600; }
+  .sort-toggle{ display:flex; gap:6px; margin-left:auto; }
+  .sort-toggle button{
+    font-family:inherit; font-size:12.5px; font-weight:500; color:var(--ink-soft); background:var(--raised-2);
+    border:1px solid var(--border); border-radius:8px; padding:6px 11px; cursor:pointer; display:flex; align-items:center; gap:5px;
+  }
+  .sort-toggle button.on{ background:var(--brand); color:var(--brand-ink); border-color:var(--brand); }
+  .gallery-grid{ display:grid; grid-template-columns:repeat(5,1fr); gap:14px; margin-top:14px; }
+  .gallery-card{ border:1px solid var(--border); border-radius:13px; overflow:hidden; background:var(--raised); }
+  .gallery-card a{ color:inherit; text-decoration:none; display:block; }
+  .gallery-thumb{
+    position:relative; aspect-ratio:4/5; display:flex; align-items:center; justify-content:center;
+    color:rgba(255,255,255,.92); font-size:26px; font-weight:700; background-size:cover; background-position:center;
+  }
+  .gallery-rank{
+    position:absolute; top:8px; left:8px; width:22px; height:22px; border-radius:7px; background:rgba(0,0,0,.4);
+    color:#fff; font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center;
+  }
+  .gallery-er{
+    position:absolute; top:8px; right:8px; font-size:11px; font-weight:700; padding:3px 7px; border-radius:999px;
+    background:rgba(0,0,0,.45); color:#fff; font-family:'IBM Plex Mono','Prompt',monospace;
+  }
+  .gallery-fmt{
+    position:absolute; bottom:8px; left:8px; font-size:10.5px; font-weight:600; padding:3px 8px; border-radius:999px;
+    background:rgba(0,0,0,.45); color:#fff;
+  }
+  .gallery-body{ padding:9px 10px 11px; }
+  .gallery-cap{ font-size:12px; font-weight:500; line-height:1.4; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; min-height:2.8em; }
+  .gallery-meta{ font-size:11px; color:var(--ink-faint); margin-top:5px; display:flex; align-items:center; gap:5px; }
+  @media (max-width:960px){ .gallery-grid{ grid-template-columns:repeat(3,1fr); } }
+  @media (max-width:600px){ .gallery-grid{ grid-template-columns:repeat(2,1fr); } }
+
+  /* ---------- Heatmap ---------- */
+  .heatmap{ display:grid; grid-template-columns:44px repeat(5,1fr); gap:4px; }
+  .hm-cell{ height:30px; border-radius:6px; cursor:pointer; }
+  .hm-label{ font-size:11px; color:var(--ink-faint); display:flex; align-items:center; }
+  .hm-label.col{ justify-content:center; }
+  .hm-label.row{ justify-content:flex-end; padding-right:4px; }
+
+  /* ---------- Notes ---------- */
+  .notes-box{
+    border:1px dashed var(--border); border-radius:12px; padding:14px 16px; font-size:13.5px; line-height:1.7;
+    color:var(--ink); background:var(--raised-2); min-height:4.5em;
+  }
+  .notes-box:empty:before{ content:attr(data-placeholder); color:var(--ink-faint); }
+  .notes-box[contenteditable="true"]:focus{ outline:2px solid var(--brand); outline-offset:2px; background:var(--raised); }
+  .notes-hint{ font-size:11.5px; color:var(--ink-faint); margin-top:8px; }
+
+  .filter-row{ display:flex; flex-wrap:wrap; gap:8px; }
+  .filter-chip{
+    font-size:12.5px; font-weight:500; padding:6px 12px; border-radius:999px; border:1px solid var(--border);
+    background:var(--raised); color:var(--ink-soft); cursor:pointer; display:flex; align-items:center; gap:6px;
+  }
+  .filter-chip.on{ background:var(--brand); color:var(--brand-ink); border-color:var(--brand); }
+  .filter-chip .dot{ width:7px; height:7px; border-radius:2px; }
+
+  footer.foot{ margin-top:6px; padding-top:16px; border-top:1px solid var(--border); font-size:12px; color:var(--ink-faint); display:flex; flex-wrap:wrap; gap:8px 18px; }
+
+  @media (max-width: 860px){
+    .kpi-grid{ grid-template-columns:repeat(2,1fr); }
+    .grid-2{ grid-template-columns:1fr; }
+    .rank-cols{ grid-template-columns:1fr; }
+    .heatmap{ grid-template-columns:34px repeat(5,1fr); }
+  }
+  @media (max-width: 480px){
+    .kpi-grid{ grid-template-columns:1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand-mark">N</div>
+      <div class="brand-text">
+        <h1>Content Performance</h1>
+        <span class="num" id="dateRangeLabel">&nbsp;</span>
+      </div>
+    </div>
+    <div class="topbar-controls">
+      <div class="segctl" id="viewSwitch">
+        <button data-view="ceo" class="active"><i class="fa-solid fa-chart-line"></i> CEO / COO</button>
+        <button data-view="team"><i class="fa-solid fa-layer-group"></i> ทีมคอนเทนต์</button>
+        <button data-view="graphic"><i class="fa-solid fa-image"></i> ทีมกราฟิก</button>
+        <div class="lock-wrap">
+          <button disabled><i class="fa-solid fa-lock"></i> ลูกค้า</button>
+          <div class="lock-tip">ลูกค้าไม่เห็นแดชบอร์ดนี้โดยตรง &mdash; PM เป็นผู้สรุปและส่งออกเป็นรายงานให้แทนทุกเดือน เพื่อควบคุมบริบทและปกป้องข้อมูลภายใน</div>
+        </div>
+      </div>
+      <div class="chip" id="dataSourceChip"><i class="fa-solid fa-circle-notch fa-spin"></i> กำลังโหลด...</div>
+    </div>
+  </div>
+
+  <!-- ================= CEO / COO VIEW ================= -->
+  <div class="view active" id="view-ceo">
+
+    <div class="kpi-grid">
+      <div class="kpi">
+        <span class="kpi-label">Reach รวมทุกช่องทาง</span>
+        <span class="kpi-value num" id="kpiReach">&mdash;</span>
+        <span class="kpi-sub" id="kpiReachSub"></span>
+      </div>
+      <div class="kpi">
+        <span class="kpi-label">Engagement Rate เฉลี่ย</span>
+        <span class="kpi-value num" id="kpiEr">&mdash;</span>
+        <span class="kpi-sub" id="kpiErSub"></span>
+      </div>
+      <div class="kpi">
+        <span class="kpi-label">จำนวนโพสต์ในช่วงนี้</span>
+        <span class="kpi-value num" id="kpiPosts">&mdash;</span>
+        <span class="kpi-callout" id="kpiPostsSub"></span>
+      </div>
+      <div class="kpi">
+        <span class="kpi-label">ช่องทางที่ทำผลงานดีสุด</span>
+        <span class="kpi-value" id="kpiBestPlatform" style="font-size:20px;display:flex;align-items:center;gap:8px;">&mdash;</span>
+        <span class="kpi-callout" id="kpiBestPlatformSub"></span>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="section-head">
+          <h2>เทรน Engagement รวม รายสัปดาห์</h2>
+          <span class="hint">จำนวนครั้งของการมีส่วนร่วมทั้งหมด</span>
+        </div>
+        <div class="chart-wrap" id="trendChart"></div>
+      </div>
+      <div class="card">
+        <div class="section-head">
+          <h2>Engagement Rate ต่อช่องทาง</h2>
+          <span class="hint">เรียงจากสูงไปต่ำ</span>
+        </div>
+        <div id="platformBars"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-head">
+        <h2>ข้อสรุปและข้อเสนอ</h2>
+        <span class="hint">สรุปอัตโนมัติจากข้อมูลช่วงนี้ &middot; ทีมตรวจทานก่อนส่งต่อ</span>
+      </div>
+      <div class="insight-list" id="insightList"></div>
+    </div>
+  </div>
+
+  <!-- ================= CONTENT TEAM VIEW ================= -->
+  <div class="view" id="view-team">
+
+    <div class="card">
+      <div class="section-head">
+        <h2>ผลงานรายช่องทาง</h2>
+        <span class="hint">คลิกหัวคอลัมน์เพื่อเรียงลำดับ</span>
+      </div>
+      <div class="filter-row" id="platformFilter" style="margin-bottom:14px;"></div>
+      <div class="table-scroll">
+        <table id="perfTable">
+          <thead>
+            <tr>
+              <th data-key="platform">ช่องทาง</th>
+              <th>สถานะข้อมูล</th>
+              <th data-key="posts" class="num">โพสต์<span class="sort-i">▾</span></th>
+              <th data-key="reach" class="num">Reach<span class="sort-i">▾</span></th>
+              <th data-key="engagement" class="num">Engagement<span class="sort-i">▾</span></th>
+              <th data-key="er" class="num">ER%<span class="sort-i">▾</span></th>
+            </tr>
+          </thead>
+          <tbody id="perfBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="section-head">
+          <h2>คอนเทนต์ที่ควรพูดถึง</h2>
+        </div>
+        <div class="rank-cols">
+          <div>
+            <div class="rank-title top"><i class="fa-solid fa-arrow-up"></i> ปังสุด 5 อันดับ</div>
+            <div id="rankTop"></div>
+          </div>
+          <div>
+            <div class="rank-title bottom"><i class="fa-solid fa-arrow-down"></i> ต่ำสุด 5 อันดับ</div>
+            <div id="rankBottom"></div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="section-head">
+          <h2>ช่วงเวลาที่ engagement สูง</h2>
+          <span class="hint">เข้ม = engagement สูง</span>
+        </div>
+        <div class="heatmap" id="heatmap"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-head">
+        <h2>ข้อเสนอเดือนถัดไป (ทีมกรอก)</h2>
+        <span class="hint">แก้ไขได้ตรงนี้</span>
+      </div>
+      <div class="notes-box" id="notesBox" contenteditable="true" data-placeholder="พิมพ์ข้อเสนอ/แผนเดือนถัดไปที่นี่..."></div>
+      <div class="notes-hint">บันทึกไว้เฉพาะเบราว์เซอร์นี้ตอนนี้ (ยังไม่ sync ข้ามเครื่อง) — ต้องเพิ่ม doPost บน backend ถ้าจะให้ทั้งทีมเห็นค่าเดียวกัน</div>
+    </div>
+  </div>
+
+  <!-- ================= GRAPHIC TEAM VIEW ================= -->
+  <div class="view" id="view-graphic">
+    <div class="card">
+      <div class="gap-note" id="galleryNote"></div>
+      <div class="section-head" style="margin-bottom:0;">
+        <h2>คอนเทนต์เรียงตามผลตอบรับ</h2>
+        <div class="filter-row" id="graphicFilter"></div>
+        <div class="sort-toggle" id="graphicSort">
+          <button class="on" data-sort="desc"><i class="fa-solid fa-arrow-up-wide-short"></i> ปังสุดก่อน</button>
+          <button data-sort="asc"><i class="fa-solid fa-arrow-down-short-wide"></i> ต่ำสุดก่อน</button>
+        </div>
+      </div>
+      <div class="gallery-grid" id="galleryGrid"></div>
+    </div>
+  </div>
+
+  <footer class="foot">
+    <span><i class="fa-solid fa-circle" style="color:var(--good);font-size:7px;"></i> Live API (Facebook, Instagram)</span>
+    <span><i class="fa-solid fa-circle" style="color:var(--ink-faint);font-size:7px;"></i> ยังไม่เชื่อมต่อ (TikTok, YouTube, LINE OA)</span>
+    <span style="margin-left:auto;" id="footNote">Content Performance dashboard &middot; NinaAgent Hub</span>
+  </footer>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+(function(){
+  // Paste the Apps Script Web App /exec URL here once deployed — see
+  // Content_Performance_GAS/SETUP.md. Leave empty to run entirely on
+  // local mock data.
+  const API_URL = '';
+
+  const tooltip = document.getElementById('tooltip');
+  function showTip(x, y, html){
+    tooltip.innerHTML = html;
+    tooltip.style.left = (x + 14) + 'px';
+    tooltip.style.top = (y + 14) + 'px';
+    tooltip.classList.add('show');
+  }
+  function hideTip(){ tooltip.classList.remove('show'); }
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+  const fmt = n => Math.round(n || 0).toLocaleString('en-US');
+
+  // ---------- Platform identity ----------
+  // Colors follow a fixed, validated categorical order (blue/orange/aqua/
+  // yellow/magenta) so any two platforms stay distinguishable — see the
+  // dataviz color-formula notes. Real Notion "Platform" select options seen
+  // so far: "Facebook Organic", "Instagram Organic" (live); others below
+  // are anticipated for when manual/CSV entry or new Make scenarios add them.
+  const PLATFORM_META = {
+    'Facebook Organic':  { key:'fb',     name:'Facebook',  color:'var(--s-fb)' },
+    'Instagram Organic': { key:'ig',     name:'Instagram', color:'var(--s-ig)' },
+    'TikTok Organic':    { key:'tiktok', name:'TikTok',    color:'var(--s-tiktok)' },
+    'YouTube Organic':   { key:'yt',     name:'YouTube',   color:'var(--s-yt)' },
+    'LINE OA':           { key:'line',   name:'LINE OA',   color:'var(--s-line)' },
+  };
+  const LIVE_PLATFORMS = new Set(['Facebook Organic', 'Instagram Organic']); // synced by PILOT — STD — Fetch Meta v1
+  function platformMeta(name){
+    return PLATFORM_META[name] || { key: 'p-' + (name || 'unknown').toLowerCase().replace(/[^a-z0-9]+/g, '-'), name: name || 'Unknown', color: 'var(--s-other)' };
+  }
+
+  // ---------- Mock data (used only when API_URL is empty or unreachable) ----------
+  function daysAgo(n, hour){ const d = new Date(); d.setDate(d.getDate() - n); d.setHours(hour || 12, 0, 0, 0); return d.toISOString(); }
+  const MOCK_CONTENT = [
+    { name:'GRWM ก่อนออกงาน x รีวิวรองพื้นใหม่', platform:'TikTok Organic', format:'GRWM', reach:420000, engagement:47800, engagementRate:11.4, thumbnailUrl:'', permalink:'', publishDate:daysAgo(2,19) },
+    { name:'Reel: Before/After สกินแคร์ 14 วัน', platform:'Instagram Organic', format:'Reel', reach:246000, engagement:24100, engagementRate:9.8, thumbnailUrl:'', permalink:'', publishDate:daysAgo(4,20) },
+    { name:'Unboxing พรีออเดอร์ล็อตใหม่', platform:'TikTok Organic', format:'Unboxing', reach:220000, engagement:19600, engagementRate:8.9, thumbnailUrl:'', permalink:'', publishDate:daysAgo(9,18) },
+    { name:'Broadcast: โค้ดลับสมาชิก VIP', platform:'LINE OA', format:'Broadcast', reach:28000, engagement:3400, engagementRate:12.1, thumbnailUrl:'', permalink:'', publishDate:daysAgo(6,9) },
+    { name:'Live รีวิวสดหน้าร้าน', platform:'Facebook Organic', format:'Live', reach:133000, engagement:8900, engagementRate:6.7, thumbnailUrl:'', permalink:'', publishDate:daysAgo(11,20) },
+    { name:'โพสต์ประกาศโปรโมชั่นเดือนนี้', platform:'Facebook Organic', format:'Post', reach:49400, engagement:2100, engagementRate:4.3, thumbnailUrl:'', permalink:'', publishDate:daysAgo(15,10) },
+    { name:'Carousel เทียบสินค้า 3 รุ่น', platform:'Instagram Organic', format:'Carousel', reach:88300, engagement:4700, engagementRate:5.3, thumbnailUrl:'', permalink:'', publishDate:daysAgo(17,19) },
+    { name:'คลิปสอนใช้งานสั้น ๆ', platform:'YouTube Organic', format:'Short', reach:31200, engagement:980, engagementRate:3.1, thumbnailUrl:'', permalink:'', publishDate:daysAgo(20,17) },
+    { name:'สารคดีเบื้องหลังแบรนด์ (12 นาที)', platform:'YouTube Organic', format:'Documentary', reach:53300, engagement:320, engagementRate:0.6, thumbnailUrl:'', permalink:'', publishDate:daysAgo(23,21) },
+    { name:'โพสต์ภาพนิ่งโปรโมชั่นทั่วไป', platform:'Facebook Organic', format:'Static', reach:121900, engagement:1100, engagementRate:0.9, thumbnailUrl:'', permalink:'', publishDate:daysAgo(25,11) },
+    { name:'Broadcast ข้อความล้วน ไม่มีรูป', platform:'LINE OA', format:'Broadcast', reach:17500, engagement:210, engagementRate:1.2, thumbnailUrl:'', permalink:'', publishDate:daysAgo(27,8) },
+    { name:'Q&A แบรนด์ (ยาว 18 นาที)', platform:'YouTube Organic', format:'Q&A', reach:31500, engagement:410, engagementRate:1.3, thumbnailUrl:'', permalink:'', publishDate:daysAgo(29,20) },
+    { name:'โพสต์รีพอสต์ UGC ไม่มีแคปชัน', platform:'Instagram Organic', format:'Repost', reach:65300, engagement:980, engagementRate:1.5, thumbnailUrl:'', permalink:'', publishDate:daysAgo(31,14) },
+    { name:'Reel แนะนำสินค้าใหม่', platform:'Instagram Organic', format:'Reel', reach:158000, engagement:13400, engagementRate:8.5, thumbnailUrl:'', permalink:'', publishDate:daysAgo(3,20) },
+    { name:'TikTok เทรนด์เพลงประกอบ', platform:'TikTok Organic', format:'Trend', reach:301000, engagement:22000, engagementRate:7.3, thumbnailUrl:'', permalink:'', publishDate:daysAgo(8,21) },
+  ];
+  const MOCK_ADS = [];
+
+  // ---------- Data load ----------
+  let CONTENT = [];
+  let ADS = [];
+  let usingLiveData = false;
+
+  async function loadData(){
+    if (API_URL) {
+      try {
+        const res = await fetch(API_URL + '?action=data');
+        const json = await res.json();
+        if (json.success) {
+          CONTENT = json.content || [];
+          ADS = json.ads || [];
+          usingLiveData = true;
+        } else {
+          console.error('API returned an error:', json.error);
+        }
+      } catch (err) {
+        console.error('Failed to load live data, falling back to mock:', err);
+      }
+    }
+    if (!usingLiveData) { CONTENT = MOCK_CONTENT; ADS = MOCK_ADS; }
+    renderAll();
+  }
+
+  // ---------- Derived aggregates ----------
+  function aggregateByPlatform(content){
+    const map = {};
+    content.forEach(c => {
+      const key = c.platform || 'Unknown';
+      if (!map[key]) map[key] = { platform:key, posts:0, reach:0, engagement:0 };
+      map[key].posts++;
+      map[key].reach += c.reach || 0;
+      map[key].engagement += c.engagement || 0;
+    });
+    return Object.values(map).map(p => {
+      const meta = platformMeta(p.platform);
+      return {
+        ...p, meta,
+        er: p.reach > 0 ? Math.round((p.engagement / p.reach) * 1000) / 10 : 0,
+        status: LIVE_PLATFORMS.has(p.platform) ? 'live' : 'off',
+      };
+    });
+  }
+
+  function weekKey(dateStr){
+    const d = new Date(dateStr);
+    if (isNaN(d)) return null;
+    const monday = new Date(d);
+    const day = (monday.getDay() + 6) % 7; // Mon=0..Sun=6
+    monday.setDate(monday.getDate() - day);
+    monday.setHours(0,0,0,0);
+    return monday.toISOString().slice(0,10);
+  }
+
+  function weeklyTrend(content){
+    const map = {};
+    content.forEach(c => {
+      if (!c.publishDate) return;
+      const wk = weekKey(c.publishDate);
+      if (!wk) return;
+      map[wk] = (map[wk] || 0) + (c.engagement || 0);
+    });
+    const weeks = Object.keys(map).sort();
+    const recent = weeks.slice(-6);
+    return recent.map(wk => ({ week: wk, engagement: map[wk] }));
+  }
+
+  const DAY_LABELS = ['จ','อ','พ','พฤ','ศ','ส','อา'];
+  const SLOT_LABELS = ['เช้า','สาย','บ่าย','เย็น','ดึก'];
+  function slotForHour(h){
+    if (h >= 6 && h < 10) return 0;
+    if (h >= 10 && h < 14) return 1;
+    if (h >= 14 && h < 18) return 2;
+    if (h >= 18 && h < 22) return 3;
+    return 4;
+  }
+  function heatmapData(content){
+    const sums = Array.from({length:7}, () => Array(5).fill(0));
+    const counts = Array.from({length:7}, () => Array(5).fill(0));
+    content.forEach(c => {
+      if (!c.publishDate) return;
+      const d = new Date(c.publishDate);
+      if (isNaN(d)) return;
+      const day = (d.getDay() + 6) % 7;
+      const slot = slotForHour(d.getHours());
+      sums[day][slot] += c.engagementRate || 0;
+      counts[day][slot]++;
+    });
+    const avg = sums.map((row, di) => row.map((v, si) => counts[di][si] ? v / counts[di][si] : 0));
+    const flat = avg.flat().filter(v => v > 0);
+    const max = flat.length ? Math.max(...flat) : 0;
+    const levels = avg.map(row => row.map(v => max > 0 ? Math.max(1, Math.min(6, Math.ceil((v / max) * 6))) : 0));
+    return { avg, levels, hasData: flat.length > 0 };
+  }
+
+  // ---------- KPI + insights (CEO view) ----------
+  function renderKpis(content, platforms){
+    const totalReach = content.reduce((s,c) => s + (c.reach||0), 0);
+    const totalEng = content.reduce((s,c) => s + (c.engagement||0), 0);
+    const avgEr = totalReach > 0 ? Math.round((totalEng/totalReach)*1000)/10 : 0;
+
+    document.getElementById('kpiReach').textContent = fmt(totalReach);
+    document.getElementById('kpiReachSub').textContent = content.length ? `รวม ${content.length} โพสต์ในช่วงข้อมูลที่มี` : '';
+    document.getElementById('kpiEr').textContent = avgEr + '%';
+    document.getElementById('kpiErSub').textContent = totalEng ? `Engagement รวม ${fmt(totalEng)}` : '';
+    document.getElementById('kpiPosts').textContent = content.length;
+    document.getElementById('kpiPostsSub').textContent = ADS.length ? `+ ${ADS.length} รอบโฆษณา (Meta Ads)` : 'ยังไม่มีข้อมูลโฆษณา';
+
+    const eligible = platforms.filter(p => p.posts >= 2);
+    const best = (eligible.length ? eligible : platforms).slice().sort((a,b) => b.er - a.er)[0];
+    if (best) {
+      document.getElementById('kpiBestPlatform').innerHTML = `<span class="legend-dot" style="background:${best.meta.color};width:11px;height:11px;"></span>${esc(best.meta.name)}`;
+      document.getElementById('kpiBestPlatformSub').textContent = `ER ${best.er}% · ${best.posts} โพสต์`;
+    } else {
+      document.getElementById('kpiBestPlatform').textContent = '—';
+      document.getElementById('kpiBestPlatformSub').textContent = 'ยังไม่มีข้อมูลพอเปรียบเทียบ';
+    }
+  }
+
+  function renderInsights(content, platforms, trend){
+    const el = document.getElementById('insightList');
+    const insights = [];
+
+    const eligible = platforms.filter(p => p.posts >= 2).sort((a,b) => b.er - a.er);
+    if (eligible.length >= 1) {
+      const top = eligible[0];
+      const lowestVolume = platforms.slice().sort((a,b) => a.posts - b.posts)[0];
+      insights.push({
+        icon:'pos', iconGlyph:'fa-arrow-trend-up',
+        text: `${esc(top.meta.name)} มี Engagement Rate สูงสุดในกลุ่มที่มีข้อมูลพอเทียบ (${top.er}%, ${top.posts} โพสต์)`,
+        action: top.posts <= 5 ? `พิจารณาเพิ่มความถี่โพสต์ ${esc(top.meta.name)} เพื่อจับกระแสที่กำลังไปได้ดี` : `รักษาจังหวะโพสต์ ${esc(top.meta.name)} ไว้ ฟอร์แมตนี้ทำงานได้ดี`,
+      });
+    }
+
+    if (ADS.length >= 2) {
+      const sorted = ADS.slice().sort((a,b) => new Date(a.weekStart) - new Date(b.weekStart));
+      const latest = sorted[sorted.length-1], prev = sorted[sorted.length-2];
+      if (latest.reach && prev.reach) {
+        const reachChange = Math.round(((latest.reach/prev.reach)-1)*1000)/10;
+        const spendChange = prev.spend ? Math.round(((latest.spend/prev.spend)-1)*1000)/10 : null;
+        insights.push({
+          icon: reachChange >= 0 ? 'info' : 'warn', iconGlyph:'fa-bullhorn',
+          text: `Meta Ads reach ${reachChange >= 0 ? 'เพิ่มขึ้น' : 'ลดลง'} ${Math.abs(reachChange)}% เทียบสัปดาห์ก่อน (฿${fmt(latest.spend)} ใช้งบสัปดาห์นี้${spendChange !== null ? `, งบเปลี่ยน ${spendChange >= 0 ? '+' : ''}${spendChange}%` : ''})`,
+          action: 'ทบทวนว่า reach ที่เปลี่ยนมาจาก organic หรือ paid เป็นหลัก ก่อนตัดสินใจปรับงบรอบถัดไป',
+        });
+      }
+    }
+
+    const hm = heatmapData(content);
+    if (hm.hasData) {
+      let bestDi = 0, bestSi = 0, bestV = -1;
+      hm.avg.forEach((row, di) => row.forEach((v, si) => { if (v > bestV) { bestV = v; bestDi = di; bestSi = si; } }));
+      const overall = hm.avg.flat().filter(v => v > 0);
+      const mean = overall.reduce((a,b) => a+b, 0) / overall.length;
+      if (mean > 0 && bestV > mean * 1.3) {
+        insights.push({
+          icon:'info', iconGlyph:'fa-clock',
+          text: `ช่วง ${SLOT_LABELS[bestSi]} วัน${DAY_LABELS[bestDi]} มี engagement rate เฉลี่ยสูงกว่าค่าเฉลี่ยช่วงอื่น ${(bestV/mean).toFixed(1)} เท่า`,
+          action: 'ย้าย schedule โพสต์หลักมาไว้ในช่วงเวลานี้ให้มากขึ้น',
+        });
+      }
+    }
+
+    const hiddenGem = platforms.filter(p => p.posts >= 1 && p.posts <= 6).sort((a,b) => b.er - a.er)[0];
+    if (hiddenGem && eligible[0] && hiddenGem.platform !== eligible[0].platform && hiddenGem.er > (eligible[0] ? eligible[0].er : 0) * 0.9) {
+      insights.push({
+        icon:'pos', iconGlyph:'fa-star',
+        text: `${esc(hiddenGem.meta.name)} มี Engagement Rate ${hiddenGem.er}% ทั้งที่มีแค่ ${hiddenGem.posts} โพสต์ในช่วงนี้`,
+        action: `ทดลองเพิ่มคอนเทนต์บน ${esc(hiddenGem.meta.name)} ดูว่า ER ยังทรงตัวมั้ยเมื่อโพสต์ถี่ขึ้น`,
+      });
+    }
+
+    if (!insights.length) {
+      el.innerHTML = `<p class="empty-note">ข้อมูลยังน้อยเกินไปที่จะสรุปเป็นข้อเสนอได้อย่างมั่นใจ — รอสะสมข้อมูลอีก 1-2 สัปดาห์</p>`;
+      return;
+    }
+    el.innerHTML = insights.map(ins => `
+      <div class="insight">
+        <div class="insight-icon ${ins.icon}"><i class="fa-solid ${ins.iconGlyph}"></i></div>
+        <p>${ins.text}
+          <span class="action"><b>ข้อเสนอ:</b> ${ins.action}</span>
+        </p>
+      </div>`).join('');
+  }
+
+  // ---------- Platform bar ranking (CEO view) ----------
+  function renderBars(platforms){
+    const el = document.getElementById('platformBars');
+    if (!platforms.length) { el.innerHTML = `<p class="empty-note">ยังไม่มีข้อมูล</p>`; return; }
+    const sorted = platforms.slice().sort((a,b) => b.er - a.er);
+    const max = Math.max(...sorted.map(p => p.er), 0.1);
+    el.innerHTML = sorted.map(p => `
+      <div class="bar-row">
+        <div class="plat"><span class="legend-dot" style="background:${p.meta.color}"></span>${esc(p.meta.name)}</div>
+        <div class="bar-track">
+          <div class="bar-fill" data-tip="${esc(p.meta.name)}: ER ${p.er}% · Reach ${fmt(p.reach)}"
+               style="width:${(p.er/max*100).toFixed(1)}%; background:${p.meta.color}"></div>
+        </div>
+        <div class="val num">${p.er}%</div>
+      </div>`).join('');
+    el.querySelectorAll('.bar-fill').forEach(bar => {
+      bar.addEventListener('mousemove', e => showTip(e.clientX, e.clientY, bar.dataset.tip));
+      bar.addEventListener('mouseleave', hideTip);
+    });
+  }
+
+  // ---------- Trend area chart (CEO view) ----------
+  function renderTrend(trend){
+    const el = document.getElementById('trendChart');
+    if (trend.length < 2) { el.innerHTML = `<p class="empty-note">ต้องมีข้อมูลอย่างน้อย 2 สัปดาห์ถึงจะวาดเทรนด์ได้</p>`; return; }
+    const data = trend.map(t => t.engagement);
+    const labels = trend.map(t => { const d = new Date(t.week); return `${d.getDate()}/${d.getMonth()+1}`; });
+    const w = 520, h = 200, padL = 44, padB = 26, padT = 14, padR = 12;
+    const plotW = w - padL - padR, plotH = h - padT - padB;
+    const max = Math.max(...data, 1);
+    const niceMax = Math.ceil(max / 5) * 5 || 1;
+    const x = i => padL + (i / (data.length - 1)) * plotW;
+    const y = v => padT + plotH - (v / niceMax) * plotH;
+
+    let gridlines = '', yLabels = '';
+    for (let i = 0; i <= 4; i++){
+      const v = niceMax / 4 * i;
+      const gy = y(v);
+      gridlines += `<line class="gridline" x1="${padL}" x2="${w-padR}" y1="${gy}" y2="${gy}"/>`;
+      yLabels += `<text x="${padL-8}" y="${gy+3}" font-size="10" text-anchor="end">${fmt(v)}</text>`;
+    }
+    let xLabels = labels.map((l,i) => `<text x="${x(i)}" y="${h-6}" font-size="10" text-anchor="middle">${l}</text>`).join('');
+
+    const pts = data.map((v,i) => `${x(i)},${y(v)}`).join(' ');
+    const areaPts = `${padL},${y(0)} ${pts} ${x(data.length-1)},${y(0)}`;
+
+    el.innerHTML = `
+      <svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}">
+        <polygon points="${areaPts}" fill="var(--brand)" opacity="0.12"/>
+        ${gridlines}
+        <polyline points="${pts}" fill="none" stroke="var(--brand)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+        ${data.map((v,i) => `<circle class="pt" data-i="${i}" cx="${x(i)}" cy="${y(v)}" r="8" fill="transparent"/>
+          <circle cx="${x(i)}" cy="${y(v)}" r="4" fill="var(--brand)" stroke="var(--raised)" stroke-width="2"/>`).join('')}
+        <line class="axis-line" x1="${padL}" x2="${padL}" y1="${padT}" y2="${h-padB}"/>
+        <line class="axis-line" x1="${padL}" x2="${w-padR}" y1="${h-padB}" y2="${h-padB}"/>
+        ${yLabels}${xLabels}
+      </svg>
+    `;
+    document.querySelectorAll('#trendChart .pt').forEach(pt => {
+      const i = +pt.dataset.i;
+      pt.addEventListener('mousemove', e => showTip(e.clientX, e.clientY, `<strong>สัปดาห์ ${esc(labels[i])}</strong> &middot; Engagement ${fmt(data[i])}`));
+      pt.addEventListener('mouseleave', hideTip);
+    });
+  }
+
+  // ---------- Performance table (Team view) ----------
+  let sortKey = 'reach', sortDir = -1;
+  const statusMeta = {
+    live:   { label:'Live API', cls:'live', icon:'fa-bolt' },
+    off:    { label:'ยังไม่เชื่อมต่อ', cls:'off', icon:'fa-plug-circle-xmark' },
+  };
+  let currentPlatforms = [];
+  function renderTable(){
+    const el = document.getElementById('perfBody');
+    if (!currentPlatforms.length) { el.innerHTML = `<tr><td colspan="6" class="empty-note">ยังไม่มีข้อมูล</td></tr>`; return; }
+    const rows = currentPlatforms.slice().sort((a,b) => (a[sortKey] > b[sortKey] ? 1 : -1) * sortDir);
+    el.innerHTML = rows.map(p => {
+      const s = statusMeta[p.status];
+      return `<tr>
+        <td><div class="plat-cell"><span class="plat-swatch" style="background:${p.meta.color}"></span>${esc(p.meta.name)}</div></td>
+        <td><span class="status-chip ${s.cls}"><i class="fa-solid ${s.icon}"></i>${s.label}</span></td>
+        <td class="num">${p.posts}</td>
+        <td class="num">${fmt(p.reach)}</td>
+        <td class="num">${fmt(p.engagement)}</td>
+        <td class="num">${p.er}%</td>
+      </tr>`;
+    }).join('');
+  }
+  document.querySelectorAll('#perfTable th[data-key]').forEach(th => {
+    th.addEventListener('click', () => {
+      const key = th.dataset.key;
+      sortDir = (sortKey === key) ? -sortDir : -1;
+      sortKey = key;
+      renderTable();
+    });
+  });
+
+  // ---------- Platform filter chips (Team view) ----------
+  function renderFilter(platforms){
+    const el = document.getElementById('platformFilter');
+    el.innerHTML = platforms.map(p => `
+      <button class="filter-chip on" data-key="${p.meta.key}">
+        <span class="dot" style="background:${p.meta.color}"></span>${esc(p.meta.name)}
+      </button>`).join('');
+    el.querySelectorAll('.filter-chip').forEach(chip => {
+      chip.addEventListener('click', () => chip.classList.toggle('on'));
+    });
+  }
+
+  // ---------- Ranking cards (Team view) ----------
+  function thumbStyle(item){
+    const meta = platformMeta(item.platform);
+    return item.thumbnailUrl
+      ? `background-image:url('${item.thumbnailUrl.replace(/'/g, "%27")}')`
+      : `background:${meta.color}`;
+  }
+  function renderRank(id, list){
+    const el = document.getElementById(id);
+    if (!list.length) { el.innerHTML = `<p class="empty-note">ยังไม่มีข้อมูล</p>`; return; }
+    el.innerHTML = list.map((item,i) => {
+      const meta = platformMeta(item.platform);
+      const capInner = item.permalink ? `<a href="${esc(item.permalink)}" target="_blank" rel="noopener">${esc(item.name)}</a>` : esc(item.name);
+      return `<div class="rank-card">
+        <div class="rank-num">${i+1}</div>
+        <div class="rank-thumb" style="${thumbStyle(item)}">${item.thumbnailUrl ? '' : esc(meta.name[0])}</div>
+        <div class="rank-body">
+          <div class="rank-cap">${capInner}</div>
+          <div class="rank-meta">${esc(meta.name)} &middot; ER ${item.engagementRate}% &middot; ${fmt(item.engagement)} engagement</div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // ---------- Heatmap (Team view) ----------
+  function renderHeatmap(content){
+    const el = document.getElementById('heatmap');
+    const { avg, levels, hasData } = heatmapData(content);
+    if (!hasData) { el.innerHTML = `<p class="empty-note">ยังไม่มีข้อมูลพอสร้าง heatmap</p>`; return; }
+    const seqSteps = ['var(--seq-1)','var(--seq-2)','var(--seq-3)','var(--seq-4)','var(--seq-5)','var(--seq-6)'];
+    let html = `<div class="hm-label"></div>` + SLOT_LABELS.map(s => `<div class="hm-label col">${s}</div>`).join('');
+    DAY_LABELS.forEach((d, di) => {
+      html += `<div class="hm-label row">${d}</div>`;
+      SLOT_LABELS.forEach((s, si) => {
+        const level = levels[di][si];
+        const bg = level > 0 ? seqSteps[level-1] : 'var(--raised-2)';
+        const erVal = avg[di][si];
+        html += `<div class="hm-cell" style="background:${bg}" data-tip="${d} ${s}: ER เฉลี่ย ${erVal ? erVal.toFixed(1) : 0}%"></div>`;
+      });
+    });
+    el.innerHTML = html;
+    el.querySelectorAll('.hm-cell').forEach(cell => {
+      cell.addEventListener('mousemove', e => showTip(e.clientX, e.clientY, cell.dataset.tip));
+      cell.addEventListener('mouseleave', hideTip);
+    });
+  }
+
+  // ---------- Graphic gallery (Graphic team view) ----------
+  let galleryPlatforms = new Set();
+  let gallerySort = 'desc';
+  function renderGalleryFilter(platforms){
+    const el = document.getElementById('graphicFilter');
+    galleryPlatforms = new Set(platforms.map(p => p.meta.key));
+    el.innerHTML = platforms.map(p => `
+      <button class="filter-chip on" data-key="${p.meta.key}">
+        <span class="dot" style="background:${p.meta.color}"></span>${esc(p.meta.name)}
+      </button>`).join('');
+    el.querySelectorAll('.filter-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        chip.classList.toggle('on');
+        const key = chip.dataset.key;
+        chip.classList.contains('on') ? galleryPlatforms.add(key) : galleryPlatforms.delete(key);
+        renderGallery();
+      });
+    });
+  }
+  document.querySelectorAll('#graphicSort button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#graphicSort button').forEach(b => b.classList.remove('on'));
+      btn.classList.add('on');
+      gallerySort = btn.dataset.sort;
+      renderGallery();
+    });
+  });
+  function renderGallery(){
+    const rows = CONTENT
+      .filter(item => galleryPlatforms.has(platformMeta(item.platform).key))
+      .sort((a,b) => gallerySort === 'desc' ? b.engagementRate - a.engagementRate : a.engagementRate - b.engagementRate);
+    const el = document.getElementById('galleryGrid');
+    const note = document.getElementById('galleryNote');
+    const hasThumbs = rows.some(r => r.thumbnailUrl);
+    note.className = 'gap-note' + (hasThumbs ? '' : ' warn');
+    note.innerHTML = hasThumbs
+      ? `<i class="fa-solid fa-circle-check"></i><span>รูปดึงมาจากโพสต์จริงอัตโนมัติทุกสัปดาห์ (Facebook/Instagram) — แพลตฟอร์มอื่นที่ยังไม่มี Thumbnail จะโชว์เป็นสีพื้นแทน</span>`
+      : `<i class="fa-solid fa-triangle-exclamation"></i><span>ยังไม่มีรูปจริงในชุดข้อมูลนี้ (mock data ไม่มี thumbnail) — เมื่อต่อ API จริงจะเห็นรูปโพสต์แทนสีพื้น</span>`;
+    if (!rows.length){ el.innerHTML = `<p class="empty-note">ไม่มีคอนเทนต์ตรงตัวกรองที่เลือก</p>`; return; }
+    el.innerHTML = rows.map((item,i) => {
+      const meta = platformMeta(item.platform);
+      const inner = `
+        <div class="gallery-thumb" style="${thumbStyle(item)}">
+          <div class="gallery-rank">${i+1}</div>
+          <div class="gallery-er">${item.engagementRate}%</div>
+          ${item.thumbnailUrl ? '' : esc(meta.name[0])}
+          ${item.format ? `<div class="gallery-fmt">${esc(item.format)}</div>` : ''}
+        </div>
+        <div class="gallery-body">
+          <div class="gallery-cap">${esc(item.name)}</div>
+          <div class="gallery-meta"><span class="legend-dot" style="background:${meta.color}"></span>${esc(meta.name)} &middot; ${fmt(item.engagement)} engagement</div>
+        </div>`;
+      return `<div class="gallery-card" data-tip="${esc(item.name)} · ${esc(meta.name)} · ER ${item.engagementRate}%">
+        ${item.permalink ? `<a href="${esc(item.permalink)}" target="_blank" rel="noopener">${inner}</a>` : inner}
+      </div>`;
+    }).join('');
+    el.querySelectorAll('.gallery-card').forEach(card => {
+      card.addEventListener('mousemove', e => showTip(e.clientX, e.clientY, card.dataset.tip));
+      card.addEventListener('mouseleave', hideTip);
+    });
+  }
+
+  // ---------- View switch ----------
+  document.querySelectorAll('#viewSwitch button[data-view]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#viewSwitch button[data-view]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const target = btn.dataset.view;
+      document.getElementById('view-ceo').classList.toggle('active', target === 'ceo');
+      document.getElementById('view-team').classList.toggle('active', target === 'team');
+      document.getElementById('view-graphic').classList.toggle('active', target === 'graphic');
+    });
+  });
+
+  // ---------- Notes box (local only, see hint text) ----------
+  const NOTES_KEY = 'content-performance-notes';
+  const notesBox = document.getElementById('notesBox');
+  try { notesBox.textContent = localStorage.getItem(NOTES_KEY) || ''; } catch (e) {}
+  notesBox.addEventListener('input', () => {
+    try { localStorage.setItem(NOTES_KEY, notesBox.textContent); } catch (e) {}
+  });
+
+  // ---------- Date range label + source chip ----------
+  function renderTopbar(content){
+    const chip = document.getElementById('dataSourceChip');
+    if (usingLiveData) {
+      chip.className = 'chip live';
+      chip.innerHTML = '<i class="fa-solid fa-bolt"></i> Live data';
+    } else {
+      chip.className = 'chip mock';
+      chip.innerHTML = '<i class="fa-solid fa-flask"></i> Mock preview';
+    }
+    const dates = content.map(c => c.publishDate).filter(Boolean).map(d => new Date(d)).filter(d => !isNaN(d));
+    const label = document.getElementById('dateRangeLabel');
+    if (dates.length) {
+      const min = new Date(Math.min(...dates)), max = new Date(Math.max(...dates));
+      const f = d => `${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()+543}`;
+      label.textContent = `${f(min)} – ${f(max)}`;
+    } else {
+      label.textContent = '';
+    }
+  }
+
+  // ---------- Orchestration ----------
+  function renderAll(){
+    const platforms = aggregateByPlatform(CONTENT);
+    currentPlatforms = platforms;
+    const trend = weeklyTrend(CONTENT);
+    const sortedByEr = CONTENT.filter(c => c.reach > 0).slice().sort((a,b) => b.engagementRate - a.engagementRate);
+
+    renderTopbar(CONTENT);
+    renderKpis(CONTENT, platforms);
+    renderInsights(CONTENT, platforms, trend);
+    renderBars(platforms);
+    renderTrend(trend);
+    renderFilter(platforms);
+    renderTable();
+    renderRank('rankTop', sortedByEr.slice(0, 5));
+    renderRank('rankBottom', sortedByEr.slice(-5).reverse());
+    renderHeatmap(CONTENT);
+    renderGalleryFilter(platforms);
+    renderGallery();
+  }
+
+  loadData();
+})();
+</script>
+</body>
+</html>
