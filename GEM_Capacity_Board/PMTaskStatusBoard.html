@@ -43,31 +43,22 @@
     --radius-sm:8px;
   }
   *{ box-sizing:border-box; }
-  html{
+  html, body{
     margin:0;
-    height:100%;
     width:100%;
+    overscroll-behavior-y:none;
     -webkit-text-size-adjust:100%;
     text-size-adjust:100%;
   }
   body{
-    margin:0;
-    height:100vh;
-    width:100%;
-    overflow:hidden;
-    overscroll-behavior-y:none;
-    display:flex;
-    flex-direction:column;
     background:var(--bg);
     color:var(--ink);
     font-family:'Prompt','Outfit',sans-serif;
     -webkit-font-smoothing:antialiased;
   }
   .wrap{
-    max-width:1100px; width:100%; margin:0 auto; padding:26px 20px 120px;
-    flex:1; min-height:0;
-    overflow-y:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch;
-    overscroll-behavior-y:contain;
+    max-width:1100px; width:100%; margin:0 auto; padding:26px 20px 40px;
+    overflow-x:hidden;
   }
   .wrap, .wrap *{ max-width:100%; }
 
@@ -595,6 +586,24 @@
   }
 
   loadTasks();
+
+  // Report real content height to a parent window (e.g. NinaAgent Hub's
+  // embedding iframe) so it can size itself to fit instead of clipping this
+  // page into its own internally-scrolling region -- nested iframe scroll
+  // is unreliable on mobile. Harmless when opened standalone (no parent).
+  (function(){
+    function reportHeight(){
+      try{
+        var h = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);
+        window.parent.postMessage({ ninaHubResize:true, height:h }, '*');
+      }catch(e){}
+    }
+    if(window.ResizeObserver) new ResizeObserver(reportHeight).observe(document.body);
+    window.addEventListener('load', reportHeight);
+    window.addEventListener('resize', reportHeight);
+    setTimeout(reportHeight, 300);
+    setTimeout(reportHeight, 1200);
+  })();
 </script>
 </body>
 </html>

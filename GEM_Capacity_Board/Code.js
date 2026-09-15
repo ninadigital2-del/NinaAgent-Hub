@@ -1201,9 +1201,16 @@ header{background:#fff;border-bottom:1px solid #e5e3dd;padding:10px 20px;display
 .sync{font-size:14px;color:#aaa}
 .board{display:grid;grid-template-columns:1.6fr 1fr;gap:12px;padding:12px;flex:1;min-height:0}
 @media(max-width:700px){
+  /* Nested scrollable panels inside an iframe are unreliable on mobile
+     (iOS in particular can mis-map touch coordinates, so scroll only
+     registers near one edge). Let panels grow to their full content
+     height instead and rely on the Hub auto-sizing the iframe to fit
+     (see the postMessage call near the end of this script) so the
+     outer page's own scroll -- always reliable -- does the work. */
   body{height:auto;overflow:auto}
   .board{grid-template-columns:1fr;grid-template-rows:auto auto;flex:none;height:auto;padding:8px;gap:8px}
-  .panel{min-height:320px;max-height:70vh}
+  .panel{min-height:320px;max-height:none;overflow:visible}
+  .pb{overflow-y:visible}
   header{padding:8px 14px}
   .logo{font-size:14px}
 }
@@ -2507,6 +2514,24 @@ function deleteTaskFromModal() {
 }
 
 init();
+
+// Report real content height to a parent window (e.g. NinaAgent Hub's
+// embedding iframe) so it can size itself to fit instead of clipping this
+// page into its own internally-scrolling region -- nested iframe scroll is
+// unreliable on mobile. Harmless when opened standalone (no parent).
+(function(){
+  function reportHeight(){
+    try{
+      var h = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);
+      window.parent.postMessage({ ninaHubResize:true, height:h }, '*');
+    }catch(e){}
+  }
+  if(window.ResizeObserver) new ResizeObserver(reportHeight).observe(document.body);
+  window.addEventListener('load', reportHeight);
+  window.addEventListener('resize', reportHeight);
+  setTimeout(reportHeight, 300);
+  setTimeout(reportHeight, 1200);
+})();
 </script>
 </body>
 </html>`;
