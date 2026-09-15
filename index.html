@@ -98,6 +98,10 @@
                         <a href="javascript:void(0);" class="nav-item sidebar-tool-link" onclick="loadToolInFrame(this, 'Content Planner', 'content-planner.html')">
                             <i class="fa-solid fa-calendar-check" style="color: #16a34a;"></i> Content Planner
                         </a>
+
+                        <a href="javascript:void(0);" class="nav-item sidebar-tool-link" onclick="loadToolInFrame(this, 'PM Task Status Board', 'https://script.google.com/macros/s/AKfycbw8Wf0ja9wenm4yasuH10hbfr5Jxjv-NjLxUjz1yaZvOxqTcGEq_YrXz5R30UlHvr3N/exec?action=status-board')">
+                            <i class="fa-solid fa-square-check" style="color: #0d9488;"></i> PM Task Status Board
+                        </a>
                     </div>
                 </nav>
             </div>
@@ -273,6 +277,25 @@
                                 </a>
                                 <a href="content-planner-manual.html" target="_blank" class="btn-secondary">
                                     <i class="fa-solid fa-book"></i> อ่านคู่มือ
+                                </a>
+                            </div>
+                        </div>
+
+                        <!-- Tool Card 8 -->
+                        <div class="glass-card tool-card">
+                            <div class="card-top">
+                                <div class="card-icon" style="background: linear-gradient(135deg, #10b981 0%, #0d9488 100%); color: white; border-radius: 12px; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
+                                    <i class="fa-solid fa-square-check"></i>
+                                </div>
+                                <div class="card-content">
+                                    <h3>PM Task Status Board</h3>
+                                    <p>อัปเดตสถานะงานหลายรายการพร้อมกัน เชื่อมตรงกับฐาน Tasks ใน Notion</p>
+                                    <span class="badge badge-html">HTML / JS</span>
+                                </div>
+                            </div>
+                            <div class="card-actions">
+                                <a href="javascript:void(0);" onclick="loadToolInFrame(document.querySelectorAll('.sidebar-tool-link')[7], 'PM Task Status Board', 'https://script.google.com/macros/s/AKfycbw8Wf0ja9wenm4yasuH10hbfr5Jxjv-NjLxUjz1yaZvOxqTcGEq_YrXz5R30UlHvr3N/exec?action=status-board');" class="btn-primary">
+                                    <i class="fa-solid fa-rocket"></i> เครื่องมือ
                                 </a>
                             </div>
                         </div>
