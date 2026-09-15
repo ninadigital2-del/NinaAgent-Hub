@@ -10,7 +10,7 @@
     <!-- Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- CSS -->
-    <link rel="stylesheet" href="style.css?v=10">
+    <link rel="stylesheet" href="style.css?v=11">
 </head>
 <body>
     <!-- Background Animation Elements -->
@@ -36,6 +36,11 @@
     <!-- Sidebar Overlay -->
     <div id="sidebarOverlay" class="sidebar-overlay"></div>
 
+    <!-- Floating button to bring back a collapsed sidebar (desktop) -->
+    <button id="sidebarExpandBtn" class="btn-icon sidebar-expand-btn" title="แสดงแถบเมนู">
+        <i class="fa-solid fa-angles-right"></i>
+    </button>
+
     <div class="layout-wrapper">
         <!-- Sidebar -->
         <aside id="sidebar" class="sidebar">
@@ -49,6 +54,9 @@
                         <p>AI Workflow Portal</p>
                     </div>
                 </div>
+                <button id="sidebarCollapseBtn" class="btn-icon" title="ซ่อนแถบเมนู">
+                    <i class="fa-solid fa-angles-left"></i>
+                </button>
             </div>
             
             <div class="sidebar-scroll">
@@ -307,7 +315,7 @@
     </div>
 
     <!-- JS -->
-    <script src="app.js?v=11"></script>
+    <script src="app.js?v=12"></script>
     <script>
         // Trigger page load log
         fetch('https://script.google.com/macros/s/AKfycby01Vt8mWPbziblEgfQb0sexWqrkEm9cIiFR810UVxCJF26SPXJDOkx11aT0Ezo4u9h/exec', {
