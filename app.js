@@ -108,17 +108,16 @@ function showDashboard(element, skipHash = false) {
 // broken or tiny. Measuring the element's actual on-screen position adapts
 // to any header height, orientation, or device automatically.
 // Nested cross-origin iframes on mobile can still be flaky for touch-scroll
-// in some browsers/webviews even with a correct viewport, so PM Task Status
-// Board opens as a real new tab on phones (matching how Dashboard/native
-// pages already scroll perfectly) while staying embedded in-frame on
-// desktop, where it feels like part of the same page as every other tool.
-function openPmStatusBoard(element) {
-    const url = 'https://script.google.com/macros/s/AKfycbw8Wf0ja9wenm4yasuH10hbfr5Jxjv-NjLxUjz1yaZvOxqTcGEq_YrXz5R30UlHvr3N/exec?action=status-board';
+// in some browsers/webviews even with a correct viewport, so these tools
+// open as a real new tab on phones (matching how Dashboard/native pages
+// already scroll perfectly) while staying embedded in-frame on desktop,
+// where it feels like part of the same page as every other tool.
+function openToolAdaptive(element, toolName, url) {
     if (window.innerWidth <= 768) {
         window.open(url, '_blank', 'noopener');
         return;
     }
-    loadToolInFrame(element, 'PM Task Status Board', url);
+    loadToolInFrame(element, toolName, url);
 }
 
 function sizeIframeView() {
