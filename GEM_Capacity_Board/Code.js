@@ -42,6 +42,7 @@ function doGet(e) {
   if (action === 'getCapacity') return jsonResponse(getCapacityData());
   if (action === 'getBrands')   return jsonResponse(getNotionBrands());
   if (action === 'manual')      return HtmlService.createHtmlOutputFromFile('manual').setTitle('คู่มือการใช้งาน GEM Graphic Capacity Board').setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  if (action === 'status-board') return HtmlService.createHtmlOutputFromFile('PMTaskStatusBoard').setTitle('PM Task Status Board').setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 
   return HtmlService.createHtmlOutput(getHtml())
     .setTitle('GEM Graphic Capacity Board')
@@ -268,6 +269,66 @@ function getNotionTasks() {
   }).filter(t => !t.assignee); // เฉพาะที่ยังไม่ assign
 
   return { ok: true, tasks };
+}
+
+// ---------- PM TASK STATUS BOARD ----------
+
+function getTasksForStatusBoard() {
+  const props = PropertiesService.getScriptProperties();
+  const key   = props.getProperty('NOTION_API_KEY');
+  const dbId  = '2e69dccd181d81df8919fbacf921c7d5';
+
+  const payload = {
+    filter: {
+      property: 'Status',
+      status: { does_not_equal: 'Done' }
+    },
+    sorts: [{ property: 'Due Date', direction: 'ascending' }],
+    page_size: 100
+  };
+
+  const res = notionFetch(`databases/${dbId}/query`, 'POST', payload, key);
+  if (!res || !res.results) return { ok: false, tasks: [] };
+
+  const tasks = res.results.map(p => {
+    const props = p.properties;
+    const ownerRollup = props['Owner']?.rollup?.array?.[0]?.multi_select || [];
+    const brandRollup = props['Brand Name']?.rollup?.array?.[0];
+    return {
+      id:        p.id,
+      url:       p.url,
+      name:      props['Name']?.title?.[0]?.plain_text || '(ไม่มีชื่อ)',
+      status:    props['Status']?.status?.name || '',
+      dueDate:   props['Due Date']?.date?.start || '',
+      priority:  props['Priority']?.select?.name || '',
+      workBy:    (props['Work By']?.multi_select || []).map(x => x.name).join(', '),
+      owner:     ownerRollup.map(x => x.name).join(', '),
+      brand:     brandRollup?.formula?.string || brandRollup?.rich_text?.[0]?.plain_text || '',
+      jobNumber: props['Job Number']?.formula?.string || '',
+    };
+  });
+
+  return { ok: true, tasks };
+}
+
+function bulkUpdateStatus(pageIds, newStatus) {
+  const key = PropertiesService.getScriptProperties().getProperty('NOTION_API_KEY');
+  const result = { ok: true, updated: 0, failed: [] };
+
+  (pageIds || []).forEach(pageId => {
+    const cleanId = String(pageId).replace(/-/g, '');
+    const res = notionFetch(`pages/${cleanId}`, 'PATCH', {
+      properties: { 'Status': { status: { name: newStatus } } }
+    }, key);
+    if (!res || res.object === 'error') {
+      result.failed.push({ pageId, error: (res && res.message) || 'Unknown error' });
+    } else {
+      result.updated++;
+    }
+  });
+
+  if (result.failed.length) result.ok = false;
+  return result;
 }
 
 function getNotionBrands() {
