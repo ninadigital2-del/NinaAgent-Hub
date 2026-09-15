@@ -112,6 +112,24 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
 
 .cal-more { font-size: 10px; font-weight: 600; color: #6366f1; padding: 2px 6px; cursor: pointer; }
 .cal-more:hover { text-decoration: underline; }
+
+/* Narrow phones: 7 columns of full event pills don't fit and forcing a
+   min-width forced a horizontal scroll that fought the page's own vertical
+   scroll (iOS routes ambiguous diagonal drags to whichever axis it guesses,
+   so both ended up feeling broken). Shrink the grid to fit instead -- drop
+   the event title down to just its status dot so every column stays
+   tappable without needing any horizontal scroll at all. */
+@media (max-width: 640px) {
+  .cal-weekday { font-size: 9px; padding: 2px 0 4px; }
+  .day-cell { min-height: 46px; padding: 4px 2px; gap: 2px; border-radius: 8px; }
+  .day-num { font-size: 10.5px; }
+  .day-num.today-badge { width: 17px; height: 17px; font-size: 10px; }
+  .cal-item { padding: 2px; justify-content: center; border-radius: 999px; }
+  .cal-item .truncate { display: none; }
+  .cal-item .cal-dot { width: 7px; height: 7px; }
+  .cal-more { font-size: 8.5px; padding: 1px 2px; text-align: center; }
+  .day-empty-hint { display: none; }
+}
 </style>
 </head>
 <body class="text-slate-800">
@@ -216,15 +234,11 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
         <button onclick="shiftMonth(1)" class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-sm"><i class="fa-solid fa-chevron-right"></i></button>
       </div>
     </div>
-    <div id="cal-hint" class="text-xs text-slate-400 mb-3"><i class="fa-solid fa-hand"></i> ลากการ์ดไปวางวันที่ต้องการเพื่อเลื่อนกำหนดโพสต์ — บนมือถือปัดซ้าย/ขวาเพื่อดูทั้งสัปดาห์ได้</div>
-    <div class="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
-      <div class="min-w-[640px]">
-        <div class="grid grid-cols-7">
-          <div class="cal-weekday weekend">อา</div><div class="cal-weekday">จ</div><div class="cal-weekday">อ</div><div class="cal-weekday">พ</div><div class="cal-weekday">พฤ</div><div class="cal-weekday">ศ</div><div class="cal-weekday weekend">ส</div>
-        </div>
-        <div id="cal-body" class="grid grid-cols-7 gap-2"></div>
-      </div>
+    <div id="cal-hint" class="text-xs text-slate-400 mb-3"><i class="fa-solid fa-hand"></i> ลากการ์ดไปวางวันที่ต้องการเพื่อเลื่อนกำหนดโพสต์ — บนมือถือแตะที่จุดสีเพื่อดูรายละเอียด</div>
+    <div class="grid grid-cols-7">
+      <div class="cal-weekday weekend">อา</div><div class="cal-weekday">จ</div><div class="cal-weekday">อ</div><div class="cal-weekday">พ</div><div class="cal-weekday">พฤ</div><div class="cal-weekday">ศ</div><div class="cal-weekday weekend">ส</div>
     </div>
+    <div id="cal-body" class="grid grid-cols-7 gap-1 md:gap-2"></div>
   </div>
 
   <!-- ============ LIST VIEW ============ -->
@@ -577,18 +591,29 @@ async function apiGet(action){
   if (!json.success) throw new Error(json.error || 'API error');
   return json;
 }
+function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
+
+// Apps Script Web Apps can be genuinely slow on their first request after
+// sitting idle for a while ("cold start") -- a single failed/slow attempt
+// doesn't mean the backend is actually down. Retry a couple of times with a
+// short backoff before giving up and falling back to mock data, since a
+// retry right after a cold start is usually fast (the instance is now warm).
 async function loadFromApi(){
   if (!API_URL) return false;
-  try {
-    const [listResp, ownersResp, brandsResp] = await Promise.all([apiGet('list'), apiGet('owners'), apiGet('brands')]);
-    items = listResp.items.map(apiItemToClient);
-    notionOwners = ownersResp.owners;
-    notionBrands = brandsResp.brands;
-    return true;
-  } catch (err) {
-    console.error('Failed to load from API, falling back to mock data:', err);
-    return false;
+  const attempts = 3;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      const [listResp, ownersResp, brandsResp] = await Promise.all([apiGet('list'), apiGet('owners'), apiGet('brands')]);
+      items = listResp.items.map(apiItemToClient);
+      notionOwners = ownersResp.owners;
+      notionBrands = brandsResp.brands;
+      return true;
+    } catch (err) {
+      console.error(`Failed to load from API (attempt ${attempt}/${attempts}):`, err);
+      if (attempt < attempts) await sleep(1500 * attempt);
+    }
   }
+  return false;
 }
 
 // ---------- Mock data ----------
@@ -1622,6 +1647,7 @@ async function confirmImport(){
   const owner = resolvedPerson('import-owner');
   const reviewer = resolvedPerson('import-reviewer');
   const defaultTime = document.getElementById('import-default-time').value || '10:00';
+
   const btn = document.getElementById('import-confirm-btn');
   const originalBtnHtml = btn.innerHTML;
   btn.disabled = true;

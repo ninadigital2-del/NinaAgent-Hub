@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PM Task Status Board</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Prompt:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#EEF1EF;
+    --surface:#FFFFFF;
+    --surface-2:#F6F8F6;
+    --border:#DDE3DF;
+    --border-strong:#C7CFC9;
+    --ink:#132420;
+    --ink-muted:#5C6B65;
+    --ink-faint:#8B968F;
+    --accent:#059669;
+    --accent-ink:#047857;
+    --accent-contrast:#FFFFFF;
+    --accent-wash:#E3F4EC;
+
+    --st-notstarted-bg:#E7E9E6;
+    --st-notstarted-fg:#565F5A;
+    --st-inprogress-bg:#DFEAFB;
+    --st-inprogress-fg:#2A5FAE;
+    --st-pending-bg:#FBF0D9;
+    --st-pending-fg:#96690F;
+    --st-done-bg:#DEF1E4;
+    --st-done-fg:#256B45;
+
+    --pri-high:#B5442E;
+    --pri-medium:#96690F;
+    --pri-low:#5C6B58;
+
+    --overdue:#B5442E;
+    --duesoon:#96690F;
+
+    --shadow-1: 0 1px 2px rgba(19,36,32,0.07);
+    --shadow-2: 0 10px 28px rgba(19,36,32,0.14);
+    --radius-lg:14px;
+    --radius-md:10px;
+    --radius-sm:8px;
+  }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Prompt','Outfit',sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{ max-width:1100px; margin:0 auto; padding:26px 20px 120px; }
+
+  .topbar{
+    display:flex; justify-content:space-between; align-items:flex-end;
+    gap:20px; flex-wrap:wrap; padding-bottom:18px;
+    border-bottom:2px solid var(--accent); margin-bottom:20px;
+  }
+  .brand{ display:flex; flex-direction:column; gap:5px; }
+  .brand-eyebrow{
+    font-family:'Outfit',sans-serif; font-size:11px; letter-spacing:0.09em;
+    text-transform:uppercase; color:var(--accent-ink); font-weight:600;
+  }
+  h1{
+    margin:0; font-family:'Outfit','Prompt',sans-serif;
+    font-size:30px; font-weight:600; letter-spacing:-0.01em;
+  }
+  .brand-sub{ margin:0; font-size:13.5px; color:var(--ink-muted); max-width:52ch; }
+  .source-chip{
+    display:flex; align-items:center; gap:8px; font-size:12.5px;
+    color:var(--ink-muted); white-space:nowrap; padding-bottom:3px;
+  }
+  .source-dot{
+    width:7px; height:7px; border-radius:50%; background:var(--st-done-fg);
+    flex-shrink:0; box-shadow:0 0 0 3px var(--st-done-bg);
+  }
+  .source-dot.is-loading{ background:var(--ink-faint); box-shadow:0 0 0 3px var(--surface-2); }
+  .source-chip strong{ color:var(--ink); font-weight:600; }
+
+  .stats{ display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:22px; }
+  .stat{
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-md);
+    padding:14px 16px; display:flex; flex-direction:column; gap:4px; box-shadow:var(--shadow-1);
+  }
+  .stat-value{
+    font-family:'Outfit',sans-serif; font-variant-numeric:tabular-nums;
+    font-size:25px; font-weight:600; line-height:1;
+  }
+  .stat-label{ font-size:12px; color:var(--ink-muted); }
+  .stat.is-overdue .stat-value{ color:var(--overdue); }
+  .stat.is-duesoon .stat-value{ color:var(--duesoon); }
+
+  .filter-panel{
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg);
+    padding:14px 16px; margin-bottom:18px; box-shadow:var(--shadow-1);
+    display:flex; flex-direction:column; gap:12px;
+  }
+  .filter-row{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .field{ display:flex; flex-direction:column; gap:4px; }
+  .field-label{
+    font-size:10.5px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase;
+    color:var(--ink-faint);
+  }
+  .search-field{ flex:1 1 220px; min-width:180px; }
+  .search-field input{
+    width:100%; font-family:inherit; font-size:13.5px; background:var(--surface-2);
+    color:var(--ink); border:1px solid var(--border); border-radius:var(--radius-sm); padding:9px 12px;
+  }
+  select{
+    font-family:inherit; font-size:13.5px; color:var(--ink);
+    background:var(--surface-2) url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="10" height="6" viewBox="0 0 10 6"><path d="M1 1l4 4 4-4" stroke="%235C6B65" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>') no-repeat right 10px center;
+    appearance:none; -webkit-appearance:none; border:1px solid var(--border);
+    border-radius:var(--radius-sm); padding:9px 28px 9px 12px; min-width:132px; cursor:pointer;
+  }
+  select:hover{ border-color:var(--border-strong); }
+  input:focus-visible, select:focus-visible, button:focus-visible{
+    outline:2px solid var(--accent); outline-offset:2px;
+  }
+
+  .chip-row{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .filter-tab{
+    font-family:inherit; font-size:12.5px; font-weight:500; color:var(--ink-muted);
+    background:transparent; border:1px solid var(--border); border-radius:100px;
+    padding:6px 13px; cursor:pointer; transition:background .15s ease, color .15s ease, border-color .15s ease;
+  }
+  .filter-tab:hover{ border-color:var(--border-strong); color:var(--ink); }
+  .filter-tab.is-active{ background:var(--accent); border-color:var(--accent); color:var(--accent-contrast); }
+  .filter-panel-divider{ height:1px; background:var(--border); }
+  .filter-meta{ display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; }
+  .result-count{ font-size:12.5px; color:var(--ink-muted); }
+  .result-count b{ color:var(--ink); font-family:'Outfit',sans-serif; }
+  .select-all-row{ display:flex; align-items:center; gap:7px; font-size:12.5px; color:var(--ink-muted); cursor:pointer; }
+  .chk{ width:16px; height:16px; accent-color:var(--accent); cursor:pointer; }
+
+  .group{
+    margin-bottom:16px; border:1px solid var(--border); border-radius:var(--radius-lg);
+    overflow:hidden; background:var(--surface); box-shadow:var(--shadow-1);
+  }
+  .group-head{
+    display:flex; align-items:center; gap:10px; padding:11px 16px;
+    background:var(--surface-2); border-bottom:1px solid var(--border);
+  }
+  .group-title{ font-size:13px; font-weight:600; }
+  .group-count{
+    font-family:'Outfit',sans-serif; font-size:11.5px; color:var(--ink-muted);
+    background:var(--bg); border:1px solid var(--border); padding:1px 7px; border-radius:100px;
+  }
+
+  .task-row{
+    display:grid; grid-template-columns:26px 2fr 110px 92px 108px 128px;
+    align-items:center; gap:12px; padding:12px 16px; border-bottom:1px solid var(--border);
+    position:relative; transition:background .12s ease;
+  }
+  .task-row:last-child{ border-bottom:none; }
+  .task-row:hover{ background:var(--surface-2); }
+  .task-row.is-overdue::before{
+    content:""; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--overdue);
+  }
+  .task-row.is-selected{ background:var(--accent-wash); }
+  .task-name{ font-size:14px; font-weight:500; line-height:1.4; }
+  .task-project{ font-size:12px; color:var(--ink-muted); margin-top:3px; }
+
+  .owner-tag{ font-size:12.5px; color:var(--ink-muted); }
+  .priority{ display:inline-flex; align-items:center; gap:6px; font-size:12.5px; color:var(--ink-muted); }
+  .priority-dot{ width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+  .priority[data-level="High"] .priority-dot{ background:var(--pri-high); }
+  .priority[data-level="Medium"] .priority-dot{ background:var(--pri-medium); }
+  .priority[data-level="Low"] .priority-dot{ background:var(--pri-low); }
+
+  .due{ font-family:'Outfit',sans-serif; font-variant-numeric:tabular-nums; font-size:12.5px; }
+  .due-tag{ display:block; font-family:'Prompt',sans-serif; font-size:11px; margin-top:2px; color:var(--ink-faint); }
+  .due.is-overdue{ color:var(--overdue); font-weight:600; }
+  .due.is-overdue .due-tag{ color:var(--overdue); }
+  .due.is-duesoon .due-tag{ color:var(--duesoon); }
+
+  .pill{
+    display:inline-flex; align-items:center; justify-self:start; font-size:12px; font-weight:600;
+    padding:4px 10px; border-radius:100px; white-space:nowrap;
+  }
+  .pill[data-status="Not started"]{ background:var(--st-notstarted-bg); color:var(--st-notstarted-fg); }
+  .pill[data-status="In progress"]{ background:var(--st-inprogress-bg); color:var(--st-inprogress-fg); }
+  .pill[data-status="Pending"]{ background:var(--st-pending-bg); color:var(--st-pending-fg); }
+  .pill[data-status="Done"]{ background:var(--st-done-bg); color:var(--st-done-fg); }
+
+  .empty-state, .loading-state{
+    padding:44px 20px; text-align:center; color:var(--ink-muted); font-size:13.5px;
+    background:var(--surface); border:1px dashed var(--border-strong); border-radius:var(--radius-lg);
+  }
+  .error-state{
+    padding:16px 18px; color:var(--overdue); font-size:13.5px; background:var(--surface);
+    border:1px solid var(--overdue); border-radius:var(--radius-lg); margin-bottom:18px;
+  }
+
+  .bulkbar{
+    position:fixed; left:50%; bottom:22px; transform:translate(-50%, 16px); opacity:0; pointer-events:none;
+    transition:transform .18s ease, opacity .18s ease; display:flex; align-items:center; gap:12px;
+    background:var(--ink); color:var(--bg); border-radius:var(--radius-md); padding:12px 14px;
+    box-shadow:var(--shadow-2); z-index:20; max-width:calc(100vw - 32px); flex-wrap:wrap;
+  }
+  .bulkbar.is-visible{ opacity:1; pointer-events:auto; transform:translate(-50%, 0); }
+  .bulkbar-count{ font-size:13.5px; font-weight:600; white-space:nowrap; padding-right:4px; }
+  .bulkbar-count b{ font-family:'Outfit',sans-serif; }
+  .bulkbar select{ background:var(--surface); color:var(--ink); border:1px solid var(--border-strong); }
+  .bulkbar button{
+    font-family:inherit; font-size:13px; font-weight:600; background:var(--accent);
+    color:var(--accent-contrast); border:none; border-radius:var(--radius-sm); padding:9px 16px; cursor:pointer;
+  }
+  .bulkbar button:disabled{ opacity:.6; cursor:wait; }
+  .bulkbar button:hover:not(:disabled){ filter:brightness(1.08); }
+  .bulkbar .ghost{ background:transparent; color:var(--bg); opacity:.7; font-weight:500; padding:9px 8px; }
+  .bulkbar .ghost:hover{ opacity:1; filter:none; }
+
+  .toast{
+    position:fixed; left:50%; bottom:22px; transform:translate(-50%, 16px); opacity:0; pointer-events:none;
+    transition:transform .2s ease, opacity .2s ease; color:#fff; font-size:13.5px; font-weight:600;
+    padding:11px 18px; border-radius:var(--radius-md); box-shadow:var(--shadow-2); z-index:21;
+  }
+  .toast.is-visible{ opacity:1; transform:translate(-50%, 0); }
+  .toast.is-success{ background:var(--st-done-fg); }
+  .toast.is-error{ background:var(--overdue); }
+
+  footer{ margin-top:26px; font-size:12px; color:var(--ink-faint); text-align:center; }
+
+  @media (max-width:820px){
+    .stats{ grid-template-columns:repeat(2,1fr); }
+    .task-row{
+      grid-template-columns:22px 1fr; grid-template-areas:"chk name" ".   meta"; row-gap:8px;
+    }
+    .task-row .chk{ grid-area:chk; align-self:start; margin-top:2px; }
+    .task-row .task-main{ grid-area:name; }
+    .task-row .task-meta{ grid-area:meta; display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+    .task-row .owner-tag{ display:none; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topbar">
+    <div class="brand">
+      <span class="brand-eyebrow">GEM · Projects Manager</span>
+      <h1>PM Task Status Board</h1>
+      <p class="brand-sub">ติ๊กเลือกงานที่ทำเสร็จหรือเปลี่ยนสถานะพร้อมกันได้หลายรายการ — ไม่ต้องเปิด Notion</p>
+    </div>
+    <div class="source-chip">
+      <span class="source-dot is-loading" id="sourceDot"></span>
+      ซิงก์จาก <strong>Notion · Tasks</strong> · <span id="syncLabel">กำลังโหลด...</span>
+    </div>
+  </div>
+
+  <div id="errorBox"></div>
+
+  <div class="stats">
+    <div class="stat">
+      <span class="stat-value" id="statTotal">–</span>
+      <span class="stat-label" id="statTotalLabel">งานค้าง (ยังไม่ Done)</span>
+    </div>
+    <div class="stat is-overdue">
+      <span class="stat-value" id="statOverdue">–</span>
+      <span class="stat-label">เลยกำหนดส่ง</span>
+    </div>
+    <div class="stat is-duesoon">
+      <span class="stat-value" id="statDuesoon">–</span>
+      <span class="stat-label">ครบกำหนดใน 3 วัน</span>
+    </div>
+    <div class="stat">
+      <span class="stat-value" id="statBrands">–</span>
+      <span class="stat-label">แบรนด์ที่เกี่ยวข้อง</span>
+    </div>
+  </div>
+
+  <div class="filter-panel">
+    <div class="filter-row">
+      <div class="field search-field">
+        <label class="field-label" for="searchInput">ค้นหางาน</label>
+        <input type="text" id="searchInput" placeholder="พิมพ์ชื่องาน...">
+      </div>
+      <div class="field">
+        <label class="field-label" for="pmSelect">PM</label>
+        <select id="pmSelect"><option value="all">ทุกคน</option></select>
+      </div>
+      <div class="field">
+        <label class="field-label" for="brandSelect">Brand</label>
+        <select id="brandSelect"><option value="all">ทุกแบรนด์</option></select>
+      </div>
+      <div class="field">
+        <label class="field-label" for="statusFilterSelect">Status</label>
+        <select id="statusFilterSelect">
+          <option value="all">ทุกสถานะ</option>
+          <option value="Not started">Not started</option>
+          <option value="In progress">In progress</option>
+          <option value="Pending">Pending</option>
+          <option value="Done">Done</option>
+        </select>
+      </div>
+    </div>
+    <div class="filter-panel-divider"></div>
+    <div class="filter-meta">
+      <div class="chip-row">
+        <button class="filter-tab is-active" data-filter="all">กำหนดส่งทั้งหมด</button>
+        <button class="filter-tab" data-filter="overdue">เลยกำหนด</button>
+        <button class="filter-tab" data-filter="duesoon">ใกล้ครบกำหนด</button>
+      </div>
+      <label class="select-all-row">
+        <input type="checkbox" class="chk" id="selectAll">
+        เลือกทั้งหมดที่แสดงอยู่
+      </label>
+    </div>
+    <div class="result-count">พบ <b id="resultCount">0</b> งานตามเงื่อนไขที่เลือก</div>
+  </div>
+
+  <div id="taskList"><div class="loading-state">กำลังโหลดงานจาก Notion...</div></div>
+
+  <footer>ข้อมูลดึงสดจากฐาน Tasks ใน Notion (Projects Manager)</footer>
+</div>
+
+<div class="bulkbar" id="bulkbar">
+  <span class="bulkbar-count"><b id="selCount">0</b> งานที่เลือก</span>
+  <select id="statusSelect">
+    <option value="Not started">Not started</option>
+    <option value="In progress" selected>In progress</option>
+    <option value="Pending">Pending</option>
+    <option value="Done">Done</option>
+  </select>
+  <button id="applyBtn">เปลี่ยนสถานะ</button>
+  <button class="ghost" id="clearBtn">ล้างการเลือก</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  let tasks = [];
+  const BUCKETS = [
+    { key:'overdue',  label:'เลยกำหนด' },
+    { key:'duesoon',  label:'ใกล้ครบกำหนด (≤3 วัน)' },
+    { key:'thisweek', label:'กำหนดสัปดาห์นี้ (4-7 วัน)' },
+    { key:'later',    label:'กำหนดถัดไป' },
+    { key:'nodate',   label:'ไม่มีกำหนดส่ง' },
+  ];
+  function bucketFor(diffDays){
+    if(diffDays === null) return 'nodate';
+    if(diffDays < 0) return 'overdue';
+    if(diffDays <= 3) return 'duesoon';
+    if(diffDays <= 7) return 'thisweek';
+    return 'later';
+  }
+
+  function dueMeta(dateStr){
+    if(!dateStr) return { cls:'', tag:'', formatted:'ไม่มีกำหนด', diffDays:null, isOverdue:false, isDueSoon:false };
+    const today = new Date(); today.setHours(0,0,0,0);
+    const d = new Date(dateStr + 'T00:00:00');
+    const diffDays = Math.round((d - today) / 86400000);
+    let cls = '', tag = '';
+    if(diffDays < 0){ cls = 'is-overdue'; tag = `เลยกำหนด ${Math.abs(diffDays)} วัน`; }
+    else if(diffDays <= 3){ cls = 'is-duesoon'; tag = diffDays === 0 ? 'ครบกำหนดวันนี้' : `อีก ${diffDays} วัน`; }
+    const formatted = d.toLocaleDateString('th-TH', { day:'numeric', month:'short' });
+    return { cls, tag, formatted, diffDays, isOverdue: diffDays < 0, isDueSoon: diffDays >= 0 && diffDays <= 3 };
+  }
+
+  const listEl = document.getElementById('taskList');
+  const state = { dateFilter:'all', pm:'all', brand:'all', status:'all', search:'' };
+
+  function taskMatches(t, meta){
+    if(state.pm !== 'all' && t.owner !== state.pm) return false;
+    if(state.dateFilter === 'overdue' && !meta.isOverdue) return false;
+    if(state.dateFilter === 'duesoon' && !meta.isDueSoon) return false;
+    if(state.brand !== 'all' && t.brand !== state.brand) return false;
+    if(state.status !== 'all' && t.status !== state.status) return false;
+    if(state.search && !t.name.toLowerCase().includes(state.search)) return false;
+    return true;
+  }
+
+  function updateStats(){
+    const scoped = tasks.filter(t => state.pm === 'all' || t.owner === state.pm);
+    const overdue = scoped.filter(t => dueMeta(t.dueDate).isOverdue).length;
+    const duesoon = scoped.filter(t => dueMeta(t.dueDate).isDueSoon).length;
+    const brands = new Set(scoped.map(t => t.brand).filter(Boolean)).size;
+    document.getElementById('statTotal').textContent = scoped.length;
+    document.getElementById('statTotalLabel').textContent = state.pm === 'all' ? 'งานค้างทั้งทีม (ยังไม่ Done)' : `งานของ ${state.pm} (ยังไม่ Done)`;
+    document.getElementById('statOverdue').textContent = overdue;
+    document.getElementById('statDuesoon').textContent = duesoon;
+    document.getElementById('statBrands').textContent = brands;
+  }
+
+  function render(){
+    listEl.innerHTML = '';
+    let visibleCount = 0;
+    BUCKETS.forEach(bucket => {
+      const items = tasks
+        .filter(t => bucketFor(dueMeta(t.dueDate).diffDays) === bucket.key)
+        .filter(t => taskMatches(t, dueMeta(t.dueDate)));
+      if(!items.length) return;
+      visibleCount += items.length;
+      const groupEl = document.createElement('div');
+      groupEl.className = 'group';
+      groupEl.innerHTML = `<div class="group-head">
+          <span class="group-title">${bucket.label}</span>
+          <span class="group-count">${items.length} งาน</span>
+        </div>`;
+      items.forEach(t => {
+        const meta = dueMeta(t.dueDate);
+        const row = document.createElement('div');
+        row.className = 'task-row' + (meta.isOverdue ? ' is-overdue' : '');
+        row.dataset.id = t.id;
+        const projectLine = [t.brand, t.jobNumber].filter(Boolean).join(' · ') || t.workBy || '—';
+        row.innerHTML = `
+          <input type="checkbox" class="chk row-chk" data-id="${t.id}">
+          <div class="task-main">
+            <div class="task-name"></div>
+            <div class="task-project"></div>
+          </div>
+          <span class="owner-tag"></span>
+          <div class="priority" data-level="${t.priority}"><span class="priority-dot"></span>${t.priority || '—'}</div>
+          <div class="due ${meta.cls}">${meta.formatted}<span class="due-tag">${meta.tag}</span></div>
+          <span class="pill" data-status="${t.status}">${t.status}</span>
+        `;
+        row.querySelector('.task-name').textContent = t.name;
+        row.querySelector('.task-project').textContent = projectLine;
+        row.querySelector('.owner-tag').textContent = t.owner || '—';
+        groupEl.appendChild(row);
+      });
+      listEl.appendChild(groupEl);
+    });
+    if(!visibleCount){
+      listEl.innerHTML = '<div class="empty-state">ไม่พบงานตามเงื่อนไขที่เลือก — ลองล้างตัวกรองดูครับ</div>';
+    }
+    document.getElementById('resultCount').textContent = visibleCount;
+    updateStats();
+    refreshSelection();
+  }
+
+  function populateFilterOptions(){
+    const pmSelect = document.getElementById('pmSelect');
+    const brandSelect = document.getElementById('brandSelect');
+    const owners = Array.from(new Set(tasks.map(t => t.owner).filter(Boolean))).sort();
+    const brands = Array.from(new Set(tasks.map(t => t.brand).filter(Boolean))).sort();
+    owners.forEach(o => {
+      const opt = document.createElement('option');
+      opt.value = o; opt.textContent = o;
+      pmSelect.appendChild(opt);
+    });
+    brands.forEach(b => {
+      const opt = document.createElement('option');
+      opt.value = b; opt.textContent = b;
+      brandSelect.appendChild(opt);
+    });
+  }
+
+  document.querySelectorAll('.filter-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.filter-tab').forEach(b => b.classList.remove('is-active'));
+      btn.classList.add('is-active');
+      state.dateFilter = btn.dataset.filter;
+      render();
+    });
+  });
+  document.getElementById('pmSelect').addEventListener('change', e => { state.pm = e.target.value; render(); });
+  document.getElementById('brandSelect').addEventListener('change', e => { state.brand = e.target.value; render(); });
+  document.getElementById('statusFilterSelect').addEventListener('change', e => { state.status = e.target.value; render(); });
+  document.getElementById('searchInput').addEventListener('input', e => { state.search = e.target.value.trim().toLowerCase(); render(); });
+
+  const bulkbar = document.getElementById('bulkbar');
+  const selCountEl = document.getElementById('selCount');
+
+  function refreshSelection(){
+    const checked = document.querySelectorAll('.row-chk:checked');
+    selCountEl.textContent = checked.length;
+    bulkbar.classList.toggle('is-visible', checked.length > 0);
+    document.querySelectorAll('.task-row').forEach(row => {
+      const chk = row.querySelector('.row-chk');
+      row.classList.toggle('is-selected', chk && chk.checked);
+    });
+  }
+
+  listEl.addEventListener('change', e => {
+    if(e.target.classList.contains('row-chk')) refreshSelection();
+  });
+  document.getElementById('selectAll').addEventListener('change', e => {
+    document.querySelectorAll('.row-chk').forEach(chk => { chk.checked = e.target.checked; });
+    refreshSelection();
+  });
+  document.getElementById('clearBtn').addEventListener('click', () => {
+    document.querySelectorAll('.row-chk').forEach(c => c.checked = false);
+    document.getElementById('selectAll').checked = false;
+    refreshSelection();
+  });
+
+  const toast = document.getElementById('toast');
+  let toastTimer;
+  function showToast(msg, type){
+    toast.textContent = msg;
+    toast.className = 'toast is-visible ' + (type === 'error' ? 'is-error' : 'is-success');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove('is-visible'), 3200);
+  }
+
+  document.getElementById('applyBtn').addEventListener('click', () => {
+    const newStatus = document.getElementById('statusSelect').value;
+    const checked = Array.from(document.querySelectorAll('.row-chk:checked'));
+    const ids = checked.map(chk => chk.dataset.id);
+    if(!ids.length) return;
+    const applyBtn = document.getElementById('applyBtn');
+    applyBtn.disabled = true;
+    applyBtn.textContent = 'กำลังอัปเดต...';
+    google.script.run
+      .withSuccessHandler(res => {
+        applyBtn.disabled = false;
+        applyBtn.textContent = 'เปลี่ยนสถานะ';
+        if(res.ok){
+          ids.forEach(id => {
+            const t = tasks.find(x => x.id === id);
+            if(t) t.status = newStatus;
+          });
+          document.getElementById('selectAll').checked = false;
+          showToast(`อัปเดต ${res.updated} งาน เป็น "${newStatus}" แล้ว`, 'success');
+        } else {
+          showToast(`อัปเดตสำเร็จ ${res.updated} งาน, ล้มเหลว ${res.failed.length} งาน`, 'error');
+        }
+        render();
+      })
+      .withFailureHandler(err => {
+        applyBtn.disabled = false;
+        applyBtn.textContent = 'เปลี่ยนสถานะ';
+        showToast('อัปเดตไม่สำเร็จ: ' + (err && err.message ? err.message : err), 'error');
+      })
+      .bulkUpdateStatus(ids, newStatus);
+  });
+
+  function showError(msg){
+    document.getElementById('errorBox').innerHTML = `<div class="error-state">โหลดข้อมูลไม่สำเร็จ: ${msg}</div>`;
+  }
+
+  function loadTasks(){
+    google.script.run
+      .withSuccessHandler(res => {
+        const dot = document.getElementById('sourceDot');
+        dot.classList.remove('is-loading');
+        if(!res.ok){
+          showError('ไม่สามารถดึงข้อมูลจาก Notion ได้');
+          listEl.innerHTML = '<div class="empty-state">โหลดข้อมูลไม่สำเร็จ ลองรีเฟรชหน้าใหม่</div>';
+          return;
+        }
+        tasks = res.tasks;
+        document.getElementById('syncLabel').textContent = 'อัปเดตล่าสุดตอนนี้';
+        populateFilterOptions();
+        render();
+      })
+      .withFailureHandler(err => {
+        showError(err && err.message ? err.message : String(err));
+        listEl.innerHTML = '<div class="empty-state">โหลดข้อมูลไม่สำเร็จ ลองรีเฟรชหน้าใหม่</div>';
+      })
+      .getTasksForStatusBoard();
+  }
+
+  loadTasks();
+</script>
+</body>
+</html>

@@ -51,6 +51,25 @@ if (sidebarOverlay) {
     });
 }
 
+// Desktop sidebar collapse/expand
+const sidebarCollapseBtn = document.getElementById('sidebarCollapseBtn');
+const sidebarExpandBtn = document.getElementById('sidebarExpandBtn');
+
+function setSidebarCollapsed(collapsed) {
+    document.body.classList.toggle('sidebar-collapsed', collapsed);
+    localStorage.setItem('sidebarCollapsed', collapsed ? '1' : '0');
+}
+
+if (sidebarCollapseBtn) {
+    sidebarCollapseBtn.addEventListener('click', () => setSidebarCollapsed(true));
+}
+if (sidebarExpandBtn) {
+    sidebarExpandBtn.addEventListener('click', () => setSidebarCollapsed(false));
+}
+if (localStorage.getItem('sidebarCollapsed') === '1') {
+    setSidebarCollapsed(true);
+}
+
 function showDashboard(element, skipHash = false) {
     if (window.event && window.event.preventDefault) window.event.preventDefault();
     if (!skipHash) {

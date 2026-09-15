@@ -10,7 +10,7 @@
     <!-- Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- CSS -->
-    <link rel="stylesheet" href="style.css?v=10">
+    <link rel="stylesheet" href="style.css?v=11">
 </head>
 <body>
     <!-- Background Animation Elements -->
@@ -36,6 +36,11 @@
     <!-- Sidebar Overlay -->
     <div id="sidebarOverlay" class="sidebar-overlay"></div>
 
+    <!-- Floating button to bring back a collapsed sidebar (desktop) -->
+    <button id="sidebarExpandBtn" class="btn-icon sidebar-expand-btn" title="แสดงแถบเมนู">
+        <i class="fa-solid fa-angles-right"></i>
+    </button>
+
     <div class="layout-wrapper">
         <!-- Sidebar -->
         <aside id="sidebar" class="sidebar">
@@ -49,6 +54,9 @@
                         <p>AI Workflow Portal</p>
                     </div>
                 </div>
+                <button id="sidebarCollapseBtn" class="btn-icon" title="ซ่อนแถบเมนู">
+                    <i class="fa-solid fa-angles-left"></i>
+                </button>
             </div>
             
             <div class="sidebar-scroll">
@@ -63,7 +71,7 @@
                     <div class="nav-group">
                         <div class="nav-label">เครื่องมือ AI ของคุณ</div>
                         
-                        <a href="javascript:void(0);" class="nav-item sidebar-tool-link" onclick="loadToolInFrame(this, 'Social Media Content Creator', 'content-creator.html')">
+                        <a href="javascript:void(0);" class="nav-item sidebar-tool-link" onclick="loadToolInFrame(this, 'Content Creator', 'content-creator.html')">
                             <i class="fa-solid fa-wand-magic-sparkles" style="color: #a855f7;"></i> Content Creator
                         </a>
                         
@@ -89,6 +97,10 @@
 
                         <a href="javascript:void(0);" class="nav-item sidebar-tool-link" onclick="loadToolInFrame(this, 'Content Planner', 'content-planner.html')">
                             <i class="fa-solid fa-calendar-check" style="color: #16a34a;"></i> Content Planner
+                        </a>
+
+                        <a href="javascript:void(0);" class="nav-item sidebar-tool-link" onclick="loadToolInFrame(this, 'PM Task Status Board', 'https://script.google.com/macros/s/AKfycbw8Wf0ja9wenm4yasuH10hbfr5Jxjv-NjLxUjz1yaZvOxqTcGEq_YrXz5R30UlHvr3N/exec?action=status-board')">
+                            <i class="fa-solid fa-square-check" style="color: #0d9488;"></i> PM Task Status Board
                         </a>
                     </div>
                 </nav>
@@ -125,16 +137,16 @@
                                     <i class="fa-solid fa-wand-magic-sparkles"></i>
                                 </div>
                                 <div class="card-content">
-                                    <h3>Social Media Content Creator</h3>
+                                    <h3>Content Creator</h3>
                                     <p>ผู้ช่วย AI เขียนแคปชั่นและกลยุทธ์คอนเทนต์บนโซเชียลมีเดีย</p>
                                     <span class="badge badge-script">Google Apps Script</span>
                                 </div>
                             </div>
                             <div class="card-actions">
-                                <a href="javascript:void(0);" onclick="loadToolInFrame(document.querySelectorAll('.sidebar-tool-link')[0], 'Social Media Content Creator', 'content-creator.html');" class="btn-primary">
+                                <a href="javascript:void(0);" onclick="loadToolInFrame(document.querySelectorAll('.sidebar-tool-link')[0], 'Content Creator', 'content-creator.html');" class="btn-primary">
                                     <i class="fa-solid fa-rocket"></i> เครื่องมือ
                                 </a>
-                                <button onclick="openManual('1UIn3oi60DCi9UWO6LiSAdr7pKbQk2DzF', 'คู่มือ Social Media Content Creator')" class="btn-secondary">
+                                <button onclick="openManual('1UIn3oi60DCi9UWO6LiSAdr7pKbQk2DzF', 'คู่มือ Content Creator')" class="btn-secondary">
                                     <i class="fa-solid fa-book"></i> อ่านคู่มือ
                                 </button>
                             </div>
@@ -268,6 +280,25 @@
                                 </a>
                             </div>
                         </div>
+
+                        <!-- Tool Card 8 -->
+                        <div class="glass-card tool-card">
+                            <div class="card-top">
+                                <div class="card-icon" style="background: linear-gradient(135deg, #10b981 0%, #0d9488 100%); color: white; border-radius: 12px; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
+                                    <i class="fa-solid fa-square-check"></i>
+                                </div>
+                                <div class="card-content">
+                                    <h3>PM Task Status Board</h3>
+                                    <p>อัปเดตสถานะงานหลายรายการพร้อมกัน เชื่อมตรงกับฐาน Tasks ใน Notion</p>
+                                    <span class="badge badge-html">HTML / JS</span>
+                                </div>
+                            </div>
+                            <div class="card-actions">
+                                <a href="javascript:void(0);" onclick="loadToolInFrame(document.querySelectorAll('.sidebar-tool-link')[7], 'PM Task Status Board', 'https://script.google.com/macros/s/AKfycbw8Wf0ja9wenm4yasuH10hbfr5Jxjv-NjLxUjz1yaZvOxqTcGEq_YrXz5R30UlHvr3N/exec?action=status-board');" class="btn-primary">
+                                    <i class="fa-solid fa-rocket"></i> เครื่องมือ
+                                </a>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -307,7 +338,7 @@
     </div>
 
     <!-- JS -->
-    <script src="app.js?v=11"></script>
+    <script src="app.js?v=12"></script>
     <script>
         // Trigger page load log
         fetch('https://script.google.com/macros/s/AKfycby01Vt8mWPbziblEgfQb0sexWqrkEm9cIiFR810UVxCJF26SPXJDOkx11aT0Ezo4u9h/exec', {
