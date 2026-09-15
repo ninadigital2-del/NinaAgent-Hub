@@ -81,12 +81,17 @@ function showDashboard(element, skipHash = false) {
     if (element) element.classList.add('active');
 
     // Show dashboard, hide iframe
+    const iframeViewEl = document.getElementById('iframe-view');
     document.getElementById('dashboard-view').style.display = 'block';
-    document.getElementById('iframe-view').style.display = 'none';
+    iframeViewEl.style.display = 'none';
+    delete iframeViewEl.dataset.autoHeight;
+    iframeViewEl.style.overflow = 'hidden';
     document.querySelector('.content-scroll').style.padding = '';
-    
+
     // Clear iframe to save memory
-    document.getElementById('tool-frame').src = '';
+    const toolFrameEl = document.getElementById('tool-frame');
+    toolFrameEl.src = '';
+    toolFrameEl.style.height = '100%';
     
     // Close mobile sidebar if open
     if (sidebar) sidebar.classList.remove('open');
@@ -105,12 +110,33 @@ function showDashboard(element, skipHash = false) {
 function sizeIframeView() {
     const iframeView = document.getElementById('iframe-view');
     if (!iframeView || iframeView.style.display === 'none') return;
+    if (iframeView.dataset.autoHeight === 'true') return; // a tool is self-reporting its height instead
     const top = iframeView.getBoundingClientRect().top;
     const available = window.innerHeight - top;
     if (available > 100) iframeView.style.height = available + 'px';
 }
 window.addEventListener('resize', sizeIframeView);
 window.addEventListener('orientationchange', () => setTimeout(sizeIframeView, 200));
+
+// Nested iframes don't scroll reliably on mobile (iOS in particular can
+// mis-map touch coordinates inside a fixed-height scrollable iframe, making
+// scroll only register near one edge). Tools that opt in report their real
+// content height via postMessage instead, so on mobile we grow the iframe
+// to fit that height exactly and let the page's own natural scroll (already
+// enabled at <=768px, see style.css) handle it -- no nested scroll region
+// needed at all. Tools that don't send this message are unaffected.
+window.addEventListener('message', (e) => {
+    if (!e.data || e.data.ninaHubResize !== true) return;
+    if (window.innerWidth > 768) return;
+    const iframeView = document.getElementById('iframe-view');
+    const toolFrame = document.getElementById('tool-frame');
+    if (!iframeView || !toolFrame || iframeView.style.display === 'none') return;
+    const height = Math.max(Number(e.data.height) || 0, 300);
+    iframeView.dataset.autoHeight = 'true';
+    iframeView.style.height = height + 'px';
+    iframeView.style.overflow = 'visible';
+    toolFrame.style.height = height + 'px';
+});
 
 function loadToolInFrame(element, toolName, url, skipHash = false) {
     if (window.event && window.event.preventDefault) window.event.preventDefault();
@@ -129,6 +155,13 @@ function loadToolInFrame(element, toolName, url, skipHash = false) {
     document.getElementById('dashboard-view').style.display = 'none';
     const iframeView = document.getElementById('iframe-view');
     iframeView.style.display = 'block';
+
+    // Reset any auto-height left over from a previous tool that
+    // self-reports its size, so a tool that doesn't opt in falls back to
+    // the normal fixed-height behavior instead of inheriting a stale size.
+    delete iframeView.dataset.autoHeight;
+    iframeView.style.overflow = 'hidden';
+    document.getElementById('tool-frame').style.height = '100%';
 
     // Remove padding for iframe view to prevent cropping
     if (window.innerWidth <= 768) {
