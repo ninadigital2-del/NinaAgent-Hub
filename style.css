@@ -85,12 +85,46 @@ body {
     flex-direction: column;
     height: 100%;
     z-index: 100;
-    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1), transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     box-shadow: 2px 0 20px rgba(0,0,0,0.02);
 }
 
 .sidebar-header {
     padding: 2rem 1.5rem;
+}
+
+.sidebar-header.desktop-only {
+    justify-content: space-between;
+    align-items: center;
+}
+
+#sidebarCollapseBtn {
+    font-size: 1.1rem;
+    flex-shrink: 0;
+}
+
+/* Floating button to reopen a collapsed sidebar */
+.sidebar-expand-btn {
+    position: fixed;
+    top: 1.5rem;
+    left: 1rem;
+    z-index: 101;
+    width: 36px;
+    height: 36px;
+    align-items: center;
+    justify-content: center;
+    background: var(--sidebar-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    border-radius: 10px;
+    box-shadow: var(--glass-shadow);
+    font-size: 1rem;
+    display: none;
+}
+
+body.sidebar-collapsed .sidebar-expand-btn {
+    display: flex;
 }
 
 .logo-area {
@@ -244,8 +278,24 @@ body.tool-only-mode {
 body.tool-only-mode .bg-orb,
 body.tool-only-mode .mobile-header,
 body.tool-only-mode .sidebar,
-body.tool-only-mode .sidebar-overlay {
+body.tool-only-mode .sidebar-overlay,
+body.tool-only-mode .sidebar-expand-btn {
     display: none !important;
+}
+
+/* Desktop sidebar collapse */
+body.sidebar-collapsed .sidebar {
+    width: 0;
+    min-width: 0;
+    border-right: none;
+    overflow: hidden;
+}
+
+body.sidebar-collapsed .sidebar-header,
+body.sidebar-collapsed .sidebar-scroll,
+body.sidebar-collapsed .sidebar-footer {
+    opacity: 0;
+    pointer-events: none;
 }
 
 body.tool-only-mode .layout-wrapper,
@@ -568,6 +618,7 @@ body.tool-only-mode #tool-frame {
 @media (max-width: 768px) {
     .desktop-only { display: none !important; }
     .mobile-only { display: flex !important; }
+    .sidebar-expand-btn { display: none !important; }
     
     /* Native Mobile Scroll Fix */
     body {
