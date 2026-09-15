@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PM Task Status Board</title>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Prompt:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
   :root{
     --bg:#EEF1EF;
@@ -15,10 +15,10 @@
     --ink:#132420;
     --ink-muted:#5C6B65;
     --ink-faint:#8B968F;
-    --accent:#0F766E;
-    --accent-ink:#0C5C55;
+    --accent:#059669;
+    --accent-ink:#047857;
     --accent-contrast:#FFFFFF;
-    --accent-wash:#E1EFEC;
+    --accent-wash:#E3F4EC;
 
     --st-notstarted-bg:#E7E9E6;
     --st-notstarted-fg:#565F5A;
@@ -47,7 +47,7 @@
     margin:0;
     background:var(--bg);
     color:var(--ink);
-    font-family:'IBM Plex Sans Thai','IBM Plex Sans','Segoe UI',sans-serif;
+    font-family:'Prompt','Outfit',sans-serif;
     -webkit-font-smoothing:antialiased;
   }
   .wrap{ max-width:1100px; margin:0 auto; padding:26px 20px 120px; }
@@ -59,11 +59,11 @@
   }
   .brand{ display:flex; flex-direction:column; gap:5px; }
   .brand-eyebrow{
-    font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:0.09em;
+    font-family:'Outfit',sans-serif; font-size:11px; letter-spacing:0.09em;
     text-transform:uppercase; color:var(--accent-ink); font-weight:600;
   }
   h1{
-    margin:0; font-family:'Fraunces','IBM Plex Sans Thai',serif; font-optical-sizing:auto;
+    margin:0; font-family:'Outfit','Prompt',sans-serif;
     font-size:30px; font-weight:600; letter-spacing:-0.01em;
   }
   .brand-sub{ margin:0; font-size:13.5px; color:var(--ink-muted); max-width:52ch; }
@@ -84,7 +84,7 @@
     padding:14px 16px; display:flex; flex-direction:column; gap:4px; box-shadow:var(--shadow-1);
   }
   .stat-value{
-    font-family:'IBM Plex Mono',monospace; font-variant-numeric:tabular-nums;
+    font-family:'Outfit',sans-serif; font-variant-numeric:tabular-nums;
     font-size:25px; font-weight:600; line-height:1;
   }
   .stat-label{ font-size:12px; color:var(--ink-muted); }
@@ -129,7 +129,7 @@
   .filter-panel-divider{ height:1px; background:var(--border); }
   .filter-meta{ display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; }
   .result-count{ font-size:12.5px; color:var(--ink-muted); }
-  .result-count b{ color:var(--ink); font-family:'IBM Plex Mono',monospace; }
+  .result-count b{ color:var(--ink); font-family:'Outfit',sans-serif; }
   .select-all-row{ display:flex; align-items:center; gap:7px; font-size:12.5px; color:var(--ink-muted); cursor:pointer; }
   .chk{ width:16px; height:16px; accent-color:var(--accent); cursor:pointer; }
 
@@ -143,7 +143,7 @@
   }
   .group-title{ font-size:13px; font-weight:600; }
   .group-count{
-    font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:var(--ink-muted);
+    font-family:'Outfit',sans-serif; font-size:11.5px; color:var(--ink-muted);
     background:var(--bg); border:1px solid var(--border); padding:1px 7px; border-radius:100px;
   }
 
@@ -168,8 +168,8 @@
   .priority[data-level="Medium"] .priority-dot{ background:var(--pri-medium); }
   .priority[data-level="Low"] .priority-dot{ background:var(--pri-low); }
 
-  .due{ font-family:'IBM Plex Mono',monospace; font-variant-numeric:tabular-nums; font-size:12.5px; }
-  .due-tag{ display:block; font-family:'IBM Plex Sans Thai',sans-serif; font-size:11px; margin-top:2px; color:var(--ink-faint); }
+  .due{ font-family:'Outfit',sans-serif; font-variant-numeric:tabular-nums; font-size:12.5px; }
+  .due-tag{ display:block; font-family:'Prompt',sans-serif; font-size:11px; margin-top:2px; color:var(--ink-faint); }
   .due.is-overdue{ color:var(--overdue); font-weight:600; }
   .due.is-overdue .due-tag{ color:var(--overdue); }
   .due.is-duesoon .due-tag{ color:var(--duesoon); }
@@ -200,7 +200,7 @@
   }
   .bulkbar.is-visible{ opacity:1; pointer-events:auto; transform:translate(-50%, 0); }
   .bulkbar-count{ font-size:13.5px; font-weight:600; white-space:nowrap; padding-right:4px; }
-  .bulkbar-count b{ font-family:'IBM Plex Mono',monospace; }
+  .bulkbar-count b{ font-family:'Outfit',sans-serif; }
   .bulkbar select{ background:var(--surface); color:var(--ink); border:1px solid var(--border-strong); }
   .bulkbar button{
     font-family:inherit; font-size:13px; font-weight:600; background:var(--accent);
