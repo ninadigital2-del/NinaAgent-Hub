@@ -97,6 +97,10 @@ function listContentPerformance() {
   const pages = queryDataSource_(getConfig_().contentDataSourceId, 5);
   return pages
     .filter(p => propSelect_(p.properties.Platform) !== 'Meta Ads' && propSelect_(p.properties.Platform) !== 'Google Ads')
+    // Rows can be quarantined (e.g. misattributed to the wrong client) by
+    // setting Data Quality to "Invalid" rather than deleting them -- see
+    // the 2026-09-17 Agency Command Center handoff. Never show those.
+    .filter(p => propSelect_(p.properties['Data Quality']) !== 'Invalid')
     .map(p => {
       const reach = propNumber_(p.properties.Reach) || 0;
       const engagement = propNumber_(p.properties.Engagement) || 0;
