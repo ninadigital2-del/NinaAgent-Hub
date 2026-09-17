@@ -102,8 +102,11 @@ function listContentPerformance() {
     // the 2026-09-17 Agency Command Center handoff. Never show those.
     .filter(p => propSelect_(p.properties['Data Quality']) !== 'Invalid')
     .map(p => {
-      const reach = propNumber_(p.properties.Reach) || 0;
-      const engagement = propNumber_(p.properties.Engagement) || 0;
+      // Notion returns null for a field that hasn't been fetched/measured
+      // yet -- that's a different fact than a confirmed 0, so it's kept as
+      // null all the way to the front end rather than coerced here.
+      const reach = propNumber_(p.properties.Reach);
+      const engagement = propNumber_(p.properties.Engagement);
       return {
         id: p.id,
         name: propText_(p.properties.Name),
@@ -113,13 +116,13 @@ function listContentPerformance() {
         permalink: propUrl_(p.properties.Permalink),
         thumbnailUrl: propUrl_(p.properties['Thumbnail URL']),
         reach: reach,
-        likes: propNumber_(p.properties.Likes) || 0,
-        comments: propNumber_(p.properties.Comments) || 0,
-        shares: propNumber_(p.properties.Shares) || 0,
-        saves: propNumber_(p.properties.Saves) || 0,
-        impressions: propNumber_(p.properties.Impressions) || 0,
+        likes: propNumber_(p.properties.Likes),
+        comments: propNumber_(p.properties.Comments),
+        shares: propNumber_(p.properties.Shares),
+        saves: propNumber_(p.properties.Saves),
+        impressions: propNumber_(p.properties.Impressions),
         engagement: engagement,
-        engagementRate: reach > 0 ? Math.round((engagement / reach) * 1000) / 10 : 0,
+        engagementRate: (reach > 0 && engagement != null) ? Math.round((engagement / reach) * 1000) / 10 : null,
         isTopContent: propCheckbox_(p.properties['Is Top Content']),
         publishDate: propDate_(p.properties['Publish Date']),
         fetchedAt: propDate_(p.properties['Fetched At']),
@@ -130,16 +133,34 @@ function listContentPerformance() {
 // ---------- Meta Ads (weekly paid) ----------
 function listMetaAds() {
   const pages = queryDataSource_(getConfig_().adsDataSourceId, 3);
-  return pages.map(p => ({
-    id: p.id,
-    name: propText_(p.properties.Name),
-    weekStart: propDate_(p.properties['Week Start']),
-    weekEnd: propDate_(p.properties['Week End']),
-    reach: propNumber_(p.properties.Reach) || 0,
-    impressions: propNumber_(p.properties.Impressions) || 0,
-    clicks: propNumber_(p.properties.Clicks) || 0,
-    spend: propNumber_(p.properties['Ad Spend']) || 0,
-    cpm: propNumber_(p.properties.CPM) || 0,
-    fetchStatus: propSelect_(p.properties['Data Fetch Status']),
-  }));
+  // Two writers can land a snapshot for the same client+week under two
+  // different Unique Keys (seen 2026-09-17: "STD|Meta Ads|2026-09-07" and
+  // "<Brand UUID>|Meta Ads|2026-09-07" with identical values) -- summing
+  // or WoW-comparing both silently doubles every number. Restrict to Meta
+  // Ads rows and keep only the first snapshot per week as a stopgap until
+  // the source data has one canonical key per client+platform+week.
+  const seenWeek = {};
+  const out = [];
+  pages.forEach(p => {
+    const platform = propSelect_(p.properties.Platform);
+    if (platform && platform !== 'Meta Ads') return;
+    const weekStart = propDate_(p.properties['Week Start']);
+    if (weekStart) {
+      if (seenWeek[weekStart]) return;
+      seenWeek[weekStart] = true;
+    }
+    out.push({
+      id: p.id,
+      name: propText_(p.properties.Name),
+      weekStart: weekStart,
+      weekEnd: propDate_(p.properties['Week End']),
+      reach: propNumber_(p.properties.Reach),
+      impressions: propNumber_(p.properties.Impressions),
+      clicks: propNumber_(p.properties.Clicks),
+      spend: propNumber_(p.properties['Ad Spend']),
+      cpm: propNumber_(p.properties.CPM),
+      fetchStatus: propSelect_(p.properties['Data Fetch Status']),
+    });
+  });
+  return out;
 }
