@@ -20,6 +20,7 @@ function getConfig_() {
     contentDataSourceId: props.getProperty('NOTION_CONTENT_DATASOURCE_ID'),
     adsDataSourceId: props.getProperty('NOTION_ADS_DATASOURCE_ID'),
     clientId: props.getProperty('NOTION_CLIENT_ID'), // optional — omit to return all clients
+    clientName: props.getProperty('NOTION_CLIENT_NAME'), // display label only, e.g. "STAEDTLER"
   };
 }
 
@@ -28,8 +29,10 @@ function doGet(e) {
   const action = (e.parameter.action || 'data');
   try {
     if (action === 'data') {
+      const cfg = getConfig_();
       return jsonResponse({
         success: true,
+        client: cfg.clientId ? { id: cfg.clientId, name: cfg.clientName || '' } : null,
         content: listContentPerformance(),
         ads: listMetaAds(),
       });

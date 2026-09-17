@@ -40,6 +40,7 @@ Project Settings → Script Properties → add:
 | `NOTION_CONTENT_DATASOURCE_ID` | `d5344e81-08a7-4230-8816-a0b060dfed86` (the "Content Performance" data source) |
 | `NOTION_ADS_DATASOURCE_ID` | `1c98fd4d-d669-4575-bb2c-102cf58cf3e5` (the "Meta Ads" data source) |
 | `NOTION_CLIENT_ID` | `2eb9dccd-181d-80b8-a31a-dbcc54726ad0` (STAEDTLER's page id in the Client database) — leave this property unset to return every client's rows once the dashboard needs to support more than one |
+| `NOTION_CLIENT_NAME` | `STAEDTLER` — display label only, shown in the dashboard's top bar so viewers always know whose data they're looking at. Keep this in sync with `NOTION_CLIENT_ID` above; leave both unset together |
 
 ## 4. Deploy as Web App
 

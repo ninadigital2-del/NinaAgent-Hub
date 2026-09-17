@@ -355,7 +355,10 @@
     <div class="brand">
       <div class="brand-mark">N</div>
       <div class="brand-text">
-        <h1>Content Performance</h1>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <h1>Content Performance</h1>
+          <span class="chip" id="brandChip" style="display:none; font-weight:600; color:var(--brand); background:var(--brand-soft);"></span>
+        </div>
         <span class="num" id="dateRangeLabel">&nbsp;</span>
       </div>
     </div>
@@ -571,6 +574,7 @@
   // ---------- Data load ----------
   let CONTENT = [];
   let ADS = [];
+  let CLIENT = null;
   let usingLiveData = false;
 
   async function loadData(){
@@ -581,6 +585,7 @@
         if (json.success) {
           CONTENT = json.content || [];
           ADS = json.ads || [];
+          CLIENT = json.client || null;
           usingLiveData = true;
         } else {
           console.error('API returned an error:', json.error);
@@ -994,6 +999,13 @@
 
   // ---------- Date range label + source chip ----------
   function renderTopbar(content){
+    const brandChip = document.getElementById('brandChip');
+    if (CLIENT && CLIENT.name) {
+      brandChip.style.display = '';
+      brandChip.innerHTML = `<i class="fa-solid fa-building"></i> ${esc(CLIENT.name)}`;
+    } else {
+      brandChip.style.display = 'none';
+    }
     const chip = document.getElementById('dataSourceChip');
     if (usingLiveData) {
       chip.className = 'chip live';
