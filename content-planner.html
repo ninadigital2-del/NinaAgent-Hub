@@ -112,6 +112,24 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
 
 .cal-more { font-size: 10px; font-weight: 600; color: #6366f1; padding: 2px 6px; cursor: pointer; }
 .cal-more:hover { text-decoration: underline; }
+
+/* Narrow phones: 7 columns of full event pills don't fit and forcing a
+   min-width forced a horizontal scroll that fought the page's own vertical
+   scroll (iOS routes ambiguous diagonal drags to whichever axis it guesses,
+   so both ended up feeling broken). Shrink the grid to fit instead -- drop
+   the event title down to just its status dot so every column stays
+   tappable without needing any horizontal scroll at all. */
+@media (max-width: 640px) {
+  .cal-weekday { font-size: 9px; padding: 2px 0 4px; }
+  .day-cell { min-height: 46px; padding: 4px 2px; gap: 2px; border-radius: 8px; }
+  .day-num { font-size: 10.5px; }
+  .day-num.today-badge { width: 17px; height: 17px; font-size: 10px; }
+  .cal-item { padding: 2px; justify-content: center; border-radius: 999px; }
+  .cal-item .truncate { display: none; }
+  .cal-item .cal-dot { width: 7px; height: 7px; }
+  .cal-more { font-size: 8.5px; padding: 1px 2px; text-align: center; }
+  .day-empty-hint { display: none; }
+}
 </style>
 </head>
 <body class="text-slate-800">
@@ -216,11 +234,11 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
         <button onclick="shiftMonth(1)" class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-sm"><i class="fa-solid fa-chevron-right"></i></button>
       </div>
     </div>
-    <div id="cal-hint" class="text-xs text-slate-400 mb-3"><i class="fa-solid fa-hand"></i> ลากการ์ดไปวางวันที่ต้องการเพื่อเลื่อนกำหนดโพสต์</div>
+    <div id="cal-hint" class="text-xs text-slate-400 mb-3"><i class="fa-solid fa-hand"></i> ลากการ์ดไปวางวันที่ต้องการเพื่อเลื่อนกำหนดโพสต์ — บนมือถือแตะที่จุดสีเพื่อดูรายละเอียด</div>
     <div class="grid grid-cols-7">
       <div class="cal-weekday weekend">อา</div><div class="cal-weekday">จ</div><div class="cal-weekday">อ</div><div class="cal-weekday">พ</div><div class="cal-weekday">พฤ</div><div class="cal-weekday">ศ</div><div class="cal-weekday weekend">ส</div>
     </div>
-    <div id="cal-body" class="grid grid-cols-7 gap-2"></div>
+    <div id="cal-body" class="grid grid-cols-7 gap-1 md:gap-2"></div>
   </div>
 
   <!-- ============ LIST VIEW ============ -->
@@ -374,9 +392,9 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
 
 <!-- ============ DETAIL / COPY MODAL ============ -->
 <div id="detail-modal" class="fixed inset-0 modal-mask hidden items-center justify-center z-50 p-4">
-  <div class="bg-white rounded-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto relative">
+  <div class="bg-white rounded-2xl w-full max-w-lg max-h-[85vh] relative overflow-hidden">
     <button onclick="closeDetail()" class="absolute top-3 right-3 text-slate-400 hover:text-slate-700 bg-white rounded-full w-7 h-7 flex items-center justify-center shadow-sm border border-slate-100 z-10"><i class="fa-solid fa-xmark"></i></button>
-    <div id="detail-body" class="p-5"></div>
+    <div id="detail-body" class="p-5 overflow-y-auto max-h-[85vh]"></div>
   </div>
 </div>
 
@@ -394,7 +412,7 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
         <input id="import-brand-new" class="form-input mt-2 hidden" placeholder="พิมพ์ชื่อแบรนด์ใหม่">
         <p class="text-xs text-slate-400 mt-1">ทุกรายการที่นำเข้าจากรูปนี้จะถูกตั้งเป็นแบรนด์นี้ทั้งหมด</p>
       </div>
-      <div class="mb-4 grid grid-cols-3 gap-3">
+      <div class="mb-4 grid grid-cols-2 md:grid-cols-3 gap-3">
         <div>
           <label class="form-label">ผู้รับผิดชอบ</label>
           <select id="import-owner" class="form-input" onchange="onPersonSelectChange('import-owner')"></select>
@@ -409,7 +427,11 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
           <label class="form-label">เวลาโพสเริ่มต้น</label>
           <input id="import-default-time" type="time" class="form-input" value="10:00">
         </div>
-        <p class="text-xs text-slate-400 col-span-3">รูปปฏิทินไม่มีข้อมูล 3 อย่างนี้ให้ AI อ่าน — เลือกไว้ที่นี่ครั้งเดียวจะถูกตั้งให้ทุกรายการที่นำเข้า (แก้เป็นรายชิ้นทีหลังได้)</p>
+      </div>
+      <div class="mb-4">
+        <label class="form-label">แพลตฟอร์มเริ่มต้น</label>
+        <div class="flex flex-wrap gap-2" id="import-default-platform"></div>
+        <p class="text-xs text-slate-400 mt-1">รูปปฏิทินไม่มีข้อมูล 4 อย่างนี้ให้ AI อ่าน — เลือกไว้ที่นี่ครั้งเดียวจะถูกตั้งให้ทุกรายการที่นำเข้าเหมือนกันหมด (แก้เป็นรายชิ้นทีหลังในตารางรีวิวด้านล่างได้)</p>
       </div>
       <label id="import-dropzone" class="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-slate-200 rounded-xl p-8 text-center cursor-pointer hover:bg-slate-50">
         <i class="fa-solid fa-cloud-arrow-up text-2xl text-slate-300"></i>
@@ -569,18 +591,29 @@ async function apiGet(action){
   if (!json.success) throw new Error(json.error || 'API error');
   return json;
 }
+function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
+
+// Apps Script Web Apps can be genuinely slow on their first request after
+// sitting idle for a while ("cold start") -- a single failed/slow attempt
+// doesn't mean the backend is actually down. Retry a couple of times with a
+// short backoff before giving up and falling back to mock data, since a
+// retry right after a cold start is usually fast (the instance is now warm).
 async function loadFromApi(){
   if (!API_URL) return false;
-  try {
-    const [listResp, ownersResp, brandsResp] = await Promise.all([apiGet('list'), apiGet('owners'), apiGet('brands')]);
-    items = listResp.items.map(apiItemToClient);
-    notionOwners = ownersResp.owners;
-    notionBrands = brandsResp.brands;
-    return true;
-  } catch (err) {
-    console.error('Failed to load from API, falling back to mock data:', err);
-    return false;
+  const attempts = 3;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      const [listResp, ownersResp, brandsResp] = await Promise.all([apiGet('list'), apiGet('owners'), apiGet('brands')]);
+      items = listResp.items.map(apiItemToClient);
+      notionOwners = ownersResp.owners;
+      notionBrands = brandsResp.brands;
+      return true;
+    } catch (err) {
+      console.error(`Failed to load from API (attempt ${attempt}/${attempts}):`, err);
+      if (attempt < attempts) await sleep(1500 * attempt);
+    }
   }
+  return false;
 }
 
 // ---------- Mock data ----------
@@ -1302,7 +1335,9 @@ async function saveContent(){
   };
 
   const saveBtn = document.getElementById('save-content-btn');
+  const originalSaveBtnHtml = saveBtn.innerHTML;
   saveBtn.disabled = true;
+  saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังบันทึก...';
 
   if (API_URL) {
     try {
@@ -1316,6 +1351,7 @@ async function saveContent(){
       }
     } catch (err) {
       saveBtn.disabled = false;
+      saveBtn.innerHTML = originalSaveBtnHtml;
       alert('บันทึกไปที่ระบบหลังบ้านไม่สำเร็จ: ' + err.message);
       return;
     }
@@ -1324,6 +1360,7 @@ async function saveContent(){
   }
 
   saveBtn.disabled = false;
+  saveBtn.innerHTML = originalSaveBtnHtml;
   closeForm();
   populateFilters();
   refreshAll();
@@ -1474,6 +1511,9 @@ function openImportImage(){
   document.getElementById('import-owner-new').value = '';
   document.getElementById('import-reviewer-new').value = '';
   document.getElementById('import-default-time').value = '10:00';
+  document.getElementById('import-default-platform').innerHTML = PLATFORMS.map((p, idx) =>
+    `<label class="flex items-center gap-1 text-sm border border-slate-200 rounded-lg px-2 py-1"><input type="checkbox" value="${p}" ${idx===0?'checked':''}> ${p}</label>`
+  ).join('');
   populateBrandDropdown('import-brand', sharedBrand || null);
   populatePersonDropdown('import-owner');
   populatePersonDropdown('import-reviewer');
@@ -1520,7 +1560,9 @@ async function runImportAnalysis(){
   if (!API_URL) { resetImportStatus(); return; }
   if (!resolvedBrand('import-brand')) { alert('กรุณาเลือกแบรนด์ก่อน'); return; }
   const analyzeBtn = document.getElementById('import-analyze-btn');
+  const originalAnalyzeBtnHtml = analyzeBtn.innerHTML;
   analyzeBtn.disabled = true;
+  analyzeBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังวิเคราะห์...';
   const status = document.getElementById('import-status');
   status.className = 'mt-4 text-sm bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-lg p-3';
   status.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังอ่านรูปด้วย AI... (อาจใช้เวลาสักครู่)';
@@ -1528,11 +1570,12 @@ async function runImportAnalysis(){
   try {
     const base64 = await fileToBase64(file);
     const resp = await apiCall('extractImage', { imageBase64: base64, mimeType: file.type || 'image/png' });
+    const defaultPlatforms = importDefaultPlatforms();
     importDraft = resp.items.map((it, idx) => ({
       tempId: idx,
       title: it.title || '',
       date: it.date || '',
-      platform: PLATFORMS.includes(it.platform) ? it.platform : 'Facebook',
+      platforms: [...defaultPlatforms],
       note: it.note || '',
       selected: true,
     }));
@@ -1553,6 +1596,7 @@ async function runImportAnalysis(){
     status.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> อ่านรูปไม่สำเร็จ: ' + err.message;
   } finally {
     analyzeBtn.disabled = false;
+    analyzeBtn.innerHTML = originalAnalyzeBtnHtml;
   }
 }
 function fileToBase64(file){
@@ -1563,6 +1607,18 @@ function fileToBase64(file){
     reader.readAsDataURL(file);
   });
 }
+function importDefaultPlatforms(){
+  const checked = [...document.querySelectorAll('#import-default-platform input:checked')].map(cb => cb.value);
+  return checked.length ? checked : ['Facebook'];
+}
+function toggleImportPlatform(tempId, platform, checked){
+  const it = importDraft[tempId];
+  if (checked) {
+    if (!it.platforms.includes(platform)) it.platforms.push(platform);
+  } else {
+    it.platforms = it.platforms.filter(p => p !== platform);
+  }
+}
 function renderImportReview(){
   document.getElementById('import-review-body').innerHTML = importDraft.map(it => `
     <tr class="border-t border-slate-100">
@@ -1570,9 +1626,9 @@ function renderImportReview(){
       <td class="p-2"><input class="form-input" value="${it.title.replace(/"/g,'&quot;')}" oninput="importDraft[${it.tempId}].title=this.value"></td>
       <td class="p-2"><input type="date" class="form-input" value="${it.date}" oninput="importDraft[${it.tempId}].date=this.value"></td>
       <td class="p-2">
-        <select class="form-input" onchange="importDraft[${it.tempId}].platform=this.value">
-          ${PLATFORMS.map(p=>`<option ${p===it.platform?'selected':''}>${p}</option>`).join('')}
-        </select>
+        <div class="flex flex-wrap gap-1">
+          ${PLATFORMS.map(p=>`<label class="flex items-center gap-1 text-xs border border-slate-200 rounded-lg px-1.5 py-0.5"><input type="checkbox" value="${p}" ${it.platforms.includes(p)?'checked':''} onchange="toggleImportPlatform(${it.tempId}, '${p}', this.checked)"> ${p}</label>`).join('')}
+        </div>
       </td>
       <td class="p-2"><input class="form-input" value="${(it.note||'').replace(/"/g,'&quot;')}" oninput="importDraft[${it.tempId}].note=this.value"></td>
     </tr>
@@ -1585,17 +1641,21 @@ function toggleImportSelectAll(checked){
 async function confirmImport(){
   const selected = importDraft.filter(it => it.selected && it.title.trim());
   if (!selected.length) { alert('เลือกอย่างน้อย 1 รายการ'); return; }
+  if (selected.some(it => !it.platforms.length)) { alert('มีรายการที่ยังไม่ได้เลือกแพลตฟอร์มเลยสักอัน กรุณาเลือกให้ครบ'); return; }
   const brand = resolvedBrand('import-brand');
   if (!brand) { alert('กรุณาเลือกแบรนด์ก่อน'); return; }
   const owner = resolvedPerson('import-owner');
   const reviewer = resolvedPerson('import-reviewer');
   const defaultTime = document.getElementById('import-default-time').value || '10:00';
+
   const btn = document.getElementById('import-confirm-btn');
+  const originalBtnHtml = btn.innerHTML;
   btn.disabled = true;
+  btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> กำลังสร้าง ${selected.length} รายการ...`;
   try {
     const payload = selected.map(it => ({
       Brand: brand, Campaign: '', Title: it.title, Note: it.note,
-      Platforms: [it.platform],
+      Platforms: it.platforms,
       ScheduledAt: it.date ? new Date(`${it.date}T${defaultTime}:00+07:00`).toISOString() : new Date().toISOString(),
       Owner: owner, Reviewer: reviewer, Status: 'Draft',
     }));
@@ -1609,6 +1669,7 @@ async function confirmImport(){
     alert('สร้างรายการไม่สำเร็จ: ' + err.message);
   } finally {
     btn.disabled = false;
+    btn.innerHTML = originalBtnHtml;
   }
 }
 
@@ -1650,6 +1711,24 @@ async function initApp(){
   refreshAll();
 }
 initApp();
+
+// Report real content height to the parent Hub page so it can size the
+// embedding iframe to fit instead of clipping this page into its own
+// internally-scrolling region -- nested iframe scroll is unreliable on
+// mobile. Harmless when opened standalone (no parent).
+(function(){
+  function reportHeight(){
+    try{
+      var h = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);
+      window.parent.postMessage({ ninaHubResize:true, height:h }, '*');
+    }catch(e){}
+  }
+  if(window.ResizeObserver) new ResizeObserver(reportHeight).observe(document.body);
+  window.addEventListener('load', reportHeight);
+  window.addEventListener('resize', reportHeight);
+  setTimeout(reportHeight, 300);
+  setTimeout(reportHeight, 1200);
+})();
 </script>
 </body>
 </html>

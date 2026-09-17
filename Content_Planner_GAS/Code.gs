@@ -107,7 +107,7 @@ function doPost(e) {
     if (action === 'updateStatus') return jsonResponse({ success: true, item: updateContent(body.id, { Status: body.status }) });
     if (action === 'addComment') return jsonResponse({ success: true, item: addComment(body.id, body.author, body.text) });
     if (action === 'extractImage') return jsonResponse({ success: true, items: extractCalendarImage(body.imageBase64, body.mimeType) });
-    if (action === 'bulkCreate') return jsonResponse({ success: true, items: (body.items || []).map(createContent) });
+    if (action === 'bulkCreate') return jsonResponse({ success: true, items: bulkCreateContent(body.items || []) });
     if (action === 'delete') { deleteContent(body.id); return jsonResponse({ success: true }); }
     return jsonResponse({ success: false, error: 'Unknown action: ' + action });
   } catch (err) {
@@ -172,6 +172,36 @@ function createContent(data) {
   const item = rowToItem(row);
   syncCalendarEventSafely(sheet, findRowIndexById(sheet, id), item);
   return item;
+}
+
+// One appendRow() + one findRowIndexById() full-column rescan per item made
+// a batch import of N items do N slow round-trips to the Sheets service on
+// top of the N Calendar syncs -- for a calendar-image import of a dozen
+// posts, that's what made it "hang" for a long time. Build every row in
+// memory and write them in a single setValues() call instead; only the
+// (unavoidable) per-item Calendar sync still runs in a loop.
+function bulkCreateContent(itemsData) {
+  if (!itemsData.length) return [];
+  const sheet = getContentSheet();
+  const now = new Date().toISOString();
+  const startRow = sheet.getLastRow() + 1;
+  const rows = itemsData.map(data => COLUMNS.map(col => {
+    if (col === 'ID') return Utilities.getUuid();
+    if (col === 'CreatedAt' || col === 'UpdatedAt') return now;
+    if (col === 'Platforms') return (data.Platforms || []).join(',');
+    if (col === 'Captions') return JSON.stringify(data.Captions || {});
+    if (col === 'PublishedUrls') return JSON.stringify({});
+    if (col === 'Comments') return JSON.stringify([]);
+    if (col === 'CalendarEventId') return '';
+    if (col.indexOf('Sent_') === 0) return '';
+    return data[col] || '';
+  }));
+  sheet.getRange(startRow, 1, rows.length, COLUMNS.length).setValues(rows);
+  return rows.map((row, i) => {
+    const item = rowToItem(row);
+    syncCalendarEventSafely(sheet, startRow + i, item);
+    return item;
+  });
 }
 
 function updateContent(id, data) {
@@ -522,6 +552,8 @@ function syncCalendarEvent(item) {
   const ownerEmailMap = getOwnerEmailMap();
   const targetGuestEmail = ownerEmailMap[normalizeOwnerTag(item.Owner)] || null;
 
+  const color = brandEventColor(item.Brand);
+
   let event = null;
   if (item.CalendarEventId) {
     try { event = cal.getEventById(item.CalendarEventId); } catch (e) { event = null; }
@@ -530,12 +562,33 @@ function syncCalendarEvent(item) {
     event.setTitle(title);
     event.setTime(start, end);
     event.setDescription(description);
+    event.setColor(color);
     syncEventGuest(event, targetGuestEmail, ownerEmailMap);
     return event.getId();
   }
   const created = cal.createEvent(title, start, end, { description });
+  created.setColor(color);
   syncEventGuest(created, targetGuestEmail, ownerEmailMap);
   return created.getId();
+}
+
+// Google Calendar only offers 11 fixed colors per event — hash the brand
+// name to one of them so the same brand always lands on the same color and
+// different brands (scheduled the same day) are visually distinct at a
+// glance, without needing to maintain a manual brand->color mapping.
+const BRAND_EVENT_COLORS = [
+  CalendarApp.EventColor.PALE_BLUE, CalendarApp.EventColor.PALE_GREEN,
+  CalendarApp.EventColor.MAUVE, CalendarApp.EventColor.PALE_RED,
+  CalendarApp.EventColor.YELLOW, CalendarApp.EventColor.ORANGE,
+  CalendarApp.EventColor.CYAN, CalendarApp.EventColor.GRAY,
+  CalendarApp.EventColor.BLUE, CalendarApp.EventColor.GREEN,
+  CalendarApp.EventColor.RED,
+];
+function brandEventColor(brand) {
+  const str = brand || '';
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) hash = (hash * 31 + str.charCodeAt(i)) >>> 0;
+  return BRAND_EVENT_COLORS[hash % BRAND_EVENT_COLORS.length];
 }
 
 /**

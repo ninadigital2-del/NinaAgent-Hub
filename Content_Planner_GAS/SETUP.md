@@ -76,7 +76,14 @@ auto-creates a Google Calendar named **"NinaAgent Hub - Content Planner"**
 under the owner account and stores its ID in Script Properties
 (`CALENDAR_ID`) — no manual setup needed to create it. Every content item
 gets one event on it (30-minute block at the scheduled post time), kept in
-sync on edits and removed if the item is Cancelled.
+sync on edits and removed if the item is Cancelled. **Each event's color is
+picked automatically from Google Calendar's 11 built-in colors, hashed from
+the Brand name** — so two clients scheduled the same day always look
+visually distinct, and the same brand always gets the same color, with no
+manual color mapping to maintain. Only applies going forward: existing
+events keep their default color until the item is next edited (or run
+`backfillCalendarEvents`, which only touches events that are missing/broken,
+not ones that already work).
 
 Sync only runs inside create/update — items that already existed before this
 feature was deployed won't get an event until touched again. Run

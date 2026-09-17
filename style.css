@@ -85,12 +85,46 @@ body {
     flex-direction: column;
     height: 100%;
     z-index: 100;
-    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1), transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     box-shadow: 2px 0 20px rgba(0,0,0,0.02);
 }
 
 .sidebar-header {
     padding: 2rem 1.5rem;
+}
+
+.sidebar-header.desktop-only {
+    justify-content: space-between;
+    align-items: center;
+}
+
+#sidebarCollapseBtn {
+    font-size: 1.1rem;
+    flex-shrink: 0;
+}
+
+/* Floating button to reopen a collapsed sidebar */
+.sidebar-expand-btn {
+    position: fixed;
+    top: 1.5rem;
+    left: 1rem;
+    z-index: 101;
+    width: 36px;
+    height: 36px;
+    align-items: center;
+    justify-content: center;
+    background: var(--sidebar-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    border-radius: 10px;
+    box-shadow: var(--glass-shadow);
+    font-size: 1rem;
+    display: none;
+}
+
+body.sidebar-collapsed .sidebar-expand-btn {
+    display: flex;
 }
 
 .logo-area {
@@ -132,7 +166,14 @@ body {
 
 .sidebar-scroll {
     flex: 1;
+    min-height: 0; /* without this, a flex child's default auto min-size
+       stops it shrinking below its content height, so it grows past the
+       fixed-position drawer's edge instead of scrolling internally --
+       invisible in portrait (there's room for everything) but cuts the
+       nav list short with no way to scroll to the rest in landscape. */
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
     padding: 0 1.5rem 2rem 1.5rem;
 }
 
@@ -236,35 +277,19 @@ body {
     padding: 3rem 4rem;
 }
 
-body.tool-only-mode {
-    background: #fff;
+/* Desktop sidebar collapse */
+body.sidebar-collapsed .sidebar {
+    width: 0;
+    min-width: 0;
+    border-right: none;
     overflow: hidden;
 }
 
-body.tool-only-mode .bg-orb,
-body.tool-only-mode .mobile-header,
-body.tool-only-mode .sidebar,
-body.tool-only-mode .sidebar-overlay {
-    display: none !important;
-}
-
-body.tool-only-mode .layout-wrapper,
-body.tool-only-mode .main-content,
-body.tool-only-mode .content-scroll,
-body.tool-only-mode #iframe-view,
-body.tool-only-mode #tool-frame {
-    width: 100vw !important;
-    height: 100vh !important;
-    height: 100dvh !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    overflow: hidden !important;
-}
-
-body.tool-only-mode #tool-frame {
-    display: block;
-    border-radius: 0 !important;
-    box-shadow: none !important;
+body.sidebar-collapsed .sidebar-header,
+body.sidebar-collapsed .sidebar-scroll,
+body.sidebar-collapsed .sidebar-footer {
+    opacity: 0;
+    pointer-events: none;
 }
 
 .section-header {
@@ -568,6 +593,7 @@ body.tool-only-mode #tool-frame {
 @media (max-width: 768px) {
     .desktop-only { display: none !important; }
     .mobile-only { display: flex !important; }
+    .sidebar-expand-btn { display: none !important; }
     
     /* Native Mobile Scroll Fix */
     body {
@@ -606,10 +632,12 @@ body.tool-only-mode #tool-frame {
         transform: translateX(-100%);
         width: 280px;
         box-shadow: 10px 0 30px rgba(0,0,0,0.1);
+        touch-action: pan-y;
+        overflow: hidden;
     }
-    
+
     .sidebar.open { transform: translateX(0); }
-    
+
     .sidebar-overlay {
         position: fixed;
         top: 0; left: 0; right: 0; bottom: 0;
@@ -621,12 +649,82 @@ body.tool-only-mode #tool-frame {
         pointer-events: none;
         transition: opacity 0.3s ease;
     }
-    
+
     .sidebar-overlay.active {
         opacity: 1;
         pointer-events: all;
     }
-    
+
     .modal-overlay { padding: 0.5rem; }
     .modal-container { height: 95vh; border-radius: 1rem; }
+
+    /* Rounded corners + shadow force the iframe onto a clipped compositing
+       layer on some Android Chrome builds, which has been linked to touch
+       events landing on the wrong on-screen position inside the iframe
+       (scroll only responding near one edge). Drop the clip on mobile where
+       the iframe is full-bleed anyway. */
+    #tool-frame {
+        border-radius: 0 !important;
+        box-shadow: none !important;
+    }
+}
+
+/* A rotated phone is often wider than 768px, so it missed the mobile block
+   above entirely and fell back to the desktop sidebar -- fine on an actual
+   desktop, but on a short landscape screen that fixed 280px-wide sidebar
+   eats most of the little vertical room there is. Key this off height
+   instead of width so phones get the same collapsible drawer regardless of
+   orientation. */
+@media (max-height: 500px) and (orientation: landscape) {
+    .desktop-only { display: none !important; }
+    .mobile-only { display: flex !important; }
+
+    body {
+        overflow: auto;
+        height: auto;
+    }
+
+    .layout-wrapper, .main-content {
+        flex-direction: column;
+        overflow: visible;
+        height: auto;
+    }
+
+    .content-scroll {
+        overflow: visible;
+    }
+
+    .mobile-header { display: flex; }
+
+    .sidebar {
+        position: fixed;
+        top: 0; left: 0; bottom: 0;
+        transform: translateX(-100%);
+        width: 280px;
+        box-shadow: 10px 0 30px rgba(0,0,0,0.1);
+        touch-action: pan-y;
+        overflow: hidden;
+    }
+
+    .sidebar.open { transform: translateX(0); }
+
+    .sidebar-overlay {
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(15, 23, 42, 0.4);
+        z-index: 95;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s ease;
+    }
+
+    .sidebar-overlay.active {
+        opacity: 1;
+        pointer-events: all;
+    }
+
+    #tool-frame {
+        border-radius: 0 !important;
+        box-shadow: none !important;
+    }
 }
