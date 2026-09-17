@@ -166,6 +166,12 @@
   .chip.live{ color:var(--good); border-color:transparent; background:var(--good-soft); }
   .chip.mock{ color:var(--warn); border-color:transparent; background:var(--warn-soft); }
 
+  .beta-banner{
+    display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600;
+    color:var(--warn); background:var(--warn-soft); border:1px solid var(--warn);
+    border-radius:10px; padding:10px 16px; margin-bottom:16px;
+  }
+
   /* ---------- Views ---------- */
   .view{ display:none; padding-top:22px; flex-direction:column; gap:26px; }
   .view.active{ display:flex; }
@@ -351,6 +357,11 @@
 
 <div class="shell">
 
+  <div class="beta-banner">
+    <i class="fa-solid fa-triangle-exclamation"></i>
+    <span>เวอร์ชันทดสอบ (Beta) — ตัวเลขบางส่วนอยู่ระหว่างตรวจสอบ ยังไม่ใช้อ้างอิงทำรายงานลูกค้า</span>
+  </div>
+
   <div class="topbar">
     <div class="brand">
       <div class="brand-mark">N</div>
@@ -530,7 +541,15 @@
   }
   function hideTip(){ tooltip.classList.remove('show'); }
   function esc(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
-  const fmt = n => Math.round(n || 0).toLocaleString('en-US');
+  const fmt = n => (n === null || n === undefined || Number.isNaN(n)) ? '–' : Math.round(n).toLocaleString('en-US');
+  // engagementRate is null when Notion hasn't measured it yet (not the same as 0%)
+  const fmtEr = v => (v === null || v === undefined) ? 'N/A' : v + '%';
+  const byEr = (a, b, dir) => {
+    if (a == null && b == null) return 0;
+    if (a == null) return 1;
+    if (b == null) return -1;
+    return dir * (b - a);
+  };
 
   // ---------- Platform identity ----------
   // Colors follow a fixed, validated categorical order (blue/orange/aqua/
@@ -886,7 +905,7 @@
         <div class="rank-thumb" style="${thumbStyle(item)}">${item.thumbnailUrl ? '' : esc(meta.name[0])}</div>
         <div class="rank-body">
           <div class="rank-cap">${capInner}</div>
-          <div class="rank-meta">${esc(meta.name)} &middot; ER ${item.engagementRate}% &middot; ${fmt(item.engagement)} engagement</div>
+          <div class="rank-meta">${esc(meta.name)} &middot; ER ${fmtEr(item.engagementRate)} &middot; ${fmt(item.engagement)} engagement</div>
         </div>
       </div>`;
     }).join('');
@@ -945,7 +964,7 @@
   function renderGallery(){
     const rows = CONTENT
       .filter(item => galleryPlatforms.has(platformMeta(item.platform).key))
-      .sort((a,b) => gallerySort === 'desc' ? b.engagementRate - a.engagementRate : a.engagementRate - b.engagementRate);
+      .sort((a,b) => byEr(a.engagementRate, b.engagementRate, gallerySort === 'desc' ? 1 : -1));
     const el = document.getElementById('galleryGrid');
     const note = document.getElementById('galleryNote');
     const hasThumbs = rows.some(r => r.thumbnailUrl);
@@ -959,7 +978,7 @@
       const inner = `
         <div class="gallery-thumb" style="${thumbStyle(item)}">
           <div class="gallery-rank">${i+1}</div>
-          <div class="gallery-er">${item.engagementRate}%</div>
+          <div class="gallery-er">${fmtEr(item.engagementRate)}</div>
           ${item.thumbnailUrl ? '' : esc(meta.name[0])}
           ${item.format ? `<div class="gallery-fmt">${esc(item.format)}</div>` : ''}
         </div>
@@ -967,7 +986,7 @@
           <div class="gallery-cap">${esc(item.name)}</div>
           <div class="gallery-meta"><span class="legend-dot" style="background:${meta.color}"></span>${esc(meta.name)} &middot; ${fmt(item.engagement)} engagement</div>
         </div>`;
-      return `<div class="gallery-card" data-tip="${esc(item.name)} · ${esc(meta.name)} · ER ${item.engagementRate}%">
+      return `<div class="gallery-card" data-tip="${esc(item.name)} · ${esc(meta.name)} · ER ${fmtEr(item.engagementRate)}">
         ${item.permalink ? `<a href="${esc(item.permalink)}" target="_blank" rel="noopener">${inner}</a>` : inner}
       </div>`;
     }).join('');
@@ -1030,7 +1049,7 @@
     const platforms = aggregateByPlatform(CONTENT);
     currentPlatforms = platforms;
     const trend = weeklyTrend(CONTENT);
-    const sortedByEr = CONTENT.filter(c => c.reach > 0).slice().sort((a,b) => b.engagementRate - a.engagementRate);
+    const sortedByEr = CONTENT.filter(c => c.reach > 0).slice().sort((a,b) => byEr(a.engagementRate, b.engagementRate, 1));
 
     renderTopbar(CONTENT);
     renderKpis(CONTENT, platforms);
