@@ -351,6 +351,14 @@
   .pm-btn.primary{ background:var(--brand); border-color:transparent; color:#fff; }
   .status-chip.approved{ color:var(--good); background:var(--good-soft); }
   .status-chip.pending{ color:var(--warn); background:var(--warn-soft); }
+  .status-chip.failed{ color:var(--crit); background:var(--crit-soft); }
+
+  .pm-auth-bar{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .pm-code-input{
+    font-size:13px; padding:8px 12px; border-radius:8px; border:1px solid var(--border);
+    background:var(--raised-2); color:var(--ink); width:180px;
+  }
+  .pm-checkbox-row{ display:flex; align-items:center; gap:8px; font-size:13px; color:var(--ink-soft); margin:4px 0 8px; }
 
   .filter-row{ display:flex; flex-wrap:wrap; gap:8px; }
   .filter-chip{
@@ -542,12 +550,28 @@
     <div class="card">
       <div class="section-head">
         <h2>รีวิว Weekly Update</h2>
+      </div>
+      <div id="pmAuthBar" class="pm-auth-bar">
+        <input type="text" id="pmCodeInput" class="pm-code-input" placeholder="กรอกรหัส PM ของคุณ" maxlength="20" />
+        <button class="pm-btn primary" id="pmLoginBtn">เข้าสู่ระบบ</button>
+        <span class="hint" id="pmAuthStatus"></span>
+      </div>
+      <div id="pmWhoAmI" class="pm-auth-bar" style="display:none;">
+        <span class="hint">เข้าสู่ระบบเป็น <strong id="pmName"></strong></span>
+        <button class="pm-btn" id="pmLogoutBtn">ออกจากระบบ</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-head">
+        <h2 style="font-size:13px;">เลือกสัปดาห์</h2>
         <select id="pmWeekSelect" class="pm-select"></select>
       </div>
       <div id="pmEmpty" class="empty-note" style="display:none;">ยังไม่มี draft สำหรับลูกค้านี้</div>
       <div id="pmContent" style="display:none;">
-        <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap;">
           <span class="status-chip" id="pmStatusChip"></span>
+          <span class="status-chip" id="pmDeliveryChip" style="display:none;"></span>
           <span class="hint" id="pmWeekLabel"></span>
         </div>
         <div class="section-head"><h2 style="font-size:13px; color:var(--ink-soft);">Draft ที่ระบบสร้างให้ (อ่านอย่างเดียว)</h2></div>
@@ -555,27 +579,37 @@
 
         <div class="section-head"><h2 style="font-size:13px; color:var(--ink-soft);">ฟอร์มของ PM</h2></div>
         <div class="pm-field">
-          <label for="pmWorkingNotes">PM Working Notes</label>
-          <textarea id="pmWorkingNotes" class="pm-textarea" placeholder="บันทึกของ PM ระหว่างรีวิว..."></textarea>
+          <label for="pmOptimizationNotes">สิ่งที่ปรับ/ข้อสังเกต (Optimization Notes) — จะแสดงในข้อความที่ส่งลูกค้า</label>
+          <textarea id="pmOptimizationNotes" class="pm-textarea" placeholder="สิ่งที่ปรับสัปดาห์นี้..."></textarea>
         </div>
         <div class="pm-field">
-          <label for="pmNextWeekPlan">Next Week Plan</label>
+          <label for="pmNextWeekPlan">Next Week Plan — จะแสดงในข้อความที่ส่งลูกค้า</label>
           <textarea id="pmNextWeekPlan" class="pm-textarea" placeholder="แผนสัปดาห์ถัดไป..."></textarea>
         </div>
         <div class="pm-field">
-          <label for="pmNextWeekFocus">Next Week Focus</label>
+          <label for="pmNextWeekFocus">Next Week Focus — จะแสดงในข้อความที่ส่งลูกค้า</label>
           <textarea id="pmNextWeekFocus" class="pm-textarea" placeholder="โฟกัสหลักสัปดาห์ถัดไป..."></textarea>
         </div>
         <div class="pm-field">
-          <label for="pmAskFromClient">Ask from Client</label>
+          <label for="pmAskFromClient">Ask from Client — จะแสดงในข้อความที่ส่งลูกค้า</label>
           <textarea id="pmAskFromClient" class="pm-textarea" placeholder="สิ่งที่ต้องขอจากลูกค้า..."></textarea>
         </div>
+        <div class="pm-field">
+          <label for="pmWorkingNotes">PM Working Notes — เก็บไว้ภายในทีมเท่านั้น ไม่ส่งลูกค้า</label>
+          <textarea id="pmWorkingNotes" class="pm-textarea" placeholder="บันทึกของ PM ระหว่างรีวิว..."></textarea>
+        </div>
+        <label class="pm-checkbox-row">
+          <input type="checkbox" id="pmNumericVerified" /> ตรวจตัวเลขแล้วถูกต้อง (Numeric Accuracy Verified)
+        </label>
 
-        <div style="display:flex; align-items:center; gap:10px; margin-top:16px;">
+        <div style="display:flex; align-items:center; gap:10px; margin-top:16px; flex-wrap:wrap;">
           <button class="pm-btn" id="pmSaveBtn">บันทึก</button>
+          <button class="pm-btn" id="pmPreviewBtn">ดู Preview</button>
           <button class="pm-btn primary" id="pmApproveBtn">บันทึก + Approve</button>
           <span class="hint" id="pmSaveStatus"></span>
         </div>
+
+        <div id="pmPreviewBox" class="notes-box" style="white-space:pre-wrap; margin-top:16px; display:none;"></div>
       </div>
     </div>
   </div>
@@ -685,6 +719,53 @@
   let DRAFTS = [];
   let DRAFTS_LOADED = false;
   const STATUS_CLASS = { 'Approved': 'approved', 'Sent': 'approved', 'Completed': 'approved' };
+  const DELIVERY_CLASS = { 'Sent': 'approved', 'Failed': 'failed', 'Uncertain': 'pending', 'Pending': 'pending', 'Sending': 'pending' };
+
+  async function postAction_(payload){
+    const res = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload),
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error || 'unknown error');
+    return json;
+  }
+
+  // ---------- PM session ----------
+  function pmToken_(){ try { return sessionStorage.getItem('pm-session-token') || ''; } catch (e) { return ''; } }
+  function pmName_(){ try { return sessionStorage.getItem('pm-session-name') || ''; } catch (e) { return ''; } }
+  function setPmSession_(token, name){
+    try { sessionStorage.setItem('pm-session-token', token); sessionStorage.setItem('pm-session-name', name); } catch (e) {}
+    renderAuthState_();
+  }
+  function clearPmSession_(){
+    try { sessionStorage.removeItem('pm-session-token'); sessionStorage.removeItem('pm-session-name'); } catch (e) {}
+    renderAuthState_();
+  }
+  function renderAuthState_(){
+    const loggedIn = !!pmToken_();
+    document.getElementById('pmAuthBar').style.display = loggedIn ? 'none' : 'flex';
+    document.getElementById('pmWhoAmI').style.display = loggedIn ? 'flex' : 'none';
+    if (loggedIn) document.getElementById('pmName').textContent = pmName_();
+  }
+  renderAuthState_();
+
+  document.getElementById('pmLoginBtn').addEventListener('click', async () => {
+    const code = document.getElementById('pmCodeInput').value.trim();
+    const statusEl = document.getElementById('pmAuthStatus');
+    if (!code) { statusEl.textContent = 'กรอกรหัสก่อนครับ'; return; }
+    statusEl.textContent = 'กำลังตรวจสอบ...';
+    try {
+      const json = await postAction_({ action: 'pmLogin', code: code });
+      setPmSession_(json.token, json.name);
+      document.getElementById('pmCodeInput').value = '';
+      statusEl.textContent = '';
+    } catch (err) {
+      statusEl.textContent = 'เข้าสู่ระบบไม่สำเร็จ: ' + err.message;
+    }
+  });
+  document.getElementById('pmLogoutBtn').addEventListener('click', clearPmSession_);
 
   async function loadDrafts(){
     DRAFTS_LOADED = true;
@@ -717,54 +798,115 @@
     const statusChip = document.getElementById('pmStatusChip');
     statusChip.textContent = d.status || '—';
     statusChip.className = 'status-chip ' + (STATUS_CLASS[d.status] || 'pending');
+    const deliveryChip = document.getElementById('pmDeliveryChip');
+    if (d.lineDeliveryStatus) {
+      deliveryChip.style.display = 'inline-flex';
+      deliveryChip.className = 'status-chip ' + (DELIVERY_CLASS[d.lineDeliveryStatus] || 'pending');
+      deliveryChip.textContent = d.lineDeliveryStatus === 'Sent'
+        ? `ส่งเข้า LINE สำเร็จ (rev ${d.lineSentRevision})`
+        : `LINE: ${d.lineDeliveryStatus} (rev ${d.lineRequestedRevision})`;
+    } else {
+      deliveryChip.style.display = 'none';
+    }
     document.getElementById('pmWeekLabel').textContent = d.weekEnd ? `${d.weekStart} – ${d.weekEnd}` : (d.weekStart || '');
     document.getElementById('pmDraftText').textContent = d.draftText || '(ยังไม่มี draft text)';
-    document.getElementById('pmWorkingNotes').value = d.pmWorkingNotes || '';
+    document.getElementById('pmOptimizationNotes').value = d.optimizationNotes || '';
     document.getElementById('pmNextWeekPlan').value = d.nextWeekPlan || '';
     document.getElementById('pmNextWeekFocus').value = d.nextWeekFocus || '';
     document.getElementById('pmAskFromClient').value = d.askFromClient || '';
+    document.getElementById('pmWorkingNotes').value = d.pmWorkingNotes || '';
+    document.getElementById('pmNumericVerified').checked = !!d.numericAccuracyVerified;
     document.getElementById('pmSaveStatus').textContent = '';
+    document.getElementById('pmPreviewBox').style.display = 'none';
   }
 
   document.getElementById('pmWeekSelect').addEventListener('change', e => renderDraft(+e.target.value));
 
-  async function saveDraftReview(approve){
+  function currentPmFields_(){
+    return {
+      optimizationNotes: document.getElementById('pmOptimizationNotes').value,
+      nextWeekPlan: document.getElementById('pmNextWeekPlan').value,
+      nextWeekFocus: document.getElementById('pmNextWeekFocus').value,
+      askFromClient: document.getElementById('pmAskFromClient').value,
+      pmWorkingNotes: document.getElementById('pmWorkingNotes').value,
+      numericAccuracyVerified: document.getElementById('pmNumericVerified').checked,
+    };
+  }
+
+  // Mirrors the server's composeApprovedText_ so Preview always matches
+  // what Approve will lock in, as long as Save ran with the same values
+  // right before (the Approve button does exactly that).
+  function composePreview_(draftText, fields){
+    const cleanLines = (draftText || '').split('\n').filter(line => !/nan|infinity/i.test(line));
+    let text = cleanLines.join('\n').trim();
+    const sections = [
+      ['สิ่งที่ปรับ/ข้อสังเกต', fields.optimizationNotes],
+      ['แผนสัปดาห์หน้า', fields.nextWeekPlan],
+      ['โฟกัสสัปดาห์หน้า', fields.nextWeekFocus],
+      ['สิ่งที่ต้องการจากลูกค้า', fields.askFromClient],
+    ];
+    sections.forEach(([label, value]) => {
+      const trimmed = (value || '').trim();
+      if (trimmed) text += '\n—-\n' + label + '\n' + trimmed;
+    });
+    return text.trim();
+  }
+
+  document.getElementById('pmPreviewBtn').addEventListener('click', () => {
+    const i = +document.getElementById('pmWeekSelect').value;
+    const d = DRAFTS[i];
+    if (!d) return;
+    const box = document.getElementById('pmPreviewBox');
+    box.textContent = composePreview_(d.draftText, currentPmFields_());
+    box.style.display = 'block';
+  });
+
+  async function saveDraft_(){
+    const i = +document.getElementById('pmWeekSelect').value;
+    const d = DRAFTS[i];
+    if (!d) return null;
+    const statusEl = document.getElementById('pmSaveStatus');
+    if (!pmToken_()) { statusEl.textContent = 'ต้องเข้าสู่ระบบด้วยรหัส PM ก่อนบันทึก'; return null; }
+    statusEl.textContent = 'กำลังบันทึก...';
+    const fields = currentPmFields_();
+    try {
+      await postAction_(Object.assign({ action: 'saveDraft', token: pmToken_(), pageId: d.id }, fields));
+      Object.assign(d, fields);
+      statusEl.textContent = 'บันทึกแล้ว';
+      return fields;
+    } catch (err) {
+      statusEl.textContent = 'บันทึกไม่สำเร็จ: ' + err.message;
+      return null;
+    }
+  }
+  document.getElementById('pmSaveBtn').addEventListener('click', saveDraft_);
+
+  document.getElementById('pmApproveBtn').addEventListener('click', async () => {
     const i = +document.getElementById('pmWeekSelect').value;
     const d = DRAFTS[i];
     if (!d) return;
     const statusEl = document.getElementById('pmSaveStatus');
-    statusEl.textContent = 'กำลังบันทึก...';
-    const payload = {
-      action: 'saveDraftReview',
-      pageId: d.id,
-      pmWorkingNotes: document.getElementById('pmWorkingNotes').value,
-      nextWeekPlan: document.getElementById('pmNextWeekPlan').value,
-      nextWeekFocus: document.getElementById('pmNextWeekFocus').value,
-      askFromClient: document.getElementById('pmAskFromClient').value,
-      approve: !!approve,
-    };
+    if (!pmToken_()) { statusEl.textContent = 'ต้องเข้าสู่ระบบด้วยรหัส PM ก่อน Approve'; return; }
+    const fields = await saveDraft_();
+    if (!fields) return; // save failed, already reported
+    statusEl.textContent = 'กำลังอนุมัติ...';
     try {
-      const res = await fetch(API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify(payload),
-      });
-      const json = await res.json();
-      if (!json.success) throw new Error(json.error || 'unknown error');
-      d.pmWorkingNotes = payload.pmWorkingNotes;
-      d.nextWeekPlan = payload.nextWeekPlan;
-      d.nextWeekFocus = payload.nextWeekFocus;
-      d.askFromClient = payload.askFromClient;
-      if (approve) d.status = 'Approved';
+      const json = await postAction_({ action: 'approveDraft', token: pmToken_(), pageId: d.id });
+      d.status = 'Approved';
+      d.lineRequestedRevision = json.revision;
+      d.lineDeliveryStatus = 'Pending';
       renderDraft(i);
       document.getElementById('pmWeekSelect').options[i].textContent = `${d.weekStart || d.name} — ${d.status}`;
-      statusEl.textContent = approve ? 'บันทึกและ Approve แล้ว' : 'บันทึกแล้ว';
+      statusEl.textContent = json.duplicate
+        ? `อนุมัติแล้ว (revision ${json.revision}) — รอส่งเข้า LINE ภายในรอบตรวจถัดไป`
+        : `อนุมัติแล้ว (revision ${json.revision}) — รอส่งเข้า LINE ภายในรอบตรวจถัดไป`;
+      const box = document.getElementById('pmPreviewBox');
+      box.textContent = json.approvedText;
+      box.style.display = 'block';
     } catch (err) {
-      statusEl.textContent = 'บันทึกไม่สำเร็จ: ' + err.message;
+      statusEl.textContent = 'อนุมัติไม่สำเร็จ: ' + err.message;
     }
-  }
-  document.getElementById('pmSaveBtn').addEventListener('click', () => saveDraftReview(false));
-  document.getElementById('pmApproveBtn').addEventListener('click', () => saveDraftReview(true));
+  });
 
   // ---------- Derived aggregates ----------
   function aggregateByPlatform(content){
