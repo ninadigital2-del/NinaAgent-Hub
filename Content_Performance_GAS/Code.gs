@@ -19,6 +19,7 @@ function getConfig_() {
     token: props.getProperty('NOTION_TOKEN'),
     contentDataSourceId: props.getProperty('NOTION_CONTENT_DATASOURCE_ID'),
     adsDataSourceId: props.getProperty('NOTION_ADS_DATASOURCE_ID'),
+    draftDataSourceId: props.getProperty('NOTION_DRAFT_DATASOURCE_ID'), // "Weekly Update Draft" (Agency Command Center)
     clientId: props.getProperty('NOTION_CLIENT_ID'), // optional — omit to return all clients
     clientName: props.getProperty('NOTION_CLIENT_NAME'), // display label only, e.g. "STAEDTLER"
   };
@@ -37,7 +38,26 @@ function doGet(e) {
         ads: listMetaAds(),
       });
     }
+    if (action === 'drafts') {
+      return jsonResponse({ success: true, drafts: listWeeklyDrafts() });
+    }
     return jsonResponse({ success: false, error: 'Unknown action: ' + action });
+  } catch (err) {
+    return jsonResponse({ success: false, error: String(err) });
+  }
+}
+
+// PM Review form on the "PM Weekly Draft" tab writes back here. This is the
+// only part of the backend that isn't read-only, and it only ever touches
+// the 4 PM-authored fields plus Status -- never Draft Text/Final Text/etc,
+// which belong to the Agency Command Center's own generation pipeline.
+function doPost(e) {
+  try {
+    const body = JSON.parse(e.postData.contents);
+    if (body.action === 'saveDraftReview') {
+      return jsonResponse(saveDraftReview_(body));
+    }
+    return jsonResponse({ success: false, error: 'Unknown action: ' + body.action });
   } catch (err) {
     return jsonResponse({ success: false, error: String(err) });
   }
@@ -91,6 +111,25 @@ function propSelect_(prop) { return prop && prop.type === 'select' && prop.selec
 function propUrl_(prop) { return prop && prop.type === 'url' ? prop.url : ''; }
 function propDate_(prop) { return prop && prop.type === 'date' && prop.date ? prop.date.start : ''; }
 function propCheckbox_(prop) { return !!(prop && prop.type === 'checkbox' && prop.checkbox); }
+function propRelationIds_(prop) { return prop && prop.type === 'relation' ? (prop.relation || []).map(r => r.id) : []; }
+function richText_(str) { return str ? [{ type: 'text', text: { content: String(str) } }] : []; }
+
+function notionRequest_(method, path, payload) {
+  const cfg = getConfig_();
+  const res = UrlFetchApp.fetch('https://api.notion.com/v1' + path, {
+    method: method,
+    contentType: 'application/json',
+    headers: {
+      Authorization: 'Bearer ' + cfg.token,
+      'Notion-Version': NOTION_VERSION,
+    },
+    payload: payload ? JSON.stringify(payload) : undefined,
+    muteHttpExceptions: true,
+  });
+  const parsed = JSON.parse(res.getContentText());
+  if (parsed.object === 'error') throw new Error('Notion API error: ' + (parsed.message || res.getContentText()));
+  return parsed;
+}
 
 // ---------- Content Performance (per-post) ----------
 function listContentPerformance() {
@@ -163,4 +202,49 @@ function listMetaAds() {
     });
   });
   return out;
+}
+
+// ---------- Weekly Update Draft (PM review) ----------
+// This data source belongs to the Agency Command Center's own Make
+// scenario, which generates "Draft Text" and moves "Status" through
+// Pending -> ... -> Waiting for PM Review every week on its own. We only
+// ever read that generated text, and only ever write the 4 PM-authored
+// fields below plus Status=Approved -- never Draft Text/Final Text/PM
+// Prompt, which are that other system's to own.
+function listWeeklyDrafts() {
+  const pages = queryDataSource_(getConfig_().draftDataSourceId, 3);
+  return pages
+    .sort((a, b) => (propDate_(b.properties.Week) || '').localeCompare(propDate_(a.properties.Week) || ''))
+    .map(p => ({
+      id: p.id,
+      name: propText_(p.properties.Name),
+      weekStart: propDate_(p.properties.Week),
+      weekEnd: propDate_(p.properties['Week End']),
+      status: propSelect_(p.properties.Status),
+      draftText: propText_(p.properties['Draft Text']),
+      pmWorkingNotes: propText_(p.properties['PM Working Notes']),
+      nextWeekPlan: propText_(p.properties['Next Week Plan']),
+      nextWeekFocus: propText_(p.properties['Next Week Focus']),
+      askFromClient: propText_(p.properties['Ask from Client']),
+    }));
+}
+
+function saveDraftReview_(body) {
+  const cfg = getConfig_();
+  if (!body.pageId) throw new Error('Missing pageId');
+
+  const page = notionRequest_('get', '/pages/' + body.pageId);
+  if (cfg.clientId && propRelationIds_(page.properties.Client).indexOf(cfg.clientId) === -1) {
+    throw new Error('This draft does not belong to the configured client');
+  }
+
+  const properties = {};
+  if (body.pmWorkingNotes !== undefined) properties['PM Working Notes'] = { rich_text: richText_(body.pmWorkingNotes) };
+  if (body.nextWeekPlan !== undefined) properties['Next Week Plan'] = { rich_text: richText_(body.nextWeekPlan) };
+  if (body.nextWeekFocus !== undefined) properties['Next Week Focus'] = { rich_text: richText_(body.nextWeekFocus) };
+  if (body.askFromClient !== undefined) properties['Ask from Client'] = { rich_text: richText_(body.askFromClient) };
+  if (body.approve) properties['Status'] = { select: { name: 'Approved' } };
+
+  notionRequest_('patch', '/pages/' + body.pageId, { properties: properties });
+  return { success: true };
 }

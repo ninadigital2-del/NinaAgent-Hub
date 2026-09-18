@@ -332,6 +332,26 @@
   .notes-box[contenteditable="true"]:focus{ outline:2px solid var(--brand); outline-offset:2px; background:var(--raised); }
   .notes-hint{ font-size:11.5px; color:var(--ink-faint); margin-top:8px; }
 
+  /* ---------- PM Review ---------- */
+  .pm-select{
+    font-size:12.5px; padding:6px 10px; border-radius:8px; border:1px solid var(--border);
+    background:var(--raised); color:var(--ink);
+  }
+  .pm-field{ margin-bottom:14px; }
+  .pm-field label{ display:block; font-size:12.5px; font-weight:600; color:var(--ink-soft); margin-bottom:6px; }
+  .pm-textarea{
+    width:100%; min-height:5.5em; resize:vertical; font:inherit; font-size:13.5px; line-height:1.6;
+    border:1px solid var(--border); border-radius:10px; padding:10px 12px; background:var(--raised-2); color:var(--ink);
+  }
+  .pm-textarea:focus{ outline:2px solid var(--brand); outline-offset:1px; background:var(--raised); }
+  .pm-btn{
+    font-size:13px; font-weight:600; padding:9px 18px; border-radius:9px; border:1px solid var(--border);
+    background:var(--raised); color:var(--ink); cursor:pointer;
+  }
+  .pm-btn.primary{ background:var(--brand); border-color:transparent; color:#fff; }
+  .status-chip.approved{ color:var(--good); background:var(--good-soft); }
+  .status-chip.pending{ color:var(--warn); background:var(--warn-soft); }
+
   .filter-row{ display:flex; flex-wrap:wrap; gap:8px; }
   .filter-chip{
     font-size:12.5px; font-weight:500; padding:6px 12px; border-radius:999px; border:1px solid var(--border);
@@ -378,6 +398,7 @@
         <button data-view="ceo" class="active"><i class="fa-solid fa-chart-line"></i> CEO / COO</button>
         <button data-view="team"><i class="fa-solid fa-layer-group"></i> ทีมคอนเทนต์</button>
         <button data-view="graphic"><i class="fa-solid fa-image"></i> ทีมกราฟิก</button>
+        <button data-view="pm"><i class="fa-solid fa-file-pen"></i> PM Review</button>
         <div class="lock-wrap">
           <button disabled><i class="fa-solid fa-lock"></i> ลูกค้า</button>
           <div class="lock-tip">ลูกค้าไม่เห็นแดชบอร์ดนี้โดยตรง &mdash; PM เป็นผู้สรุปและส่งออกเป็นรายงานให้แทนทุกเดือน เพื่อควบคุมบริบทและปกป้องข้อมูลภายใน</div>
@@ -516,6 +537,49 @@
     </div>
   </div>
 
+  <!-- ================= PM REVIEW VIEW ================= -->
+  <div class="view" id="view-pm">
+    <div class="card">
+      <div class="section-head">
+        <h2>รีวิว Weekly Update</h2>
+        <select id="pmWeekSelect" class="pm-select"></select>
+      </div>
+      <div id="pmEmpty" class="empty-note" style="display:none;">ยังไม่มี draft สำหรับลูกค้านี้</div>
+      <div id="pmContent" style="display:none;">
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
+          <span class="status-chip" id="pmStatusChip"></span>
+          <span class="hint" id="pmWeekLabel"></span>
+        </div>
+        <div class="section-head"><h2 style="font-size:13px; color:var(--ink-soft);">Draft ที่ระบบสร้างให้ (อ่านอย่างเดียว)</h2></div>
+        <div class="notes-box" id="pmDraftText" style="white-space:pre-wrap; margin-bottom:20px;"></div>
+
+        <div class="section-head"><h2 style="font-size:13px; color:var(--ink-soft);">ฟอร์มของ PM</h2></div>
+        <div class="pm-field">
+          <label for="pmWorkingNotes">PM Working Notes</label>
+          <textarea id="pmWorkingNotes" class="pm-textarea" placeholder="บันทึกของ PM ระหว่างรีวิว..."></textarea>
+        </div>
+        <div class="pm-field">
+          <label for="pmNextWeekPlan">Next Week Plan</label>
+          <textarea id="pmNextWeekPlan" class="pm-textarea" placeholder="แผนสัปดาห์ถัดไป..."></textarea>
+        </div>
+        <div class="pm-field">
+          <label for="pmNextWeekFocus">Next Week Focus</label>
+          <textarea id="pmNextWeekFocus" class="pm-textarea" placeholder="โฟกัสหลักสัปดาห์ถัดไป..."></textarea>
+        </div>
+        <div class="pm-field">
+          <label for="pmAskFromClient">Ask from Client</label>
+          <textarea id="pmAskFromClient" class="pm-textarea" placeholder="สิ่งที่ต้องขอจากลูกค้า..."></textarea>
+        </div>
+
+        <div style="display:flex; align-items:center; gap:10px; margin-top:16px;">
+          <button class="pm-btn" id="pmSaveBtn">บันทึก</button>
+          <button class="pm-btn primary" id="pmApproveBtn">บันทึก + Approve</button>
+          <span class="hint" id="pmSaveStatus"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <footer class="foot">
     <span><i class="fa-solid fa-circle" style="color:var(--good);font-size:7px;"></i> Live API (Facebook, Instagram)</span>
     <span><i class="fa-solid fa-circle" style="color:var(--ink-faint);font-size:7px;"></i> ยังไม่เชื่อมต่อ (TikTok, YouTube, LINE OA)</span>
@@ -616,6 +680,91 @@
     if (!usingLiveData) { CONTENT = MOCK_CONTENT; ADS = MOCK_ADS; }
     renderAll();
   }
+
+  // ---------- PM Review (Weekly Update Draft) ----------
+  let DRAFTS = [];
+  let DRAFTS_LOADED = false;
+  const STATUS_CLASS = { 'Approved': 'approved', 'Sent': 'approved', 'Completed': 'approved' };
+
+  async function loadDrafts(){
+    DRAFTS_LOADED = true;
+    const empty = document.getElementById('pmEmpty');
+    const content = document.getElementById('pmContent');
+    if (!API_URL) { empty.style.display = 'block'; empty.textContent = 'ต้องต่อ API จริงก่อนถึงจะใช้ PM Review ได้ (ยังเป็น mock data อยู่)'; return; }
+    try {
+      const res = await fetch(API_URL + '?action=drafts');
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error || 'unknown error');
+      DRAFTS = json.drafts || [];
+    } catch (err) {
+      console.error('Failed to load drafts:', err);
+      empty.style.display = 'block';
+      empty.textContent = 'โหลด draft ไม่สำเร็จ: ' + err.message;
+      return;
+    }
+    if (!DRAFTS.length) { empty.style.display = 'block'; empty.textContent = 'ยังไม่มี draft สำหรับลูกค้านี้'; return; }
+    empty.style.display = 'none';
+    content.style.display = 'block';
+    const select = document.getElementById('pmWeekSelect');
+    select.innerHTML = DRAFTS.map((d,i) => `<option value="${i}">${esc(d.weekStart || d.name)} — ${esc(d.status)}</option>`).join('');
+    select.value = '0';
+    renderDraft(0);
+  }
+
+  function renderDraft(i){
+    const d = DRAFTS[i];
+    if (!d) return;
+    const statusChip = document.getElementById('pmStatusChip');
+    statusChip.textContent = d.status || '—';
+    statusChip.className = 'status-chip ' + (STATUS_CLASS[d.status] || 'pending');
+    document.getElementById('pmWeekLabel').textContent = d.weekEnd ? `${d.weekStart} – ${d.weekEnd}` : (d.weekStart || '');
+    document.getElementById('pmDraftText').textContent = d.draftText || '(ยังไม่มี draft text)';
+    document.getElementById('pmWorkingNotes').value = d.pmWorkingNotes || '';
+    document.getElementById('pmNextWeekPlan').value = d.nextWeekPlan || '';
+    document.getElementById('pmNextWeekFocus').value = d.nextWeekFocus || '';
+    document.getElementById('pmAskFromClient').value = d.askFromClient || '';
+    document.getElementById('pmSaveStatus').textContent = '';
+  }
+
+  document.getElementById('pmWeekSelect').addEventListener('change', e => renderDraft(+e.target.value));
+
+  async function saveDraftReview(approve){
+    const i = +document.getElementById('pmWeekSelect').value;
+    const d = DRAFTS[i];
+    if (!d) return;
+    const statusEl = document.getElementById('pmSaveStatus');
+    statusEl.textContent = 'กำลังบันทึก...';
+    const payload = {
+      action: 'saveDraftReview',
+      pageId: d.id,
+      pmWorkingNotes: document.getElementById('pmWorkingNotes').value,
+      nextWeekPlan: document.getElementById('pmNextWeekPlan').value,
+      nextWeekFocus: document.getElementById('pmNextWeekFocus').value,
+      askFromClient: document.getElementById('pmAskFromClient').value,
+      approve: !!approve,
+    };
+    try {
+      const res = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error || 'unknown error');
+      d.pmWorkingNotes = payload.pmWorkingNotes;
+      d.nextWeekPlan = payload.nextWeekPlan;
+      d.nextWeekFocus = payload.nextWeekFocus;
+      d.askFromClient = payload.askFromClient;
+      if (approve) d.status = 'Approved';
+      renderDraft(i);
+      document.getElementById('pmWeekSelect').options[i].textContent = `${d.weekStart || d.name} — ${d.status}`;
+      statusEl.textContent = approve ? 'บันทึกและ Approve แล้ว' : 'บันทึกแล้ว';
+    } catch (err) {
+      statusEl.textContent = 'บันทึกไม่สำเร็จ: ' + err.message;
+    }
+  }
+  document.getElementById('pmSaveBtn').addEventListener('click', () => saveDraftReview(false));
+  document.getElementById('pmApproveBtn').addEventListener('click', () => saveDraftReview(true));
 
   // ---------- Derived aggregates ----------
   function aggregateByPlatform(content){
@@ -1005,6 +1154,8 @@
       document.getElementById('view-ceo').classList.toggle('active', target === 'ceo');
       document.getElementById('view-team').classList.toggle('active', target === 'team');
       document.getElementById('view-graphic').classList.toggle('active', target === 'graphic');
+      document.getElementById('view-pm').classList.toggle('active', target === 'pm');
+      if (target === 'pm' && !DRAFTS_LOADED) loadDrafts();
     });
   });
 
