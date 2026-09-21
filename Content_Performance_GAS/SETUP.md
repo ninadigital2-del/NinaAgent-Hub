@@ -72,16 +72,26 @@ keep using local mock data only.
     Working Notes`, `Numeric Accuracy Verified`) directly onto the Weekly
     Update Draft row — never `Draft Text`/`Status`/`Final Text`, which
     belong to the Agency Command Center's own Make scenario.
-  - `approveDraft` composes the final client-facing text (`Draft Text`
-    with any NaN/blank-artifact lines hidden, plus the PM's shareable
-    sections — `PM Working Notes` is deliberately excluded, it's internal
-    only), then creates one **immutable** row in "Weekly Draft Revisions"
-    and sets `LINE Requested Revision`/`LINE Delivery Status=Pending` on
-    the Draft. `LockService` serializes concurrent approvals so two
-    requests can never mint the same revision number. A duplicate
-    approve with unchanged content returns the existing revision instead
-    of creating a new one; approving while a request is still
-    Pending/Sending/Uncertain is blocked until it resolves.
+  - `approveDraft` first checks 3 hard gates and **blocks outright** (no
+    silent workaround) if any fails: `Data Status = Error`, `Numeric
+    Accuracy Verified` unchecked, or the raw `Draft Text` contains
+    NaN/Infinity. NaN is a real upstream computation error, not cosmetic
+    noise — it's never hidden-and-approved, only blocked, so a PM can't
+    accidentally lock in a broken number. Once past the gates, it
+    composes the final client-facing text (`Draft Text` plus the PM's
+    shareable sections — `PM Working Notes` is deliberately excluded,
+    it's internal only), then creates one **immutable** row in "Weekly
+    Draft Revisions" and sets `LINE Requested Revision`/`LINE Delivery
+    Status=Pending` on the Draft. `LockService` serializes concurrent
+    approvals so two requests can never mint the same revision number.
+    A re-approve with content identical to the latest revision reuses it
+    instead of minting a new one — this also self-heals a partial write
+    (revision row created but the Draft's pointer fields never got
+    patched, e.g. a network failure mid-request) by republishing the
+    pointer at the existing revision rather than creating an orphan.
+    It never resets a `Sending`/`Uncertain`/`Sent` status — those stay
+    Make's to transition. Approving while a *different* pending request
+    is outstanding is blocked until it resolves.
   - Make (scenario 7457016) is expected to poll `LINE Requested Revision`,
     send exactly the `Approved Text` + `LINE Recipient ID Snapshot` from
     that revision row, and update `LINE Delivery Status`/`LINE Sent

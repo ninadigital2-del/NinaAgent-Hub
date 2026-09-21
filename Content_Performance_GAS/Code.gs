@@ -323,11 +323,13 @@ function saveDraft_(body) {
   return { success: true, approvedBy: session.name };
 }
 
-// Combines the auto-generated Draft Text (with any NaN/blank-artifact
-// lines hidden -- a stopgap for the known Make-side bug, reported
-// separately) with the PM's shareable sections. PM Working Notes is
-// intentionally excluded: it's the PM's own internal scratchpad, not
-// client-facing copy, per the "no internal notes in client copy" rule.
+// Combines the auto-generated Draft Text with the PM's shareable
+// sections. PM Working Notes is intentionally excluded: it's the PM's
+// own internal scratchpad, not client-facing copy, per the "no internal
+// notes in client copy" rule. Does NOT hide NaN/Infinity -- that's a
+// computation error in the source data, not a cosmetic gap, and
+// approveDraft_ blocks on it before this ever runs. This function keeps
+// a defensive filter as a last-resort net, but the real gate is upstream.
 function composeApprovedText_(page) {
   const rawLines = propText_(page.properties['Draft Text']).split('\n');
   const cleanLines = rawLines.filter(line => !/nan|infinity/i.test(line));
@@ -366,6 +368,25 @@ function approveDraft_(body) {
     const page = notionRequest_('get', '/pages/' + body.pageId);
     assertDraftBelongsToClient_(page);
 
+    // Safety gates -- these block Approve outright, they never get
+    // silently worked around. Make's sender refuses to process a
+    // request unless all of these already hold true on the Draft, so
+    // checking them here just fails fast with a reason instead of
+    // minting a revision Make will never pick up.
+    const dataStatus = propSelect_(page.properties['Data Status']);
+    if (dataStatus === 'Error') {
+      throw new Error('Data Status is Error for this week -- fix the upstream fetch before approving');
+    }
+    if (!propCheckbox_(page.properties['Numeric Accuracy Verified'])) {
+      throw new Error('Tick "ตรวจตัวเลขแล้วถูกต้อง" (Numeric Accuracy Verified) after checking the numbers yourself before approving');
+    }
+    // NaN/Infinity means the source computation actually failed -- that's
+    // a data bug to fix at the source, not cosmetic noise to hide and
+    // approve over. Check the RAW Draft Text, before any cleanup.
+    if (/nan|infinity/i.test(propText_(page.properties['Draft Text']))) {
+      throw new Error('Draft Text contains NaN/Infinity -- this is a real data error upstream, not something to hide. Fix the source data first.');
+    }
+
     const approvedText = composeApprovedText_(page);
     if (!approvedText) throw new Error('Nothing to approve yet -- draft text and PM fields are both empty');
 
@@ -374,10 +395,28 @@ function approveDraft_(body) {
     const currentRequested = propNumber_(page.properties['LINE Requested Revision']);
     const hasOutstandingRequest = OUTSTANDING_DELIVERY_STATUSES.indexOf(currentStatus) !== -1 && currentRequested != null;
 
-    if (latest && latest.properties['Approved Text'] && propText_(latest.properties['Approved Text']) === approvedText
-        && currentRequested === propNumber_(latest.properties.Revision)) {
-      // Identical re-approve (double click, or no changes since last approve) -- return the existing request, don't mint a new revision.
-      return { success: true, revision: propNumber_(latest.properties.Revision), duplicate: true, approvedText: approvedText };
+    const latestText = latest ? propText_(latest.properties['Approved Text']) : null;
+    if (latest && latestText === approvedText) {
+      // Identical content to the latest revision -- reuse it instead of minting
+      // a new one. Covers: double-click, no changes since last approve, AND a
+      // partial write where the revision row was created but the Draft's own
+      // pointer fields never got patched (network failure mid-request) -- in
+      // that case currentRequested won't match yet, so republish the pointer
+      // at the existing revision rather than creating a second orphan row.
+      const latestRevisionNum = propNumber_(latest.properties.Revision);
+      const alreadySent = currentStatus === 'Sent' && propNumber_(page.properties['LINE Sent Revision']) === latestRevisionNum;
+      const pointerIsCurrent = currentRequested === latestRevisionNum && OUTSTANDING_DELIVERY_STATUSES.indexOf(currentStatus) !== -1;
+      if (!alreadySent && !pointerIsCurrent) {
+        // Never stomp Sending/Uncertain (Make owns those transitions) or Sent --
+        // only republish when the pointer is genuinely stale (blank, or Failed).
+        notionRequest_('patch', '/pages/' + body.pageId, {
+          properties: {
+            'LINE Requested Revision': { number: latestRevisionNum },
+            'LINE Delivery Status': { select: { name: 'Pending' } },
+          },
+        });
+      }
+      return { success: true, revision: latestRevisionNum, duplicate: true, alreadySent: alreadySent, approvedText: approvedText };
     }
     if (hasOutstandingRequest) {
       throw new Error('Revision ' + currentRequested + ' is still ' + currentStatus.toLowerCase() + ' -- wait for it to resolve before approving a new one');
