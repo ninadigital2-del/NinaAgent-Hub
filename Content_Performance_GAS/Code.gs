@@ -154,12 +154,16 @@ function listContentPerformance() {
       // null all the way to the front end rather than coerced here.
       const reach = propNumber_(p.properties.Reach);
       const engagement = propNumber_(p.properties.Engagement);
+      const caption = propText_(p.properties.Caption);
       return {
         id: p.id,
+        // "Name" is a machine-generated id like "STD — Instagram — 18558169339077030",
+        // not a real title -- displayName is what the UI should actually show.
         name: propText_(p.properties.Name),
+        displayName: shortCaption_(caption) || propText_(p.properties.Name),
         platform: propSelect_(p.properties.Platform),
         format: propSelect_(p.properties.Format),
-        caption: propText_(p.properties.Caption),
+        caption: caption,
         permalink: propUrl_(p.properties.Permalink),
         thumbnailUrl: propUrl_(p.properties['Thumbnail URL']),
         reach: reach,
@@ -341,6 +345,16 @@ function previewDraft_(body) {
 // Content ID, so the composed text can show something a client
 // recognizes instead of a raw platform post ID. Best-effort: returns
 // null (leaving the ID as-is) on any lookup failure or miss.
+// Caption is the only field with actually human-readable content --
+// "Name" is a machine-generated id like "STD — Instagram — 18558169339077030".
+// Takes the first non-empty line (Notion stores line breaks as literal
+// "<br>"), trimmed to a readable length.
+function shortCaption_(caption) {
+  if (!caption) return '';
+  const firstLine = caption.replace(/<br\s*\/?>/gi, '\n').split('\n').map(s => s.trim()).filter(Boolean)[0] || '';
+  return firstLine.length > 60 ? firstLine.slice(0, 57) + '…' : firstLine;
+}
+
 function lookupPostName_(externalContentId) {
   const cfg = getConfig_();
   if (!cfg.contentDataSourceId || !externalContentId) return null;
@@ -350,7 +364,8 @@ function lookupPostName_(externalContentId) {
       filter: { property: 'External Content ID', rich_text: { equals: externalContentId } },
     });
     const match = (result.results || [])[0];
-    return match ? (propText_(match.properties.Name) || null) : null;
+    if (!match) return null;
+    return shortCaption_(propText_(match.properties.Caption)) || propText_(match.properties.Name) || null;
   } catch (e) {
     return null;
   }
