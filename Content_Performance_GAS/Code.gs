@@ -141,21 +141,49 @@ function notionRequest_(method, path, payload) {
 
 // ---------- Content Performance (per-post) ----------
 function listContentPerformance() {
-  const pages = queryDataSource_(getConfig_().contentDataSourceId, 5);
-  return pages
+  const pages = queryDataSource_(getConfig_().contentDataSourceId, 5)
     .filter(p => propSelect_(p.properties.Platform) !== 'Meta Ads' && propSelect_(p.properties.Platform) !== 'Google Ads')
     // Rows can be quarantined (e.g. misattributed to the wrong client) by
     // setting Data Quality to "Invalid" rather than deleting them -- see
     // the 2026-09-17 Agency Command Center handoff. Never show those.
-    .filter(p => propSelect_(p.properties['Data Quality']) !== 'Invalid')
-    .map(p => {
-      // Notion returns null for a field that hasn't been fetched/measured
-      // yet -- that's a different fact than a confirmed 0, so it's kept as
-      // null all the way to the front end rather than coerced here.
-      const reach = propNumber_(p.properties.Reach);
-      const engagement = propNumber_(p.properties.Engagement);
-      const caption = propText_(p.properties.Caption);
-      return {
+    .filter(p => propSelect_(p.properties['Data Quality']) !== 'Invalid');
+
+  // Same post can land as two rows under different writers (seen
+  // 2026-09-21: a "STD — Instagram — <id>" row with a real Fetched At and
+  // metrics, alongside a legacy "Instagram — <id>" row with no Fetched At
+  // -- counting both double-counts Reach/Engagement in every KPI total.
+  // Dedup by External Content ID and keep whichever row actually has a
+  // Fetched At (the live one); ties keep the first seen.
+  const canonical = {};
+  pages.forEach(p => {
+    const extId = propText_(p.properties['External Content ID']);
+    const key = extId || p.id;
+    const existing = canonical[key];
+    if (!existing || (!propDate_(existing.properties['Fetched At']) && propDate_(p.properties['Fetched At']))) {
+      canonical[key] = p;
+    }
+  });
+
+  // A duplicate's Caption is sometimes the only copy that exists (the
+  // canonical/live row's own fetch never captured one) -- borrow it for
+  // display only, never for metrics, which always come from canonical.
+  const captionByExternalId = {};
+  pages.forEach(p => {
+    const extId = propText_(p.properties['External Content ID']);
+    const caption = propText_(p.properties.Caption);
+    if (extId && caption && !captionByExternalId[extId]) captionByExternalId[extId] = caption;
+  });
+
+  return Object.keys(canonical).map(key => {
+    const p = canonical[key];
+    // Notion returns null for a field that hasn't been fetched/measured
+    // yet -- that's a different fact than a confirmed 0, so it's kept as
+    // null all the way to the front end rather than coerced here.
+    const reach = propNumber_(p.properties.Reach);
+    const engagement = propNumber_(p.properties.Engagement);
+    const extId = propText_(p.properties['External Content ID']);
+    const caption = propText_(p.properties.Caption) || captionByExternalId[extId] || '';
+    return {
         id: p.id,
         // "Name" is a machine-generated id like "STD — Instagram — 18558169339077030",
         // not a real title -- displayName is what the UI should actually show.
