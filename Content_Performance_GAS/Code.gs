@@ -63,6 +63,7 @@ function doPost(e) {
     const body = JSON.parse(e.postData.contents);
     if (body.action === 'pmLogin') return jsonResponse(pmLogin_(body));
     if (body.action === 'saveDraft') return jsonResponse(saveDraft_(body));
+    if (body.action === 'previewDraft') return jsonResponse(previewDraft_(body));
     if (body.action === 'approveDraft') return jsonResponse(approveDraft_(body));
     return jsonResponse({ success: false, error: 'Unknown action: ' + body.action });
   } catch (err) {
@@ -323,6 +324,38 @@ function saveDraft_(body) {
   return { success: true, approvedBy: session.name };
 }
 
+// Read-only: composes the exact text Approve would lock in, without any
+// of Approve's side effects (no gates, no lock, no revision row). The
+// frontend always saves the PM's current field values immediately
+// before calling this, so what's shown here matches Approve exactly --
+// including the post-name lookup below, which a client-side mirror of
+// this function couldn't do without its own Notion query.
+function previewDraft_(body) {
+  if (!body.pageId) throw new Error('Missing pageId');
+  const page = notionRequest_('get', '/pages/' + body.pageId);
+  assertDraftBelongsToClient_(page);
+  return { success: true, approvedText: composeApprovedText_(page) };
+}
+
+// Looks up a post's real Name from Content Performance by its External
+// Content ID, so the composed text can show something a client
+// recognizes instead of a raw platform post ID. Best-effort: returns
+// null (leaving the ID as-is) on any lookup failure or miss.
+function lookupPostName_(externalContentId) {
+  const cfg = getConfig_();
+  if (!cfg.contentDataSourceId || !externalContentId) return null;
+  try {
+    const result = notionRequest_('post', '/data_sources/' + cfg.contentDataSourceId + '/query', {
+      page_size: 1,
+      filter: { property: 'External Content ID', rich_text: { equals: externalContentId } },
+    });
+    const match = (result.results || [])[0];
+    return match ? (propText_(match.properties.Name) || null) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
 // Combines the auto-generated Draft Text with the PM's shareable
 // sections. PM Working Notes is intentionally excluded: it's the PM's
 // own internal scratchpad, not client-facing copy, per the "no internal
@@ -334,6 +367,13 @@ function composeApprovedText_(page) {
   const rawLines = propText_(page.properties['Draft Text']).split('\n');
   const cleanLines = rawLines.filter(line => !/nan|infinity/i.test(line));
   let text = cleanLines.join('\n').trim();
+
+  // "Post ID 17908034244535927" -> the actual post name, when we can find
+  // one -- Make's own template only has the raw platform ID to work with.
+  text = text.replace(/Post ID (\d+)/g, (full, id) => {
+    const name = lookupPostName_(id);
+    return name ? '"' + name + '"' : full;
+  });
 
   const sections = [
     ['สิ่งที่ปรับ/ข้อสังเกต', propText_(page.properties['Optimization Notes'])],

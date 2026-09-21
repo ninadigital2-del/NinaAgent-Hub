@@ -833,32 +833,29 @@
     };
   }
 
-  // Mirrors the server's composeApprovedText_ so Preview always matches
-  // what Approve will lock in, as long as Save ran with the same values
-  // right before (the Approve button does exactly that).
-  function composePreview_(draftText, fields){
-    const cleanLines = (draftText || '').split('\n').filter(line => !/nan|infinity/i.test(line));
-    let text = cleanLines.join('\n').trim();
-    const sections = [
-      ['สิ่งที่ปรับ/ข้อสังเกต', fields.optimizationNotes],
-      ['แผนสัปดาห์หน้า', fields.nextWeekPlan],
-      ['โฟกัสสัปดาห์หน้า', fields.nextWeekFocus],
-      ['สิ่งที่ต้องการจากลูกค้า', fields.askFromClient],
-    ];
-    sections.forEach(([label, value]) => {
-      const trimmed = (value || '').trim();
-      if (trimmed) text += '\n—-\n' + label + '\n' + trimmed;
-    });
-    return text.trim();
-  }
-
-  document.getElementById('pmPreviewBtn').addEventListener('click', () => {
+  // Preview always saves the current field values first, then asks the
+  // server to compose the text -- the same function Approve uses -- so
+  // it can never drift from what Approve actually locks in (it also
+  // needs a Notion lookup for post names that a client-side mirror
+  // couldn't do on its own).
+  document.getElementById('pmPreviewBtn').addEventListener('click', async () => {
     const i = +document.getElementById('pmWeekSelect').value;
     const d = DRAFTS[i];
     if (!d) return;
+    const statusEl = document.getElementById('pmSaveStatus');
+    if (!pmToken_()) { statusEl.textContent = 'ต้องเข้าสู่ระบบด้วยรหัส PM ก่อนดู Preview'; return; }
     const box = document.getElementById('pmPreviewBox');
-    box.textContent = composePreview_(d.draftText, currentPmFields_());
-    box.style.display = 'block';
+    statusEl.textContent = 'กำลังเตรียม Preview...';
+    const fields = await saveDraft_();
+    if (!fields) return; // save failed, already reported
+    try {
+      const json = await postAction_({ action: 'previewDraft', token: pmToken_(), pageId: d.id });
+      box.textContent = json.approvedText;
+      box.style.display = 'block';
+      statusEl.textContent = '';
+    } catch (err) {
+      statusEl.textContent = 'โหลด Preview ไม่สำเร็จ: ' + err.message;
+    }
   });
 
   async function saveDraft_(){
