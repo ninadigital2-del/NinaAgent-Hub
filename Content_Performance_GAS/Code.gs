@@ -230,7 +230,7 @@ function listWeeklyDrafts() {
       weekStart: propDate_(p.properties.Week),
       weekEnd: propDate_(p.properties['Week End']),
       status: propSelect_(p.properties.Status),
-      draftText: propText_(p.properties['Draft Text']),
+      draftText: resolvePostNames_(propText_(p.properties['Draft Text'])),
       pmWorkingNotes: propText_(p.properties['PM Working Notes']),
       nextWeekPlan: propText_(p.properties['Next Week Plan']),
       nextWeekFocus: propText_(p.properties['Next Week Focus']),
@@ -356,6 +356,16 @@ function lookupPostName_(externalContentId) {
   }
 }
 
+// Shared by both the raw draft preview (listWeeklyDrafts) and the
+// composed approval text (composeApprovedText_), so a post name shows
+// up everywhere a PM might see "Post ID <digits>", not just in Preview.
+function resolvePostNames_(text) {
+  return (text || '').replace(/Post ID (\d+)/g, (full, id) => {
+    const name = lookupPostName_(id);
+    return name ? '"' + name + '"' : full;
+  });
+}
+
 // Combines the auto-generated Draft Text with the PM's shareable
 // sections. PM Working Notes is intentionally excluded: it's the PM's
 // own internal scratchpad, not client-facing copy, per the "no internal
@@ -368,12 +378,7 @@ function composeApprovedText_(page) {
   const cleanLines = rawLines.filter(line => !/nan|infinity/i.test(line));
   let text = cleanLines.join('\n').trim();
 
-  // "Post ID 17908034244535927" -> the actual post name, when we can find
-  // one -- Make's own template only has the raw platform ID to work with.
-  text = text.replace(/Post ID (\d+)/g, (full, id) => {
-    const name = lookupPostName_(id);
-    return name ? '"' + name + '"' : full;
-  });
+  text = resolvePostNames_(text);
 
   const sections = [
     ['สิ่งที่ปรับ/ข้อสังเกต', propText_(page.properties['Optimization Notes'])],
