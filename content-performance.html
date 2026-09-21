@@ -1187,7 +1187,8 @@
     if (!list.length) { el.innerHTML = `<p class="empty-note">ยังไม่มีข้อมูล</p>`; return; }
     el.innerHTML = list.map((item,i) => {
       const meta = platformMeta(item.platform);
-      const capInner = item.permalink ? `<a href="${esc(item.permalink)}" target="_blank" rel="noopener">${esc(item.name)}</a>` : esc(item.name);
+      const label = item.displayName || item.name;
+      const capInner = item.permalink ? `<a href="${esc(item.permalink)}" target="_blank" rel="noopener">${esc(label)}</a>` : esc(label);
       return `<div class="rank-card">
         <div class="rank-num">${i+1}</div>
         <div class="rank-thumb" style="${thumbStyle(item)}">${item.thumbnailUrl ? '' : esc(meta.name[0])}</div>
@@ -1263,6 +1264,7 @@
     if (!rows.length){ el.innerHTML = `<p class="empty-note">ไม่มีคอนเทนต์ตรงตัวกรองที่เลือก</p>`; return; }
     el.innerHTML = rows.map((item,i) => {
       const meta = platformMeta(item.platform);
+      const label = item.displayName || item.name;
       const inner = `
         <div class="gallery-thumb" style="${thumbStyle(item)}">
           <div class="gallery-rank">${i+1}</div>
@@ -1271,10 +1273,10 @@
           ${item.format ? `<div class="gallery-fmt">${esc(item.format)}</div>` : ''}
         </div>
         <div class="gallery-body">
-          <div class="gallery-cap">${esc(item.name)}</div>
+          <div class="gallery-cap">${esc(label)}</div>
           <div class="gallery-meta"><span class="legend-dot" style="background:${meta.color}"></span>${esc(meta.name)} &middot; ${fmt(item.engagement)} engagement</div>
         </div>`;
-      return `<div class="gallery-card" data-tip="${esc(item.name)} · ${esc(meta.name)} · ER ${fmtEr(item.engagementRate)}">
+      return `<div class="gallery-card" data-tip="${esc(label)} · ${esc(meta.name)} · ER ${fmtEr(item.engagementRate)}">
         ${item.permalink ? `<a href="${esc(item.permalink)}" target="_blank" rel="noopener">${inner}</a>` : inner}
       </div>`;
     }).join('');

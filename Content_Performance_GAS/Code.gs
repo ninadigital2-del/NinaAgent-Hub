@@ -154,12 +154,16 @@ function listContentPerformance() {
       // null all the way to the front end rather than coerced here.
       const reach = propNumber_(p.properties.Reach);
       const engagement = propNumber_(p.properties.Engagement);
+      const caption = propText_(p.properties.Caption);
       return {
         id: p.id,
+        // "Name" is a machine-generated id like "STD — Instagram — 18558169339077030",
+        // not a real title -- displayName is what the UI should actually show.
         name: propText_(p.properties.Name),
+        displayName: shortCaption_(caption) || propText_(p.properties.Name),
         platform: propSelect_(p.properties.Platform),
         format: propSelect_(p.properties.Format),
-        caption: propText_(p.properties.Caption),
+        caption: caption,
         permalink: propUrl_(p.properties.Permalink),
         thumbnailUrl: propUrl_(p.properties['Thumbnail URL']),
         reach: reach,
@@ -230,7 +234,7 @@ function listWeeklyDrafts() {
       weekStart: propDate_(p.properties.Week),
       weekEnd: propDate_(p.properties['Week End']),
       status: propSelect_(p.properties.Status),
-      draftText: propText_(p.properties['Draft Text']),
+      draftText: resolvePostNames_(propText_(p.properties['Draft Text'])),
       pmWorkingNotes: propText_(p.properties['PM Working Notes']),
       nextWeekPlan: propText_(p.properties['Next Week Plan']),
       nextWeekFocus: propText_(p.properties['Next Week Focus']),
@@ -341,6 +345,16 @@ function previewDraft_(body) {
 // Content ID, so the composed text can show something a client
 // recognizes instead of a raw platform post ID. Best-effort: returns
 // null (leaving the ID as-is) on any lookup failure or miss.
+// Caption is the only field with actually human-readable content --
+// "Name" is a machine-generated id like "STD — Instagram — 18558169339077030".
+// Takes the first non-empty line (Notion stores line breaks as literal
+// "<br>"), trimmed to a readable length.
+function shortCaption_(caption) {
+  if (!caption) return '';
+  const firstLine = caption.replace(/<br\s*\/?>/gi, '\n').split('\n').map(s => s.trim()).filter(Boolean)[0] || '';
+  return firstLine.length > 60 ? firstLine.slice(0, 57) + '…' : firstLine;
+}
+
 function lookupPostName_(externalContentId) {
   const cfg = getConfig_();
   if (!cfg.contentDataSourceId || !externalContentId) return null;
@@ -350,10 +364,21 @@ function lookupPostName_(externalContentId) {
       filter: { property: 'External Content ID', rich_text: { equals: externalContentId } },
     });
     const match = (result.results || [])[0];
-    return match ? (propText_(match.properties.Name) || null) : null;
+    if (!match) return null;
+    return shortCaption_(propText_(match.properties.Caption)) || propText_(match.properties.Name) || null;
   } catch (e) {
     return null;
   }
+}
+
+// Shared by both the raw draft preview (listWeeklyDrafts) and the
+// composed approval text (composeApprovedText_), so a post name shows
+// up everywhere a PM might see "Post ID <digits>", not just in Preview.
+function resolvePostNames_(text) {
+  return (text || '').replace(/Post ID (\d+)/g, (full, id) => {
+    const name = lookupPostName_(id);
+    return name ? '"' + name + '"' : full;
+  });
 }
 
 // Combines the auto-generated Draft Text with the PM's shareable
@@ -368,12 +393,7 @@ function composeApprovedText_(page) {
   const cleanLines = rawLines.filter(line => !/nan|infinity/i.test(line));
   let text = cleanLines.join('\n').trim();
 
-  // "Post ID 17908034244535927" -> the actual post name, when we can find
-  // one -- Make's own template only has the raw platform ID to work with.
-  text = text.replace(/Post ID (\d+)/g, (full, id) => {
-    const name = lookupPostName_(id);
-    return name ? '"' + name + '"' : full;
-  });
+  text = resolvePostNames_(text);
 
   const sections = [
     ['สิ่งที่ปรับ/ข้อสังเกต', propText_(page.properties['Optimization Notes'])],
