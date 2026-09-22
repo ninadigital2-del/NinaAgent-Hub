@@ -22,6 +22,7 @@ function getConfig_() {
     draftDataSourceId: props.getProperty('NOTION_DRAFT_DATASOURCE_ID'), // "Weekly Update Draft" (Agency Command Center)
     revisionsDataSourceId: props.getProperty('NOTION_REVISIONS_DATASOURCE_ID'), // "Weekly Draft Revisions" (immutable, append-only)
     teamDataSourceId: props.getProperty('NOTION_TEAM_DATASOURCE_ID'), // "GEM Team Member" -- PM roster + Web Approval Code
+    clientConfigDataSourceId: props.getProperty('NOTION_CLIENT_CONFIG_DATASOURCE_ID'), // "Client Connection Config" -- holds PM LINE Recipient ID per brand
     clientId: props.getProperty('NOTION_CLIENT_ID'), // optional — omit to return all clients
     clientName: props.getProperty('NOTION_CLIENT_NAME'), // display label only, e.g. "STAEDTLER"
   };
@@ -475,6 +476,26 @@ function findLatestRevision_(cfg, pageId) {
   return (result.results || [])[0] || null;
 }
 
+// The Draft's own Client relation points straight at a Brand page -- Brand
+// itself has no "PM LINE Recipient ID" property. That property lives on a
+// separate "Client Connection Config" row, which relates back to Brand (the
+// reverse direction), one config row per brand. Best-effort: if the config
+// data source isn't set up, or no config row matches, Make's send gate will
+// simply keep blocking on an empty/short snapshot rather than misfiring.
+function lookupLineRecipientId_(cfg, brandId) {
+  if (!brandId || !cfg.clientConfigDataSourceId) return '';
+  try {
+    const result = notionRequest_('post', '/data_sources/' + cfg.clientConfigDataSourceId + '/query', {
+      page_size: 1,
+      filter: { property: 'Client', relation: { contains: brandId } },
+    });
+    const configPage = (result.results || [])[0];
+    return configPage ? propText_(configPage.properties['PM LINE Recipient ID']) : '';
+  } catch (e) {
+    return '';
+  }
+}
+
 function approveDraft_(body) {
   const cfg = getConfig_();
   const session = requireSession_(body);
@@ -541,13 +562,7 @@ function approveDraft_(body) {
     }
 
     const clientIds = propRelationIds_(page.properties.Client);
-    let lineRecipientSnapshot = '';
-    if (clientIds[0]) {
-      try {
-        const brand = notionRequest_('get', '/pages/' + clientIds[0]);
-        lineRecipientSnapshot = propText_(brand.properties['PM LINE Recipient ID']);
-      } catch (e) { /* recipient lookup is best-effort; Make can still resolve it independently */ }
-    }
+    const lineRecipientSnapshot = lookupLineRecipientId_(cfg, clientIds[0]);
 
     const newRevision = latest ? propNumber_(latest.properties.Revision) + 1 : 1;
     const weekStart = propDate_(page.properties.Week);

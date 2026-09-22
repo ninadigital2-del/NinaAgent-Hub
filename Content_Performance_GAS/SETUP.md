@@ -16,9 +16,11 @@ account), same as the other GAS backends in this repo.
 3. Copy the "Internal Integration Secret" — this is `NOTION_TOKEN` below.
 4. Open the **"Content Performance"** database in Notion → "..." menu →
    Connections → add this integration. Repeat for **"Meta Ads"**,
-   **"Weekly Update Draft"**, **"Weekly Draft Revisions"**, and
-   **"GEM Team Member"** (all owned by other projects, but the "PM Review"
-   tab needs read/write access to all four).
+   **"Weekly Update Draft"**, **"Weekly Draft Revisions"**,
+   **"GEM Team Member"**, and **"Client Connection Config"** (all owned by
+   other projects, but the "PM Review" tab needs read/write access to all
+   five — the last one is read-only, used to look up each brand's LINE
+   recipient at Approve time).
 
 (If a token already exists for this workspace — e.g. the one
 `Content_Planner_GAS` uses — you can reuse it instead of creating a new
@@ -46,6 +48,7 @@ Project Settings → Script Properties → add:
 | `NOTION_DRAFT_DATASOURCE_ID` | `4a331637-29c3-41cb-b96f-d0b4628eca36` (the "Weekly Update Draft" data source, owned by the Agency Command Center's own Make scenario) — powers the "PM Review" tab. Leave unset to hide that tab's data (it'll show "โหลด draft ไม่สำเร็จ") |
 | `NOTION_REVISIONS_DATASOURCE_ID` | `87ace625-3e0b-4af2-8e97-086269db9e09` (the "Weekly Draft Revisions" data source) — immutable, append-only log of every approved draft revision. The web app is the only writer; nothing else should ever write to it |
 | `NOTION_TEAM_DATASOURCE_ID` | `f3f7a62c-966d-4391-9af2-237611d711db` (the "GEM Team Member" data source) — PM roster used to verify the "Web Approval Code" a PM enters before they can Save/Approve a draft |
+| `NOTION_CLIENT_CONFIG_DATASOURCE_ID` | `a93926c2-4d18-415e-b622-cddfbc1b7c1b` (the "Client Connection Config" data source) — holds `PM LINE Recipient ID` per brand, used only at Approve time to snapshot the recipient onto the new revision row. Leave unset to fall back to an empty snapshot (Make's send gate will keep blocking, not misfire) |
 
 ## 4. Deploy as Web App
 
@@ -92,6 +95,10 @@ keep using local mock data only.
     It never resets a `Sending`/`Uncertain`/`Sent` status — those stay
     Make's to transition. Approving while a *different* pending request
     is outstanding is blocked until it resolves.
+    The `LINE Recipient ID Snapshot` written onto each revision comes from
+    a live lookup against "Client Connection Config" (filtered by that
+    row's `Client` relation containing the Draft's brand) at the moment of
+    Approve, never from the Brand page itself (which has no such property).
   - Make (scenario 7457016) is expected to poll `LINE Requested Revision`,
     send exactly the `Approved Text` + `LINE Recipient ID Snapshot` from
     that revision row, and update `LINE Delivery Status`/`LINE Sent
