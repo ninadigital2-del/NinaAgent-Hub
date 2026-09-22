@@ -728,7 +728,20 @@
       body: JSON.stringify(payload),
     });
     const json = await res.json();
-    if (!json.success) throw new Error(json.error || 'unknown error');
+    if (!json.success) {
+      const msg = json.error || 'unknown error';
+      if (/session expired/i.test(msg)) {
+        // Server-side token is dead (expired or revoked) -- clearing it
+        // silently and just showing an error text leaves the page looking
+        // logged-in while every action keeps failing. Reload so the PM
+        // sees the login form come back immediately and re-enters their code.
+        clearPmSession_();
+        alert('Session หมดอายุ กรุณาเข้าสู่ระบบใหม่');
+        location.reload();
+        throw new Error(msg);
+      }
+      throw new Error(msg);
+    }
     return json;
   }
 
