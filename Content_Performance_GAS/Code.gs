@@ -28,6 +28,8 @@ function getConfig_() {
 }
 
 const PM_SESSION_TTL_SECONDS = 4 * 60 * 60;
+const DATA_CACHE_TTL_SECONDS = 180; // action=data only -- never cache drafts/save/approve, PMs need those live
+const CONTENT_WINDOW_DAYS = 90; // dashboard only ever shows ~1 month; 90 days is a generous cap on how much history each load re-fetches
 
 // ---------- Web API ----------
 function doGet(e) {
@@ -35,12 +37,22 @@ function doGet(e) {
   try {
     if (action === 'data') {
       const cfg = getConfig_();
-      return jsonResponse({
+      const cacheKey = 'data_' + (cfg.clientId || 'all');
+      try {
+        const cached = CacheService.getScriptCache().get(cacheKey);
+        if (cached) return jsonResponse(JSON.parse(cached));
+      } catch (e) { /* cache miss/unavailable is never fatal -- fall through to a live fetch */ }
+
+      const payload = {
         success: true,
         client: cfg.clientId ? { id: cfg.clientId, name: cfg.clientName || '' } : null,
         content: listContentPerformance(),
         ads: listMetaAds(),
-      });
+      };
+      try {
+        CacheService.getScriptCache().put(cacheKey, JSON.stringify(payload), DATA_CACHE_TTL_SECONDS);
+      } catch (e) { /* payload too large for the 100KB cache value limit -- fine, just skip caching this round */ }
+      return jsonResponse(payload);
     }
     if (action === 'drafts') {
       return jsonResponse({ success: true, drafts: listWeeklyDrafts() });
@@ -75,17 +87,35 @@ function jsonResponse(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
 }
 
+// Builds a date-window filter that also passes rows with the date field
+// left blank -- a bounded "on_or_after" filter alone would silently drop
+// any row that was fetched but never got a date written to it, which is
+// a data-quality signal worth surfacing, not hiding.
+function dateWindowOrEmptyFilter_(property, days) {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - days);
+  return {
+    or: [
+      { property: property, date: { on_or_after: cutoff.toISOString().slice(0, 10) } },
+      { property: property, date: { is_empty: true } },
+    ],
+  };
+}
+
 // ---------- Notion query helper ----------
-function queryDataSource_(dataSourceId, maxPages) {
+function queryDataSource_(dataSourceId, maxPages, extraFilter) {
   const cfg = getConfig_();
   if (!cfg.token || !dataSourceId) return [];
   const results = [];
   let cursor = null;
   let pages = 0;
   do {
-    const filter = cfg.clientId
+    const clientFilter = cfg.clientId
       ? { property: 'Client', relation: { contains: cfg.clientId } }
       : undefined;
+    const filter = clientFilter && extraFilter
+      ? { and: [clientFilter, extraFilter] }
+      : (clientFilter || extraFilter);
     const body = { page_size: 100 };
     if (filter) body.filter = filter;
     if (cursor) body.start_cursor = cursor;
@@ -141,7 +171,7 @@ function notionRequest_(method, path, payload) {
 
 // ---------- Content Performance (per-post) ----------
 function listContentPerformance() {
-  const pages = queryDataSource_(getConfig_().contentDataSourceId, 5)
+  const pages = queryDataSource_(getConfig_().contentDataSourceId, 5, dateWindowOrEmptyFilter_('Publish Date', CONTENT_WINDOW_DAYS))
     .filter(p => propSelect_(p.properties.Platform) !== 'Meta Ads' && propSelect_(p.properties.Platform) !== 'Google Ads')
     // Rows can be quarantined (e.g. misattributed to the wrong client) by
     // setting Data Quality to "Invalid" rather than deleting them -- see
@@ -211,7 +241,7 @@ function listContentPerformance() {
 
 // ---------- Meta Ads (weekly paid) ----------
 function listMetaAds() {
-  const pages = queryDataSource_(getConfig_().adsDataSourceId, 3);
+  const pages = queryDataSource_(getConfig_().adsDataSourceId, 3, dateWindowOrEmptyFilter_('Week Start', CONTENT_WINDOW_DAYS));
   // Two writers can land a snapshot for the same client+week under two
   // different Unique Keys (seen 2026-09-17: "STD|Meta Ads|2026-09-07" and
   // "<Brand UUID>|Meta Ads|2026-09-07" with identical values) -- summing
