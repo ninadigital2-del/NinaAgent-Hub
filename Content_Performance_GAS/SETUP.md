@@ -97,6 +97,14 @@ keep using local mock data only.
     that revision row, and update `LINE Delivery Status`/`LINE Sent
     Revision`/`LINE Sent At`/`LINE Delivery Error` on the Draft — the web
     app never writes those 4 fields.
+- **Performance:** `action=data` (Content Performance + Meta Ads) is capped
+  to the last `CONTENT_WINDOW_DAYS` (90) by `Publish Date`/`Week Start`, and
+  the whole response is cached server-side for `DATA_CACHE_TTL_SECONDS`
+  (180s) via `CacheService`. Both live as constants near the top of
+  `Code.gs` — raise the window if the dashboard ever needs to show older
+  history. Neither applies to `action=drafts` or any PM Review write
+  (`pmLogin`/`saveDraft`/`approveDraft`), which always hit Notion live so a
+  PM sees their own edits immediately.
 - The "ข้อเสนอเดือนถัดไป" box on the ทีมคอนเทนต์ tab still only saves to
   `localStorage` (not synced across viewers) — that's a separate, smaller
   gap from the PM Review tab above and hasn't been wired up yet.
