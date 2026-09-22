@@ -532,17 +532,25 @@ function approveDraft_(body) {
     const latest = findLatestRevision_(cfg, body.pageId);
     const currentStatus = propSelect_(page.properties['LINE Delivery Status']);
     const currentRequested = propNumber_(page.properties['LINE Requested Revision']);
-    const hasOutstandingRequest = OUTSTANDING_DELIVERY_STATUSES.indexOf(currentStatus) !== -1 && currentRequested != null;
+    const latestRevisionNum = latest ? propNumber_(latest.properties.Revision) : null;
+    // A revision minted with an empty recipient snapshot (e.g. before
+    // NOTION_CLIENT_CONFIG_DATASOURCE_ID was wired up) can never be sent --
+    // Make's own gate requires a real recipient before it will send. Treat it
+    // as already-dead rather than something a re-approve should keep reusing
+    // or something an outstanding-status check should keep blocking on.
+    const latestSnapshotValid = !!(latest && propText_(latest.properties['LINE Recipient ID Snapshot']));
+    const hasOutstandingRequest = OUTSTANDING_DELIVERY_STATUSES.indexOf(currentStatus) !== -1
+      && currentRequested != null
+      && !(currentRequested === latestRevisionNum && !latestSnapshotValid);
 
     const latestText = latest ? propText_(latest.properties['Approved Text']) : null;
-    if (latest && latestText === approvedText) {
+    if (latest && latestText === approvedText && latestSnapshotValid) {
       // Identical content to the latest revision -- reuse it instead of minting
       // a new one. Covers: double-click, no changes since last approve, AND a
       // partial write where the revision row was created but the Draft's own
       // pointer fields never got patched (network failure mid-request) -- in
       // that case currentRequested won't match yet, so republish the pointer
       // at the existing revision rather than creating a second orphan row.
-      const latestRevisionNum = propNumber_(latest.properties.Revision);
       const alreadySent = currentStatus === 'Sent' && propNumber_(page.properties['LINE Sent Revision']) === latestRevisionNum;
       const pointerIsCurrent = currentRequested === latestRevisionNum && OUTSTANDING_DELIVERY_STATUSES.indexOf(currentStatus) !== -1;
       if (!alreadySent && !pointerIsCurrent) {
@@ -564,7 +572,7 @@ function approveDraft_(body) {
     const clientIds = propRelationIds_(page.properties.Client);
     const lineRecipientSnapshot = lookupLineRecipientId_(cfg, clientIds[0]);
 
-    const newRevision = latest ? propNumber_(latest.properties.Revision) + 1 : 1;
+    const newRevision = latestRevisionNum != null ? latestRevisionNum + 1 : 1;
     const weekStart = propDate_(page.properties.Week);
 
     notionRequest_('post', '/pages', {
