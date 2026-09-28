@@ -43,8 +43,8 @@ Project Settings → Script Properties → add:
 | `NOTION_TOKEN` | The integration secret from step 1 |
 | `NOTION_CONTENT_DATASOURCE_ID` | `d5344e81-08a7-4230-8816-a0b060dfed86` (the "Content Performance" data source) |
 | `NOTION_ADS_DATASOURCE_ID` | `1c98fd4d-d669-4575-bb2c-102cf58cf3e5` (the "Meta Ads" data source) |
-| `NOTION_CLIENT_ID` | `2eb9dccd-181d-80b8-a31a-dbcc54726ad0` (STAEDTLER's page id in the Client database) — leave this property unset to return every client's rows once the dashboard needs to support more than one |
-| `NOTION_CLIENT_NAME` | `STAEDTLER` — display label only, shown in the dashboard's top bar so viewers always know whose data they're looking at. Keep this in sync with `NOTION_CLIENT_ID` above; leave both unset together |
+| `NOTION_CLIENT_ID` | `2eb9dccd-181d-80b8-a31a-dbcc54726ad0` (STAEDTLER's page id in the Brand database) — now only a **fallback default** used when a request doesn't pass `?client=`. The dashboard itself always sends `?client=<brandId>` once the client switcher loads, so this mostly matters for direct API testing. Leave unset to default to no client filter |
+| `NOTION_CLIENT_NAME` | `STAEDTLER` — display label used only as a fallback if a live Brand-name lookup fails. Keep in sync with `NOTION_CLIENT_ID` above |
 | `NOTION_DRAFT_DATASOURCE_ID` | `4a331637-29c3-41cb-b96f-d0b4628eca36` (the "Weekly Update Draft" data source, owned by the Agency Command Center's own Make scenario) — powers the "PM Review" tab. Leave unset to hide that tab's data (it'll show "โหลด draft ไม่สำเร็จ") |
 | `NOTION_REVISIONS_DATASOURCE_ID` | `87ace625-3e0b-4af2-8e97-086269db9e09` (the "Weekly Draft Revisions" data source) — immutable, append-only log of every approved draft revision. The web app is the only writer; nothing else should ever write to it |
 | `NOTION_TEAM_DATASOURCE_ID` | `f3f7a62c-966d-4391-9af2-237611d711db` (the "GEM Team Member" data source) — PM roster used to verify the "Web Approval Code" a PM enters before they can Save/Approve a draft |
@@ -63,6 +63,18 @@ keep using local mock data only.
 
 ## Notes
 
+- **Multi-client:** `action=data` and `action=drafts` both accept an
+  optional `?client=<brandId>` query param, and every PM Review write
+  (`saveDraft`/`previewDraft`/`approveDraft`) accepts an optional
+  `clientId` in its POST body — the frontend's client switcher sends both
+  automatically. `action=clients` lists every brand whose "Client
+  Connection Config" row has `Weekly Report Enabled` ticked (cached 10
+  minutes via `CLIENT_LIST_CACHE_TTL_SECONDS`), which is what populates
+  that switcher — a brand shows up there the moment Codex's pipeline turns
+  Weekly Report on for it, no code change needed on our side. Without
+  `NOTION_CLIENT_CONFIG_DATASOURCE_ID` set, `action=clients` falls back to
+  the single `NOTION_CLIENT_ID`/`NOTION_CLIENT_NAME` pair, so a
+  single-tenant deployment still works unchanged.
 - The backend is otherwise read-only. The "PM Review" tab's three write
   actions (`pmLogin`, `saveDraft`, `approveDraft`) are the only writes:
   - `pmLogin` trades a PM's "Web Approval Code" (set per-person on their
@@ -119,7 +131,9 @@ keep using local mock data only.
   pages (300 rows) for ads — plenty for a few months of weekly data. Raise
   the `maxPages` argument in `Code.gs` if the dashboard ever needs a longer
   history and requests start coming back truncated.
-- Adding a second client later: drop the `NOTION_CLIENT_ID` script property
-  filter (or extend `listContentPerformance`/`listMetaAds` to accept a
-  `?client=` query param and filter per request) once there's a second
-  client's data actually in these databases to separate out.
+- A brand only appears in the client switcher once its "Client Connection
+  Config" row has `Weekly Report Enabled` ticked — a client mid-pilot with
+  that flag still off (or no config row at all) stays invisible here even
+  if its rows already exist in Content Performance/Meta Ads/Weekly Update
+  Draft, which is deliberate: don't show a client's data on this dashboard
+  before their pipeline is actually considered pilot-ready.
