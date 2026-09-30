@@ -1474,7 +1474,7 @@ function viewDetail(id){
     </div>
     <div class="flex gap-1 mb-3 flex-wrap">${i.platforms.map(platformChip).join('')}</div>
     <div class="text-sm mb-3"><b>ผู้รับผิดชอบ:</b> ${i.owner} · <b>ผู้ตรวจ:</b> ${i.reviewer}</div>
-    ${i.media?`<div class="text-sm mb-3"><a href="${i.media}" target="_blank" class="text-indigo-600"><i class="fa-solid fa-link"></i> ลิงก์งาน (กดดู/คอมเมนต์ได้)</a></div>`:''}
+    ${i.media?`<div class="text-sm mb-3"><a href="${i.media}" target="_blank" class="text-indigo-600"><i class="fa-solid fa-link"></i> ดูไฟล์งาน</a></div>`:''}
     <div class="space-y-2">
       ${i.platforms.map(p=>{
         const c = i.captions[p]||{};
@@ -1484,7 +1484,7 @@ function viewDetail(id){
           <div class="flex items-center justify-between mb-1">
             <div class="flex items-center gap-2">
               ${platformChip(p)}
-              ${pubUrl ? `<a href="${pubUrl}" target="_blank" rel="noopener" title="ลิงก์โพสต์จริง (${p})" class="text-indigo-600"><i class="fa-solid fa-link"></i></a>` : ''}
+              ${pubUrl ? `<a href="${pubUrl}" target="_blank" rel="noopener" class="text-xs text-indigo-600"><i class="fa-solid fa-link"></i> ดูโพสต์จริง</a>` : ''}
             </div>
             <button class="text-xs text-indigo-600" onclick="navigator.clipboard.writeText(\`${(text||'').replace(/`/g,"'")}\`).then(()=>alert('คัดลอกแล้ว'))"><i class="fa-regular fa-copy"></i> คัดลอก</button>
           </div>
