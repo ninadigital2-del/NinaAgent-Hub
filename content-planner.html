@@ -1467,18 +1467,21 @@ function viewDetail(id){
     <div class="flex gap-1 mb-3 flex-wrap">${i.platforms.map(platformChip).join('')}</div>
     <div class="text-sm mb-3"><b>ผู้รับผิดชอบ:</b> ${i.owner} · <b>ผู้ตรวจ:</b> ${i.reviewer}</div>
     ${i.media?`<div class="text-sm mb-3"><a href="${i.media}" target="_blank" class="text-indigo-600"><i class="fa-solid fa-link"></i> ลิงก์งาน (กดดู/คอมเมนต์ได้)</a></div>`:''}
+    ${hasPublishedLink(i) ? `<div class="text-sm mb-3 flex flex-wrap gap-x-3 gap-y-1">
+      ${i.platforms.filter(p=>i.published && i.published[p]).map(p=>
+        `<a href="${i.published[p]}" target="_blank" rel="noopener" class="text-indigo-600"><i class="fa-solid fa-link"></i> ลิงก์โพสต์จริง (${p})</a>`
+      ).join('')}
+    </div>` : ''}
     <div class="space-y-2">
       ${i.platforms.map(p=>{
         const c = i.captions[p]||{};
         const text = c.caption || c.message || '(ยังไม่ได้เตรียมข้อความ)';
-        const pubUrl = i.published && i.published[p];
         return `<div class="border border-slate-100 rounded-lg p-2">
           <div class="flex items-center justify-between mb-1">
             ${platformChip(p)}
             <button class="text-xs text-indigo-600" onclick="navigator.clipboard.writeText(\`${(text||'').replace(/`/g,"'")}\`).then(()=>alert('คัดลอกแล้ว'))"><i class="fa-regular fa-copy"></i> คัดลอก</button>
           </div>
           <div class="text-sm whitespace-pre-wrap">${text}</div>
-          ${pubUrl ? `<a href="${pubUrl}" target="_blank" rel="noopener" class="text-xs text-indigo-600 mt-1 inline-block"><i class="fa-solid fa-link"></i> ลิงก์โพสต์จริง</a>` : ''}
         </div>`;
       }).join('')}
     </div>
