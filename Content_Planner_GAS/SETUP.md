@@ -215,3 +215,27 @@ any of that.
   (not installed alongside it — the 15-minute trigger is removed, per the
   overdue-nag being turned off above). The next Deploy → Manage deployments
   → New version may prompt you to re-authorize.
+- **`ApprovedAt` / `PostedAt`** (last two columns) record, once each, the
+  first time an item's Status ever reached "the client approved this"
+  (`Approved`, `Ready`, `Scheduled`, or `Posted` — whichever it hits first,
+  since an item can skip straight from Review to Ready) and the first time
+  it reached `Posted`. They exist as evidence for client-facing KPI
+  dashboards that read this sheet via `doGet?action=list` and filter by
+  Brand (e.g. AIS Retail Connect's "Posting Execution: โพสต์ครบตามแผนที่
+  อนุมัติ 100%", which needs to know the item was actually approved and
+  actually posted, not just that `UpdatedAt` changed — `UpdatedAt` moves on
+  every edit, so it can't answer "when was this approved" or "was this
+  posted on time"). Stamped once and never overwritten — editing an item
+  after it's Approved/Posted (fixing a typo, reassigning the Owner, etc.)
+  does not move these times, and a client-supplied value for either column
+  in a `create`/`update` payload is always ignored; only the backend itself
+  sets them, exclusively on an actual Status change. Existing rows created
+  before this update simply have both blank — there's no way to know a real
+  past approval/post time for those, so nothing is backfilled.
+- If you already had this backend deployed before `ApprovedAt`/`PostedAt`
+  existed: before re-pasting `Code.gs`, open the Content sheet and confirm
+  there is **no other column to the right of `Sent_DayOf`** — `setupSheets`
+  always appends new columns at the current end of `COLUMNS`, so anything
+  already sitting in that next column would get silently overwritten by the
+  new header. If there is something there, stop and sort that out first
+  instead of running `setupSheets`.
