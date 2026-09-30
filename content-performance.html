@@ -402,6 +402,7 @@
       </div>
     </div>
     <div class="topbar-controls">
+      <select id="clientSelect" class="pm-select" style="display:none;"></select>
       <div class="segctl" id="viewSwitch">
         <button data-view="ceo" class="active"><i class="fa-solid fa-chart-line"></i> CEO / COO</button>
         <button data-view="team"><i class="fa-solid fa-layer-group"></i> ทีมคอนเทนต์</button>
@@ -694,10 +695,48 @@
   let CLIENT = null;
   let usingLiveData = false;
 
+  // ---------- Client switcher (multi-client support) ----------
+  const CLIENT_KEY = 'content-performance-client';
+  let CURRENT_CLIENT_ID = '';
+  function currentClientQS_(){ return CURRENT_CLIENT_ID ? '&client=' + encodeURIComponent(CURRENT_CLIENT_ID) : ''; }
+
+  async function loadClients_(){
+    if (!API_URL) return;
+    try {
+      const res = await fetch(API_URL + '?action=clients');
+      const json = await res.json();
+      if (!json.success) return;
+      const clients = json.clients || [];
+      const select = document.getElementById('clientSelect');
+      if (clients.length < 2) {
+        // Nothing to switch between -- keep the picker out of the way and
+        // let the backend fall back to its own default client (if any).
+        select.style.display = 'none';
+        if (clients.length === 1) CURRENT_CLIENT_ID = clients[0].id;
+        return;
+      }
+      let saved = '';
+      try { saved = localStorage.getItem(CLIENT_KEY) || ''; } catch (e) {}
+      CURRENT_CLIENT_ID = clients.some(c => c.id === saved) ? saved : clients[0].id;
+      select.innerHTML = clients.map(c => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
+      select.value = CURRENT_CLIENT_ID;
+      select.style.display = '';
+      select.addEventListener('change', async () => {
+        CURRENT_CLIENT_ID = select.value;
+        try { localStorage.setItem(CLIENT_KEY, CURRENT_CLIENT_ID); } catch (e) {}
+        DRAFTS_LOADED = false;
+        await loadData();
+        if (document.getElementById('view-pm').classList.contains('active')) loadDrafts();
+      });
+    } catch (err) {
+      console.error('Failed to load client list:', err);
+    }
+  }
+
   async function loadData(){
     if (API_URL) {
       try {
-        const res = await fetch(API_URL + '?action=data');
+        const res = await fetch(API_URL + '?action=data' + currentClientQS_());
         const json = await res.json();
         if (json.success) {
           CONTENT = json.content || [];
@@ -786,7 +825,7 @@
     const content = document.getElementById('pmContent');
     if (!API_URL) { empty.style.display = 'block'; empty.textContent = 'ต้องต่อ API จริงก่อนถึงจะใช้ PM Review ได้ (ยังเป็น mock data อยู่)'; return; }
     try {
-      const res = await fetch(API_URL + '?action=drafts');
+      const res = await fetch(API_URL + '?action=drafts' + currentClientQS_());
       const json = await res.json();
       if (!json.success) throw new Error(json.error || 'unknown error');
       DRAFTS = json.drafts || [];
@@ -862,7 +901,7 @@
     const fields = await saveDraft_();
     if (!fields) return; // save failed, already reported
     try {
-      const json = await postAction_({ action: 'previewDraft', token: pmToken_(), pageId: d.id });
+      const json = await postAction_({ action: 'previewDraft', token: pmToken_(), pageId: d.id, clientId: CURRENT_CLIENT_ID });
       box.textContent = json.approvedText;
       box.style.display = 'block';
       statusEl.textContent = '';
@@ -880,7 +919,7 @@
     statusEl.textContent = 'กำลังบันทึก...';
     const fields = currentPmFields_();
     try {
-      await postAction_(Object.assign({ action: 'saveDraft', token: pmToken_(), pageId: d.id }, fields));
+      await postAction_(Object.assign({ action: 'saveDraft', token: pmToken_(), pageId: d.id, clientId: CURRENT_CLIENT_ID }, fields));
       Object.assign(d, fields);
       statusEl.textContent = 'บันทึกแล้ว';
       return fields;
@@ -901,7 +940,7 @@
     if (!fields) return; // save failed, already reported
     statusEl.textContent = 'กำลังอนุมัติ...';
     try {
-      const json = await postAction_({ action: 'approveDraft', token: pmToken_(), pageId: d.id });
+      const json = await postAction_({ action: 'approveDraft', token: pmToken_(), pageId: d.id, clientId: CURRENT_CLIENT_ID });
       d.status = 'Approved';
       d.lineRequestedRevision = json.revision;
       d.lineDeliveryStatus = 'Pending';
@@ -1370,7 +1409,10 @@
     renderGallery();
   }
 
-  loadData();
+  (async function init_(){
+    await loadClients_();
+    await loadData();
+  })();
 })();
 </script>
 </body>

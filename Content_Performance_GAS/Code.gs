@@ -31,14 +31,19 @@ function getConfig_() {
 const PM_SESSION_TTL_SECONDS = 4 * 60 * 60;
 const DATA_CACHE_TTL_SECONDS = 180; // action=data only -- never cache drafts/save/approve, PMs need those live
 const CONTENT_WINDOW_DAYS = 90; // dashboard only ever shows ~1 month; 90 days is a generous cap on how much history each load re-fetches
+const CLIENT_LIST_CACHE_TTL_SECONDS = 600; // the client roster changes rarely -- cache longer than action=data
 
 // ---------- Web API ----------
 function doGet(e) {
   const action = (e.parameter.action || 'data');
   try {
+    if (action === 'clients') {
+      return jsonResponse({ success: true, clients: listClients_() });
+    }
     if (action === 'data') {
       const cfg = getConfig_();
-      const cacheKey = 'data_' + (cfg.clientId || 'all');
+      const clientId = e.parameter.client || cfg.clientId || '';
+      const cacheKey = 'data_' + (clientId || 'all');
       try {
         const cached = CacheService.getScriptCache().get(cacheKey);
         if (cached) return jsonResponse(JSON.parse(cached));
@@ -46,9 +51,9 @@ function doGet(e) {
 
       const payload = {
         success: true,
-        client: cfg.clientId ? { id: cfg.clientId, name: cfg.clientName || '' } : null,
-        content: listContentPerformance(),
-        ads: listMetaAds(),
+        client: clientId ? { id: clientId, name: lookupBrandName_(clientId) || cfg.clientName || '' } : null,
+        content: listContentPerformance(clientId),
+        ads: listMetaAds(clientId),
       };
       try {
         CacheService.getScriptCache().put(cacheKey, JSON.stringify(payload), DATA_CACHE_TTL_SECONDS);
@@ -56,7 +61,9 @@ function doGet(e) {
       return jsonResponse(payload);
     }
     if (action === 'drafts') {
-      return jsonResponse({ success: true, drafts: listWeeklyDrafts() });
+      const cfg = getConfig_();
+      const clientId = e.parameter.client || cfg.clientId || '';
+      return jsonResponse({ success: true, drafts: listWeeklyDrafts(clientId) });
     }
     return jsonResponse({ success: false, error: 'Unknown action: ' + action });
   } catch (err) {
@@ -104,15 +111,15 @@ function dateWindowOrEmptyFilter_(property, days) {
 }
 
 // ---------- Notion query helper ----------
-function queryDataSource_(dataSourceId, maxPages, extraFilter) {
+function queryDataSource_(dataSourceId, maxPages, extraFilter, clientId) {
   const cfg = getConfig_();
   if (!cfg.token || !dataSourceId) return [];
   const results = [];
   let cursor = null;
   let pages = 0;
   do {
-    const clientFilter = cfg.clientId
-      ? { property: 'Client', relation: { contains: cfg.clientId } }
+    const clientFilter = clientId
+      ? { property: 'Client', relation: { contains: clientId } }
       : undefined;
     const filter = clientFilter && extraFilter
       ? { and: [clientFilter, extraFilter] }
@@ -170,9 +177,63 @@ function notionRequest_(method, path, payload) {
   return parsed;
 }
 
+function lookupBrandName_(brandId) {
+  if (!brandId) return '';
+  try {
+    return propText_(notionRequest_('get', '/pages/' + brandId).properties.Name);
+  } catch (e) {
+    return '';
+  }
+}
+
+// ---------- Clients (multi-client support) ----------
+// The dashboard now serves more than one brand out of the same shared
+// Content Performance / Meta Ads / Weekly Update Draft data sources --
+// this lists which brands are actually live so the frontend can offer a
+// client switcher instead of a single hardcoded NOTION_CLIENT_ID. A brand
+// only shows up here once its "Client Connection Config" row has Weekly
+// Report Enabled ticked -- that's the same flag Codex's pipeline uses to
+// decide a client is pilot-ready, so the two stay in sync automatically.
+function listClients_() {
+  const cfg = getConfig_();
+  if (!cfg.clientConfigDataSourceId) {
+    // No multi-client config wired up -- fall back to the single client
+    // fixed in Script Properties, if any, so existing single-tenant
+    // deployments keep working unchanged.
+    return cfg.clientId ? [{ id: cfg.clientId, name: cfg.clientName || 'Client' }] : [];
+  }
+  const cacheKey = 'clients_v1';
+  try {
+    const cached = CacheService.getScriptCache().get(cacheKey);
+    if (cached) return JSON.parse(cached);
+  } catch (e) { /* cache miss/unavailable is never fatal */ }
+
+  const result = notionRequest_('post', '/data_sources/' + cfg.clientConfigDataSourceId + '/query', {
+    page_size: 50,
+    filter: { property: 'Weekly Report Enabled', checkbox: { equals: true } },
+  });
+  const brandIds = (result.results || [])
+    .map(config => propRelationIds_(config.properties.Client)[0])
+    .filter(Boolean);
+
+  // Resolve each brand's display Name individually -- best-effort, so one
+  // broken relation can't take down the whole client list.
+  const clients = [];
+  brandIds.forEach(brandId => {
+    const name = lookupBrandName_(brandId);
+    if (name) clients.push({ id: brandId, name: name });
+  });
+  clients.sort((a, b) => a.name.localeCompare(b.name));
+
+  try {
+    CacheService.getScriptCache().put(cacheKey, JSON.stringify(clients), CLIENT_LIST_CACHE_TTL_SECONDS);
+  } catch (e) { /* fine, just skip caching this round */ }
+  return clients;
+}
+
 // ---------- Content Performance (per-post) ----------
-function listContentPerformance() {
-  const pages = queryDataSource_(getConfig_().contentDataSourceId, 5, dateWindowOrEmptyFilter_('Publish Date', CONTENT_WINDOW_DAYS))
+function listContentPerformance(clientId) {
+  const pages = queryDataSource_(getConfig_().contentDataSourceId, 5, dateWindowOrEmptyFilter_('Publish Date', CONTENT_WINDOW_DAYS), clientId)
     .filter(p => propSelect_(p.properties.Platform) !== 'Meta Ads' && propSelect_(p.properties.Platform) !== 'Google Ads')
     // Rows can be quarantined (e.g. misattributed to the wrong client) by
     // setting Data Quality to "Invalid" rather than deleting them -- see
@@ -241,8 +302,8 @@ function listContentPerformance() {
 }
 
 // ---------- Meta Ads (weekly paid) ----------
-function listMetaAds() {
-  const pages = queryDataSource_(getConfig_().adsDataSourceId, 3, dateWindowOrEmptyFilter_('Week Start', CONTENT_WINDOW_DAYS));
+function listMetaAds(clientId) {
+  const pages = queryDataSource_(getConfig_().adsDataSourceId, 3, dateWindowOrEmptyFilter_('Week Start', CONTENT_WINDOW_DAYS), clientId);
   // Two writers can land a snapshot for the same client+week under two
   // different Unique Keys (seen 2026-09-17: "STD|Meta Ads|2026-09-07" and
   // "<Brand UUID>|Meta Ads|2026-09-07" with identical values) -- summing
@@ -283,8 +344,8 @@ function listMetaAds() {
 // also creates the one immutable Weekly Draft Revisions row).
 const OUTSTANDING_DELIVERY_STATUSES = ['Pending', 'Sending', 'Uncertain'];
 
-function listWeeklyDrafts() {
-  const pages = queryDataSource_(getConfig_().draftDataSourceId, 3);
+function listWeeklyDrafts(clientId) {
+  const pages = queryDataSource_(getConfig_().draftDataSourceId, 3, undefined, clientId);
   return pages
     .sort((a, b) => (propDate_(b.properties.Week) || '').localeCompare(propDate_(a.properties.Week) || ''))
     .map(p => ({
@@ -309,10 +370,16 @@ function listWeeklyDrafts() {
     }));
 }
 
-function assertDraftBelongsToClient_(page) {
+// clientId here is whichever client the PM has selected in the dashboard
+// (sent alongside pageId on every write), not a fixed script-level config
+// -- now that the backend serves multiple clients, this only guards
+// against a stale/tampered pageId pointing at a different client's draft
+// than the one currently selected.
+function assertDraftBelongsToClient_(page, clientId) {
   const cfg = getConfig_();
-  if (cfg.clientId && propRelationIds_(page.properties.Client).indexOf(cfg.clientId) === -1) {
-    throw new Error('This draft does not belong to the configured client');
+  const expected = clientId || cfg.clientId;
+  if (expected && propRelationIds_(page.properties.Client).indexOf(expected) === -1) {
+    throw new Error('This draft does not belong to the selected client');
   }
 }
 
@@ -370,7 +437,7 @@ function saveDraft_(body) {
   if (!body.pageId) throw new Error('Missing pageId');
 
   const page = notionRequest_('get', '/pages/' + body.pageId);
-  assertDraftBelongsToClient_(page);
+  assertDraftBelongsToClient_(page, body.clientId);
 
   // Manual PM fields only -- never Draft Text/Status/Final Text, so a
   // metrics refresh from the other system's pipeline can never clobber
@@ -396,7 +463,7 @@ function saveDraft_(body) {
 function previewDraft_(body) {
   if (!body.pageId) throw new Error('Missing pageId');
   const page = notionRequest_('get', '/pages/' + body.pageId);
-  assertDraftBelongsToClient_(page);
+  assertDraftBelongsToClient_(page, body.clientId);
   return { success: true, approvedText: composeApprovedText_(page) };
 }
 
@@ -505,7 +572,7 @@ function approveDraft_(body) {
   if (!lock.tryLock(15000)) throw new Error('Another approval is in progress, please try again');
   try {
     const page = notionRequest_('get', '/pages/' + body.pageId);
-    assertDraftBelongsToClient_(page);
+    assertDraftBelongsToClient_(page, body.clientId);
 
     // Safety gates -- these block Approve outright, they never get
     // silently worked around. Make's sender refuses to process a
