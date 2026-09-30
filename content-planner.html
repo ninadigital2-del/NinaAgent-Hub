@@ -30,6 +30,7 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
 .flag-overdue { color: #dc2626; }
 .flag-soon { color: #d97706; }
 .flag-incomplete { color: #b91c1c; }
+.flag-missing-link { color: #dc2626; font-size: 11px; font-weight: 600; margin-left: 6px; white-space: nowrap; }
 
 .platform-chip { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 6px; }
 .plat-Facebook { background: #dbeafe; color: #1d4ed8; }
@@ -127,6 +128,7 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
   .cal-item { padding: 2px; justify-content: center; border-radius: 999px; }
   .cal-item .truncate { display: none; }
   .cal-item .cal-dot { width: 7px; height: 7px; }
+  .cal-item .cal-missing-link-icon { display: none; } /* keep the tiny mobile pill to just its status dot */
   .cal-more { font-size: 8.5px; padding: 1px 2px; text-align: center; }
   .day-empty-hint { display: none; }
 }
@@ -186,6 +188,9 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
       <option value="">ทุกแพลตฟอร์ม</option>
       <option>Facebook</option><option>Instagram</option><option>TikTok</option><option>LINE</option><option>YouTube</option>
     </select>
+    <label class="flex items-center gap-1 text-xs text-slate-600 border border-slate-200 rounded-lg px-2 py-1.5 cursor-pointer">
+      <input type="checkbox" id="shared-missing-link" onchange="applySharedFilter()"> ขาดลิงก์โพสต์
+    </label>
     <button onclick="clearSharedFilter()" class="text-xs text-slate-400 hover:text-slate-600 ml-1"><i class="fa-solid fa-xmark"></i> ล้างตัวกรอง</button>
     <span id="shared-filter-badge" class="text-xs text-indigo-600 font-medium ml-auto"></span>
   </div>
@@ -691,6 +696,7 @@ let sharedBrand = '';
 let sharedBrandLocked = false; // true when forced via ?brand=... link — dropdown disabled, survives "clear filter"
 let sharedOwner = '';
 let sharedPlatform = '';
+let sharedMissingLink = false;
 function populateSharedFilter(){
   const brands = [...new Set(items.map(i=>i.brand))];
   document.getElementById('shared-brand').innerHTML = '<option value="">ทุกแบรนด์</option>' + brands.map(b=>`<option ${b===sharedBrand?'selected':''}>${b}</option>`).join('');
@@ -698,6 +704,7 @@ function populateSharedFilter(){
   const owners = [...new Set(items.map(i=>i.owner))];
   document.getElementById('shared-owner').innerHTML = '<option value="">ทุกผู้รับผิดชอบ</option>' + owners.map(o=>`<option ${o===sharedOwner?'selected':''}>${o}</option>`).join('');
   document.getElementById('shared-platform').value = sharedPlatform;
+  document.getElementById('shared-missing-link').checked = sharedMissingLink;
   updateSharedFilterBadge();
 }
 function updateSharedFilterBadge(){
@@ -705,18 +712,20 @@ function updateSharedFilterBadge(){
   if (sharedBrand) parts.push(sharedBrand + (sharedBrandLocked ? ' (ล็อก)' : ''));
   if (sharedOwner) parts.push(sharedOwner);
   if (sharedPlatform) parts.push(sharedPlatform);
+  if (sharedMissingLink) parts.push('ขาดลิงก์โพสต์');
   document.getElementById('shared-filter-badge').textContent = parts.length ? `กำลังกรอง: ${parts.join(' · ')}` : '';
 }
 function applySharedFilter(){
   if (!sharedBrandLocked) sharedBrand = document.getElementById('shared-brand').value;
   sharedOwner = document.getElementById('shared-owner').value;
   sharedPlatform = document.getElementById('shared-platform').value;
+  sharedMissingLink = document.getElementById('shared-missing-link').checked;
   updateSharedFilterBadge();
   refreshAll();
 }
 function clearSharedFilter(){
   if (!sharedBrandLocked) sharedBrand = '';
-  sharedOwner = ''; sharedPlatform = '';
+  sharedOwner = ''; sharedPlatform = ''; sharedMissingLink = false;
   populateSharedFilter();
   refreshAll();
 }
@@ -724,7 +733,8 @@ function visibleItems(){
   return items.filter(i =>
     (!sharedBrand || i.brand===sharedBrand) &&
     (!sharedOwner || i.owner===sharedOwner) &&
-    (!sharedPlatform || i.platforms.includes(sharedPlatform))
+    (!sharedPlatform || i.platforms.includes(sharedPlatform)) &&
+    (!sharedMissingLink || computeFlags(i).includes('missingLink'))
   );
 }
 
@@ -893,7 +903,25 @@ function computeFlags(item){
     if (diffH < 0) flags.push('overdue');
     else if (diffH <= 24) flags.push('soon');
   }
+  // Posted always needs proof; Scheduled only once its own post time has
+  // actually passed (an item scheduled for later today isn't "missing" a
+  // link yet — it just hasn't happened).
+  const shouldHaveLink = item.status === 'Posted' || (item.status === 'Scheduled' && item.scheduledAt <= now);
+  const hasLink = hasPublishedLink(item);
+  if (shouldHaveLink && !hasLink) flags.push('missingLink');
   return flags;
+}
+function hasPublishedLink(item){
+  return (item.platforms || []).some(p => item.published && item.published[p] && /^https?:\/\//i.test(item.published[p]));
+}
+// One small clickable icon per platform that has a real published link —
+// visible/clickable in client mode too (view-only, not an edit control).
+function publishedLinkIcon(item){
+  if (!item.published) return '';
+  return Object.keys(item.published)
+    .filter(p => item.published[p] && /^https?:\/\//i.test(item.published[p]))
+    .map(p => `<a href="${item.published[p]}" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="ลิงก์โพสต์จริง (${p})" class="text-indigo-600 ml-1"><i class="fa-solid fa-link"></i></a>`)
+    .join('');
 }
 
 // ---------- Tabs ----------
@@ -981,7 +1009,11 @@ function renderList(){
       <td class="p-3">${i.platforms.map(platformChip).join(' ')}</td>
       <td class="p-3 text-xs">${fmtDate(i.scheduledAt)} ${flagBadge(i)}</td>
       <td class="p-3">${i.owner}</td>
-      <td class="p-3"><span class="status-pill status-${i.status}">${i.status}</span></td>
+      <td class="p-3">
+        <span class="status-pill status-${i.status}">${i.status}</span>
+        ${computeFlags(i).includes('missingLink') ? '<span class="flag-missing-link"><i class="fa-solid fa-link-slash"></i> ยังไม่มีลิงก์</span>' : ''}
+        ${publishedLinkIcon(i)}
+      </td>
       <td class="p-3 text-right">${clientMode?'':`<button onclick="event.stopPropagation();editContent('${i.id}')" class="text-indigo-600 text-xs"><i class="fa-solid fa-pen"></i></button>`}</td>
     </tr>
   `).join('') || `<tr><td colspan="8" class="p-6 text-center text-slate-400 text-sm">ไม่พบรายการ</td></tr>`;
@@ -1000,8 +1032,9 @@ function fmtDate(d){
 const MAX_CAL_ITEMS = 3;
 function shiftMonth(n){ calCursor.setMonth(calCursor.getMonth()+n); renderCalendar(); }
 function calItemChip(i){
-  return `<div class="cal-item cal-item-${i.status}" ${clientMode?'':`draggable="true" ondragstart="onCalDragStart(event, '${i.id}')"`} onclick="event.stopPropagation();viewDetail('${i.id}')" title="${i.title}">
-    <span class="cal-dot cal-dot-${i.status}"></span><span class="truncate">${i.title}</span>
+  const missing = computeFlags(i).includes('missingLink');
+  return `<div class="cal-item cal-item-${i.status}" ${clientMode?'':`draggable="true" ondragstart="onCalDragStart(event, '${i.id}')"`} onclick="event.stopPropagation();viewDetail('${i.id}')" title="${i.title}${missing?' (ยังไม่มีลิงก์โพสต์จริง)':''}">
+    <span class="cal-dot cal-dot-${i.status}"></span><span class="truncate">${i.title}</span>${missing?' <i class="fa-solid fa-link-slash cal-missing-link-icon" style="color:#dc2626;font-size:8px"></i>':''}
   </div>`;
 }
 function renderCalendar(){
@@ -1197,6 +1230,7 @@ function openForm(){
   populatePersonDropdown('fld-reviewer');
   document.getElementById('fld-status').value = 'Draft';
   document.querySelectorAll('#fld-platforms input').forEach(cb=>{ cb.checked=false; cb.onchange=renderCaptionTabs; });
+  window.__editPublished = {};
   renderCaptionTabs();
   document.getElementById('form-modal').classList.remove('hidden');
   document.getElementById('form-modal').classList.add('flex');
@@ -1217,6 +1251,7 @@ function editContent(id){
   document.getElementById('fld-status').value = i.status;
   document.querySelectorAll('#fld-platforms input').forEach(cb=>{ cb.checked = i.platforms.includes(cb.value); cb.onchange=renderCaptionTabs; });
   window.__editCaptions = JSON.parse(JSON.stringify(i.captions));
+  window.__editPublished = JSON.parse(JSON.stringify(i.published || {}));
   renderCaptionTabs();
   document.getElementById('form-modal').classList.remove('hidden');
   document.getElementById('form-modal').classList.add('flex');
@@ -1229,6 +1264,7 @@ function closeForm(){
   document.getElementById('form-modal').classList.add('hidden');
   document.getElementById('form-modal').classList.remove('flex');
   window.__editCaptions = null;
+  window.__editPublished = null;
 }
 function selectedPlatforms(){
   return [...document.querySelectorAll('#fld-platforms input:checked')].map(cb=>cb.value);
@@ -1276,13 +1312,22 @@ function renderCaptionPanel(){
       <label class="form-label">${activeCapTab==='Instagram'?'Hashtag':'CTA'}</label>
       <input class="form-input" value="${activeCapTab==='Instagram'?(data.hashtag||''):(data.cta||'')}" oninput="updateCaption('${activeCapTab==='Instagram'?'hashtag':'cta'}', this.value)">`;
   }
-  panel.innerHTML = fields + `<button class="mt-2 text-xs text-indigo-600" onclick="copyCaption()"><i class="fa-regular fa-copy"></i> คัดลอกข้อความ</button>`;
+  const pubStore = window.__editPublished || (window.__editPublished = {});
+  const pubUrl = pubStore[activeCapTab] || '';
+  panel.innerHTML = fields
+    + `<button class="mt-2 text-xs text-indigo-600" onclick="copyCaption()"><i class="fa-regular fa-copy"></i> คัดลอกข้อความ</button>`
+    + `<label class="form-label mt-3 block">ลิงก์โพสต์จริง (${activeCapTab})</label>
+       <input class="form-input" placeholder="https://..." value="${pubUrl}" oninput="updatePublishedUrl(this.value)">`;
 }
 function updateCaption(field, value){
   const store = window.__editCaptions || (window.__editCaptions = {});
   store[activeCapTab] = store[activeCapTab] || {};
   store[activeCapTab][field] = value;
   renderChecklistPreview();
+}
+function updatePublishedUrl(value){
+  const store = window.__editPublished || (window.__editPublished = {});
+  store[activeCapTab] = value;
 }
 function copyCaption(){
   const data = (window.__editCaptions||{})[activeCapTab] || {};
@@ -1319,6 +1364,21 @@ async function saveContent(){
   if (!document.getElementById('fld-title').value.trim()){ alert('กรุณาระบุหัวข้อคอนเทนต์'); return; }
   const brand = resolvedBrand('fld-brand');
   if (!brand){ alert('กรุณาระบุแบรนด์ / ลูกค้า'); return; }
+
+  // Only keep non-empty links, and only for the currently-selected platforms
+  // (a link typed in, then that platform unchecked, shouldn't linger).
+  const publishedInput = window.__editPublished || {};
+  const published = {};
+  for (const p of platforms) {
+    const url = (publishedInput[p] || '').trim();
+    if (!url) continue;
+    if (!/^https?:\/\//i.test(url)) {
+      alert(`ลิงก์โพสต์จริงของ ${p} ต้องขึ้นต้นด้วย http:// หรือ https://`);
+      return;
+    }
+    published[p] = url;
+  }
+
   const payload = {
     brand,
     campaign: document.getElementById('fld-campaign').value,
@@ -1331,7 +1391,11 @@ async function saveContent(){
     reviewer: resolvedPerson('fld-reviewer'),
     status: document.getElementById('fld-status').value,
     captions: window.__editCaptions || {},
-    published: {},
+    // Was hardcoded to {} on every save -- editing any item silently wiped
+    // out whatever published links it already had. Now built from the
+    // form's own per-platform link fields (seeded from the existing item
+    // when editing), so an unrelated edit no longer loses them.
+    published,
   };
 
   const saveBtn = document.getElementById('save-content-btn');
@@ -1398,6 +1462,7 @@ function viewDetail(id){
       ${flags.includes('overdue')?' · <span class="flag-overdue">เลยกำหนด</span>':''}
       ${flags.includes('soon')?' · <span class="flag-soon">ใกล้ถึงกำหนด</span>':''}
       ${flags.includes('incomplete')?' · <span class="flag-incomplete">ข้อมูลไม่ครบ</span>':''}
+      ${flags.includes('missingLink')?' · <span class="flag-missing-link"><i class="fa-solid fa-link-slash"></i> ยังไม่มีลิงก์โพสต์จริง</span>':''}
     </div>
     <div class="flex gap-1 mb-3 flex-wrap">${i.platforms.map(platformChip).join('')}</div>
     <div class="text-sm mb-3"><b>ผู้รับผิดชอบ:</b> ${i.owner} · <b>ผู้ตรวจ:</b> ${i.reviewer}</div>
@@ -1406,12 +1471,14 @@ function viewDetail(id){
       ${i.platforms.map(p=>{
         const c = i.captions[p]||{};
         const text = c.caption || c.message || '(ยังไม่ได้เตรียมข้อความ)';
+        const pubUrl = i.published && i.published[p];
         return `<div class="border border-slate-100 rounded-lg p-2">
           <div class="flex items-center justify-between mb-1">
             ${platformChip(p)}
             <button class="text-xs text-indigo-600" onclick="navigator.clipboard.writeText(\`${(text||'').replace(/`/g,"'")}\`).then(()=>alert('คัดลอกแล้ว'))"><i class="fa-regular fa-copy"></i> คัดลอก</button>
           </div>
           <div class="text-sm whitespace-pre-wrap">${text}</div>
+          ${pubUrl ? `<a href="${pubUrl}" target="_blank" rel="noopener" class="text-xs text-indigo-600 mt-1 inline-block"><i class="fa-solid fa-link"></i> ลิงก์โพสต์จริง</a>` : ''}
         </div>`;
       }).join('')}
     </div>

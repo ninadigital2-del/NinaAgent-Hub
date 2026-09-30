@@ -179,7 +179,10 @@ function createContent(data) {
     if (col === 'CreatedAt' || col === 'UpdatedAt') return now;
     if (col === 'Platforms') return (data.Platforms || []).join(',');
     if (col === 'Captions') return JSON.stringify(data.Captions || {});
-    if (col === 'PublishedUrls') return JSON.stringify({});
+    // Was hardcoded to {} -- the "สร้างคอนเทนต์ใหม่" form uses the same
+    // per-platform link fields as edit, so a link typed in at creation time
+    // (e.g. importing an already-published post) was silently dropped.
+    if (col === 'PublishedUrls') return JSON.stringify(data.PublishedUrls || {});
     if (col === 'Comments') return JSON.stringify([]);
     if (col === 'CalendarEventId') return '';
     if (col.indexOf('Sent_') === 0) return '';
@@ -209,7 +212,7 @@ function bulkCreateContent(itemsData) {
     if (col === 'CreatedAt' || col === 'UpdatedAt') return now;
     if (col === 'Platforms') return (data.Platforms || []).join(',');
     if (col === 'Captions') return JSON.stringify(data.Captions || {});
-    if (col === 'PublishedUrls') return JSON.stringify({});
+    if (col === 'PublishedUrls') return JSON.stringify(data.PublishedUrls || {});
     if (col === 'Comments') return JSON.stringify([]);
     if (col === 'CalendarEventId') return '';
     if (col.indexOf('Sent_') === 0) return '';
