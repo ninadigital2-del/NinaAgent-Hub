@@ -33,7 +33,24 @@ const COLUMNS = [
   'Sent_Prep2d', 'Sent_Prep1d', 'Sent_24h (ไม่ใช้แล้ว)', 'Sent_1h (ไม่ใช้แล้ว)', 'Sent_OverdueAt',
   'CalendarEventId', // event on the shared "Content Planner" Google Calendar
   'Sent_DayOf', // dedup flag for the day-of-post morning reminder
+  // Appended at the END on purpose (never insert mid-list): existing rows keep
+  // lining up by index, old rows just have these blank. Stamped once, the
+  // first time an item reaches the status — used as KPI evidence by client
+  // dashboards (e.g. AIS Retail Connect "Posting Execution").
+  'ApprovedAt',  // first time Status became Approved/Ready/Scheduled/Posted
+  'PostedAt',    // first time Status became Posted
 ];
+
+// Statuses that mean "the client has approved this item".
+const APPROVED_OR_LATER = ['Approved', 'Ready', 'Scheduled', 'Posted'];
+// Fill ApprovedAt/PostedAt on a row array once, never overwrite an earlier stamp.
+function stampStatusTimes_(row, now) {
+  const status = row[COLUMNS.indexOf('Status')];
+  const aIdx = COLUMNS.indexOf('ApprovedAt');
+  const pIdx = COLUMNS.indexOf('PostedAt');
+  if (APPROVED_OR_LATER.indexOf(status) !== -1 && !row[aIdx]) row[aIdx] = now;
+  if (status === 'Posted' && !row[pIdx]) row[pIdx] = now;
+}
 
 // ---------- Sheet setup ----------
 function getSpreadsheet() {
@@ -166,8 +183,10 @@ function createContent(data) {
     if (col === 'Comments') return JSON.stringify([]);
     if (col === 'CalendarEventId') return '';
     if (col.indexOf('Sent_') === 0) return '';
+    if (col === 'ApprovedAt' || col === 'PostedAt') return '';
     return data[col] || '';
   });
+  stampStatusTimes_(row, now);
   sheet.appendRow(row);
   const item = rowToItem(row);
   syncCalendarEventSafely(sheet, findRowIndexById(sheet, id), item);
@@ -194,8 +213,10 @@ function bulkCreateContent(itemsData) {
     if (col === 'Comments') return JSON.stringify([]);
     if (col === 'CalendarEventId') return '';
     if (col.indexOf('Sent_') === 0) return '';
+    if (col === 'ApprovedAt' || col === 'PostedAt') return '';
     return data[col] || '';
   }));
+  rows.forEach(row => stampStatusTimes_(row, now));
   sheet.getRange(startRow, 1, rows.length, COLUMNS.length).setValues(rows);
   return rows.map((row, i) => {
     const item = rowToItem(row);
@@ -224,8 +245,10 @@ function updateContent(id, data) {
     }
   }
 
+  const oldStatus = current[COLUMNS.indexOf('Status')];
   COLUMNS.forEach((col, i) => {
     if (col === 'ID' || col === 'CreatedAt' || col === 'CalendarEventId') return;
+    if (col === 'ApprovedAt' || col === 'PostedAt') return; // set only by stampStatusTimes_
     if (col === 'UpdatedAt') { current[i] = new Date().toISOString(); return; }
     if (data[col] === undefined) return;
     if (col === 'Platforms') { current[i] = (data.Platforms || []).join(','); return; }
@@ -234,6 +257,9 @@ function updateContent(id, data) {
     }
     current[i] = data[col];
   });
+  // Stamp only on a real status change, so editing an old item (posted before
+  // this column existed) never gets a fake "posted just now" time.
+  if (current[COLUMNS.indexOf('Status')] !== oldStatus) stampStatusTimes_(current, new Date().toISOString());
   range.setValues([current]);
   const item = rowToItem(current);
   syncCalendarEventSafely(sheet, rowIdx, item);
