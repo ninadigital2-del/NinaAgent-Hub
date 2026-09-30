@@ -1482,11 +1482,13 @@ function viewDetail(id){
         const pubUrl = i.published && i.published[p];
         return `<div class="border border-slate-100 rounded-lg p-2">
           <div class="flex items-center justify-between mb-1">
-            ${platformChip(p)}
+            <div class="flex items-center gap-2">
+              ${platformChip(p)}
+              ${pubUrl ? `<a href="${pubUrl}" target="_blank" rel="noopener" title="ลิงก์โพสต์จริง (${p})" class="text-indigo-600"><i class="fa-solid fa-link"></i></a>` : ''}
+            </div>
             <button class="text-xs text-indigo-600" onclick="navigator.clipboard.writeText(\`${(text||'').replace(/`/g,"'")}\`).then(()=>alert('คัดลอกแล้ว'))"><i class="fa-regular fa-copy"></i> คัดลอก</button>
           </div>
           <div class="text-sm whitespace-pre-wrap">${text}</div>
-          ${pubUrl ? `<a href="${pubUrl}" target="_blank" rel="noopener" class="text-xs text-indigo-600 mt-1 inline-block"><i class="fa-solid fa-link"></i> ลิงก์โพสต์จริง</a>` : ''}
         </div>`;
       }).join('')}
     </div>
