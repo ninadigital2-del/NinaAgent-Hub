@@ -30,8 +30,17 @@ function getConfig_() {
 
 const PM_SESSION_TTL_SECONDS = 4 * 60 * 60;
 const DATA_CACHE_TTL_SECONDS = 180; // action=data only -- never cache drafts/save/approve, PMs need those live
-const CONTENT_WINDOW_DAYS = 90; // dashboard only ever shows ~1 month; 90 days is a generous cap on how much history each load re-fetches
+const ALLOWED_WINDOW_DAYS = [7, 30, 90]; // the only date-range presets the frontend offers
+const DEFAULT_WINDOW_DAYS = 30;
 const CLIENT_LIST_CACHE_TTL_SECONDS = 600; // the client roster changes rarely -- cache longer than action=data
+
+// Validates ?days= against the fixed preset list rather than trusting an
+// arbitrary caller-supplied number -- an unbounded window would defeat the
+// whole point of capping how much history each load re-fetches.
+function resolveWindowDays_(raw) {
+  const n = parseInt(raw, 10);
+  return ALLOWED_WINDOW_DAYS.indexOf(n) !== -1 ? n : DEFAULT_WINDOW_DAYS;
+}
 
 // ---------- Web API ----------
 function doGet(e) {
@@ -43,7 +52,8 @@ function doGet(e) {
     if (action === 'data') {
       const cfg = getConfig_();
       const clientId = e.parameter.client || cfg.clientId || '';
-      const cacheKey = 'data_' + (clientId || 'all');
+      const windowDays = resolveWindowDays_(e.parameter.days);
+      const cacheKey = 'data_' + (clientId || 'all') + '_' + windowDays;
       try {
         const cached = CacheService.getScriptCache().get(cacheKey);
         if (cached) return jsonResponse(JSON.parse(cached));
@@ -52,8 +62,9 @@ function doGet(e) {
       const payload = {
         success: true,
         client: clientId ? { id: clientId, name: lookupBrandName_(clientId) || cfg.clientName || '' } : null,
-        content: listContentPerformance(clientId),
-        ads: listMetaAds(clientId),
+        windowDays: windowDays,
+        content: listContentPerformance(clientId, windowDays),
+        ads: listMetaAds(clientId, windowDays),
       };
       try {
         CacheService.getScriptCache().put(cacheKey, JSON.stringify(payload), DATA_CACHE_TTL_SECONDS);
@@ -232,8 +243,8 @@ function listClients_() {
 }
 
 // ---------- Content Performance (per-post) ----------
-function listContentPerformance(clientId) {
-  const pages = queryDataSource_(getConfig_().contentDataSourceId, 5, dateWindowOrEmptyFilter_('Publish Date', CONTENT_WINDOW_DAYS), clientId)
+function listContentPerformance(clientId, windowDays) {
+  const pages = queryDataSource_(getConfig_().contentDataSourceId, 5, dateWindowOrEmptyFilter_('Publish Date', windowDays || DEFAULT_WINDOW_DAYS), clientId)
     .filter(p => propSelect_(p.properties.Platform) !== 'Meta Ads' && propSelect_(p.properties.Platform) !== 'Google Ads')
     // Rows can be quarantined (e.g. misattributed to the wrong client) by
     // setting Data Quality to "Invalid" rather than deleting them -- see
@@ -302,8 +313,8 @@ function listContentPerformance(clientId) {
 }
 
 // ---------- Meta Ads (weekly paid) ----------
-function listMetaAds(clientId) {
-  const pages = queryDataSource_(getConfig_().adsDataSourceId, 3, dateWindowOrEmptyFilter_('Week Start', CONTENT_WINDOW_DAYS), clientId);
+function listMetaAds(clientId, windowDays) {
+  const pages = queryDataSource_(getConfig_().adsDataSourceId, 3, dateWindowOrEmptyFilter_('Week Start', windowDays || DEFAULT_WINDOW_DAYS), clientId);
   // Two writers can land a snapshot for the same client+week under two
   // different Unique Keys (seen 2026-09-17: "STD|Meta Ads|2026-09-07" and
   // "<Brand UUID>|Meta Ads|2026-09-07" with identical values) -- summing
