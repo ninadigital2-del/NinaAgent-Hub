@@ -612,6 +612,7 @@ async function loadFromApi(){
       items = listResp.items.map(apiItemToClient);
       notionOwners = ownersResp.owners;
       notionBrands = brandsResp.brands;
+      linkRequiredBrands = brandsResp.linkRequiredBrands || [];
       return true;
     } catch (err) {
       console.error(`Failed to load from API (attempt ${attempt}/${attempts}):`, err);
@@ -905,8 +906,10 @@ function computeFlags(item){
   }
   // Posted always needs proof; Scheduled only once its own post time has
   // actually passed (an item scheduled for later today isn't "missing" a
-  // link yet — it just hasn't happened).
-  const shouldHaveLink = item.status === 'Posted' || (item.status === 'Scheduled' && item.scheduledAt <= now);
+  // link yet — it just hasn't happened). Only applies to brands configured
+  // via LINK_REQUIRED_BRANDS -- other brands never see this flag.
+  const linkRequired = linkRequiredBrands.includes(item.brand);
+  const shouldHaveLink = linkRequired && (item.status === 'Posted' || (item.status === 'Scheduled' && item.scheduledAt <= now));
   const hasLink = hasPublishedLink(item);
   if (shouldHaveLink && !hasLink) flags.push('missingLink');
   return flags;
@@ -1184,6 +1187,11 @@ function resolvedBrand(selectId){
 // ---------- Owner / Reviewer dropdowns (Notion-synced when API is connected) ----------
 let notionOwners = null; // set by loadFromApi() when API_URL is configured
 let notionBrands = null; // set by loadFromApi() when API_URL is configured
+// Brands that must have a real published link once Posted (or Scheduled and
+// overdue) -- e.g. ["AIS"] for the Retail Connect KPI dashboard. Configured
+// server-side via the LINK_REQUIRED_BRANDS Script Property so other brands
+// are never affected; empty by default (mock/local mode, or unconfigured).
+let linkRequiredBrands = [];
 function personRoster(){
   if (notionOwners && notionOwners.length) return notionOwners;
   return [...new Set(items.flatMap(i => [i.owner, i.reviewer]).filter(Boolean))];

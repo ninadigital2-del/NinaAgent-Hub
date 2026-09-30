@@ -108,7 +108,7 @@ function doGet(e) {
   try {
     if (action === 'list') return jsonResponse({ success: true, items: listContent() });
     if (action === 'owners') return jsonResponse({ success: true, owners: listOwners() });
-    if (action === 'brands') return jsonResponse({ success: true, brands: listBrands() });
+    if (action === 'brands') return jsonResponse({ success: true, brands: listBrands(), linkRequiredBrands: getLinkRequiredBrands() });
     return jsonResponse({ success: false, error: 'Unknown action: ' + action });
   } catch (err) {
     return jsonResponse({ success: false, error: String(err) });
@@ -297,6 +297,20 @@ function listOwners() {
 }
 function listBrands() {
   return listSyncedNames(SHEET_BRANDS);
+}
+
+/**
+ * Brands whose posts must have a real published link once Posted (or
+ * Scheduled and overdue) to satisfy a client-facing KPI dashboard (e.g.
+ * AIS Retail Connect's "Posting Execution"). Configurable per Script
+ * Property instead of hardcoded, so onboarding another client with the
+ * same requirement is a Script Properties edit, not a code change -- and
+ * brands not listed here are completely unaffected (no badge, no filter).
+ * Comma-separated, matched against Brand exactly as it appears from Notion.
+ */
+function getLinkRequiredBrands() {
+  const raw = PropertiesService.getScriptProperties().getProperty('LINK_REQUIRED_BRANDS');
+  return (raw || '').split(',').map(s => s.trim()).filter(Boolean);
 }
 function listSyncedNames(sheetName) {
   const ss = getSpreadsheet();
