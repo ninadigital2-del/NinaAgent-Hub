@@ -403,6 +403,11 @@
     </div>
     <div class="topbar-controls">
       <select id="clientSelect" class="pm-select" style="display:none;"></select>
+      <select id="rangeSelect" class="pm-select">
+        <option value="7">7 วันล่าสุด</option>
+        <option value="30" selected>30 วันล่าสุด</option>
+        <option value="90">90 วันล่าสุด</option>
+      </select>
       <div class="segctl" id="viewSwitch">
         <button data-view="ceo" class="active"><i class="fa-solid fa-chart-line"></i> CEO / COO</button>
         <button data-view="team"><i class="fa-solid fa-layer-group"></i> ทีมคอนเทนต์</button>
@@ -700,6 +705,23 @@
   let CURRENT_CLIENT_ID = '';
   function currentClientQS_(){ return CURRENT_CLIENT_ID ? '&client=' + encodeURIComponent(CURRENT_CLIENT_ID) : ''; }
 
+  // ---------- Date range picker (7 / 30 / 90 days) ----------
+  const RANGE_KEY = 'content-performance-range';
+  const ALLOWED_RANGE_DAYS = ['7', '30', '90'];
+  let CURRENT_RANGE_DAYS = '30';
+  function initRangeSelect_(){
+    let saved = '';
+    try { saved = localStorage.getItem(RANGE_KEY) || ''; } catch (e) {}
+    CURRENT_RANGE_DAYS = ALLOWED_RANGE_DAYS.indexOf(saved) !== -1 ? saved : '30';
+    const select = document.getElementById('rangeSelect');
+    select.value = CURRENT_RANGE_DAYS;
+    select.addEventListener('change', () => {
+      CURRENT_RANGE_DAYS = select.value;
+      try { localStorage.setItem(RANGE_KEY, CURRENT_RANGE_DAYS); } catch (e) {}
+      loadData();
+    });
+  }
+
   async function loadClients_(){
     if (!API_URL) return;
     try {
@@ -736,7 +758,7 @@
   async function loadData(){
     if (API_URL) {
       try {
-        const res = await fetch(API_URL + '?action=data' + currentClientQS_());
+        const res = await fetch(API_URL + '?action=data' + currentClientQS_() + '&days=' + encodeURIComponent(CURRENT_RANGE_DAYS));
         const json = await res.json();
         if (json.success) {
           CONTENT = json.content || [];
@@ -1410,6 +1432,7 @@
   }
 
   (async function init_(){
+    initRangeSelect_();
     await loadClients_();
     await loadData();
   })();
