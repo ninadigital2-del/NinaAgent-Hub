@@ -103,9 +103,28 @@ function setupSheets(ss) {
 }
 
 // ---------- Web API ----------
+// `brand`+`t` on a request identifies it as a signed client link (see the
+// "Client link security" section below) -- when both are present the
+// request is verified and treated as read-only/brand-scoped regardless of
+// which `action` it asks for, never as a shortcut to the full admin API.
 function doGet(e) {
   const action = (e.parameter.action || 'list');
+  const clientBrand = e.parameter.brand;
+  const clientSig = e.parameter.t;
   try {
+    if (clientBrand && clientSig) {
+      const check = verifyClientLink_(clientBrand, clientSig);
+      if (!check.valid) return jsonResponse({ success: false, error: 'LINK_INVALID', reason: check.reason });
+      if (action === 'list') {
+        const items = listContent().filter(it => it.Brand === clientBrand);
+        const linkRequired = getLinkRequiredBrands().indexOf(clientBrand) !== -1;
+        return jsonResponse({ success: true, items: items, linkRequired: linkRequired });
+      }
+      // Deliberately no 'owners'/'brands' for client links -- those would
+      // hand back every other brand's name, which is exactly what a
+      // brand-scoped link must not leak.
+      return jsonResponse({ success: false, error: 'Action not allowed for client link: ' + action });
+    }
     if (action === 'list') return jsonResponse({ success: true, items: listContent() });
     if (action === 'owners') return jsonResponse({ success: true, owners: listOwners() });
     if (action === 'brands') return jsonResponse({ success: true, brands: listBrands(), linkRequiredBrands: getLinkRequiredBrands() });
@@ -119,6 +138,20 @@ function doPost(e) {
   try {
     const body = JSON.parse(e.postData.contents);
     const action = body.action;
+    const clientBrand = body.brand;
+    const clientSig = body.t;
+
+    if (clientBrand && clientSig) {
+      const check = verifyClientLink_(clientBrand, clientSig);
+      if (!check.valid) return jsonResponse({ success: false, error: 'LINK_INVALID', reason: check.reason });
+      // Only these two actions exist for a client link -- everything else
+      // (create/update/bulkCreate/delete/extractImage, and any admin-only
+      // action below) is refused outright, not just hidden in the UI.
+      if (action === 'updateStatus') return jsonResponse({ success: true, item: clientUpdateStatus_(clientBrand, body.id, body.status) });
+      if (action === 'addComment') return jsonResponse({ success: true, item: clientAddComment_(clientBrand, body.id, body.author, body.text) });
+      return jsonResponse({ success: false, error: 'Action not allowed for client link: ' + action });
+    }
+
     if (action === 'create') return jsonResponse({ success: true, item: createContent(body.data) });
     if (action === 'update') return jsonResponse({ success: true, item: updateContent(body.id, body.data) });
     if (action === 'updateStatus') return jsonResponse({ success: true, item: updateContent(body.id, { Status: body.status }) });
@@ -126,6 +159,13 @@ function doPost(e) {
     if (action === 'extractImage') return jsonResponse({ success: true, items: extractCalendarImage(body.imageBase64, body.mimeType) });
     if (action === 'bulkCreate') return jsonResponse({ success: true, items: bulkCreateContent(body.items || []) });
     if (action === 'delete') { deleteContent(body.id); return jsonResponse({ success: true }); }
+    // Admin-only client-link management (see "Client link security" below).
+    // Reachable the same way every other admin action is -- by knowing the
+    // private base /exec URL, the same trust boundary this whole backend
+    // already relies on -- never via a brand+t client link.
+    if (action === 'adminClientLinkInfo') return jsonResponse({ success: true, t: signClientLink_(body.brand), disabled: getClientLinkDisabledBrands_().indexOf(body.brand) !== -1 });
+    if (action === 'adminClientLinkToggle') return jsonResponse({ success: true, disabled: adminToggleClientLink_(body.brand, !!body.disabled) });
+    if (action === 'adminClientLinkRevoke') return jsonResponse({ success: true, t: adminRevokeClientLink_(body.brand) });
     return jsonResponse({ success: false, error: 'Unknown action: ' + action });
   } catch (err) {
     return jsonResponse({ success: false, error: String(err) });
@@ -289,6 +329,119 @@ function deleteContent(id) {
   const item = rowToItem(row);
   deleteCalendarEvent(item.CalendarEventId);
   sheet.deleteRow(rowIdx);
+}
+
+// ---------- Client link security ----------
+// A client link (?client=1&brand=<Brand>&t=<signature>) must prove it was
+// actually issued for that brand, not just claim to be -- otherwise
+// "brand-scoped" is only a UI filter anyone can defeat by editing the URL,
+// which is exactly the gap this closes. `t` is an HMAC-SHA256 of the brand
+// name + a per-brand version number, keyed by a secret that never leaves
+// the server, so it can't be forged or guessed, only verified or reissued.
+//
+// Two ways to revoke a previously-issued link, matching two real needs:
+//   - Temporary: CLIENT_LINK_DISABLED (JSON array of brand names) blocks a
+//     brand's links without touching its signature -- re-enabling makes
+//     the exact same old link work again.
+//   - Permanent: CLIENT_LINK_VERSIONS (JSON {brand: version}, missing/unset
+//     = version 1) bumps just that brand's version, so every link issued
+//     under the old version stops verifying -- a fresh link must be
+//     generated and re-sent. Other brands' versions, and therefore their
+//     links, are completely unaffected.
+//
+// Requires Script Property CLIENT_LINK_SECRET (a long random string, set
+// once -- never needs to change when onboarding a new brand/client).
+function getClientLinkSecret_() {
+  const secret = PropertiesService.getScriptProperties().getProperty('CLIENT_LINK_SECRET');
+  if (!secret) throw new Error('CLIENT_LINK_SECRET not set in Script Properties.');
+  return secret;
+}
+function getClientLinkDisabledBrands_() {
+  const raw = PropertiesService.getScriptProperties().getProperty('CLIENT_LINK_DISABLED');
+  try { return raw ? JSON.parse(raw) : []; } catch (e) { return []; }
+}
+function setClientLinkDisabledBrands_(list) {
+  PropertiesService.getScriptProperties().setProperty('CLIENT_LINK_DISABLED', JSON.stringify(list));
+}
+function getClientLinkVersions_() {
+  const raw = PropertiesService.getScriptProperties().getProperty('CLIENT_LINK_VERSIONS');
+  try { return raw ? JSON.parse(raw) : {}; } catch (e) { return {}; }
+}
+function setClientLinkVersions_(versions) {
+  PropertiesService.getScriptProperties().setProperty('CLIENT_LINK_VERSIONS', JSON.stringify(versions));
+}
+function getClientLinkVersion_(brand) {
+  const versions = getClientLinkVersions_();
+  return versions[brand] || 1;
+}
+function signClientLink_(brand) {
+  const payload = brand + ':' + getClientLinkVersion_(brand);
+  const bytes = Utilities.computeHmacSha256Signature(payload, getClientLinkSecret_());
+  return bytes.map(b => ('0' + (b & 0xFF).toString(16)).slice(-2)).join('');
+}
+// Plain `===` on a secret-derived string leaks timing information (it
+// returns as soon as the first differing character is found, so an
+// attacker can learn the correct signature one byte at a time by timing
+// many guesses). Always walk the full length of both strings instead.
+function constantTimeEquals_(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+/** Verifies a client link's (brand, t). `reason` lets the frontend show a specific message. */
+function verifyClientLink_(brand, t) {
+  if (!brand || !t) return { valid: false, reason: 'invalid' };
+  if (getClientLinkDisabledBrands_().indexOf(brand) !== -1) return { valid: false, reason: 'disabled' };
+  if (!constantTimeEquals_(signClientLink_(brand), String(t))) return { valid: false, reason: 'invalid' };
+  return { valid: true };
+}
+function adminToggleClientLink_(brand, disabled) {
+  const list = getClientLinkDisabledBrands_();
+  const idx = list.indexOf(brand);
+  if (disabled && idx === -1) list.push(brand);
+  if (!disabled && idx !== -1) list.splice(idx, 1);
+  setClientLinkDisabledBrands_(list);
+  return disabled;
+}
+function adminRevokeClientLink_(brand) {
+  const versions = getClientLinkVersions_();
+  versions[brand] = (versions[brand] || 1) + 1;
+  setClientLinkVersions_(versions);
+  return signClientLink_(brand);
+}
+
+// Statuses a client link is allowed to set an item to, and the statuses an
+// item must currently be in for a client to be allowed to touch it at all
+// -- once something is Scheduled/Posted/Cancelled it's done, and further
+// changes go through comments instead, not a status edit from the client.
+const CLIENT_ALLOWED_STATUSES = ['Review', 'Revision', 'Approved'];
+const CLIENT_EDITABLE_FROM_STATUSES = ['Review', 'Revision', 'Approved', 'Ready'];
+
+/**
+ * Status changes from a client link never trust the client's own claim of
+ * which brand an item belongs to -- the item's real Brand is read fresh
+ * from the sheet and compared against the brand the link's signature was
+ * actually issued for, so a client link for one brand can't touch another
+ * brand's item by sending its ID directly.
+ */
+function clientUpdateStatus_(brand, id, status) {
+  if (CLIENT_ALLOWED_STATUSES.indexOf(status) === -1) throw new Error('STATUS_NOT_ALLOWED');
+  const sheet = getContentSheet();
+  const rowIdx = findRowIndexById(sheet, id);
+  if (rowIdx === -1) throw new Error('Content not found: ' + id);
+  const item = rowToItem(sheet.getRange(rowIdx, 1, 1, COLUMNS.length).getValues()[0]);
+  if (item.Brand !== brand) throw new Error('BRAND_MISMATCH');
+  if (CLIENT_EDITABLE_FROM_STATUSES.indexOf(item.Status) === -1) throw new Error('STATUS_LOCKED');
+  return updateContent(id, { Status: status });
+}
+function clientAddComment_(brand, id, author, text) {
+  const sheet = getContentSheet();
+  const rowIdx = findRowIndexById(sheet, id);
+  if (rowIdx === -1) throw new Error('Content not found: ' + id);
+  const item = rowToItem(sheet.getRange(rowIdx, 1, 1, COLUMNS.length).getValues()[0]);
+  if (item.Brand !== brand) throw new Error('BRAND_MISMATCH');
+  return addComment(id, author, text);
 }
 
 // ---------- Owners / Brands (synced from Notion) ----------
