@@ -519,9 +519,22 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
           <input id="client-link-result-input" readonly class="form-input flex-1 text-xs" onclick="this.select()">
           <button onclick="copyResultLink(this)" class="px-3 py-2 rounded-lg bg-indigo-600 text-white text-xs shrink-0 whitespace-nowrap"><i class="fa-regular fa-copy"></i> คัดลอกอีกครั้ง</button>
         </div>
+        <div class="flex items-center gap-2 mb-4">
+          <button id="client-link-toggle-btn" onclick="toggleCurrentClientLinkDisabled(this)" class="px-3 py-2 rounded-lg border border-slate-200 text-xs"></button>
+          <button onclick="revokeCurrentClientLink()" class="px-3 py-2 rounded-lg border border-red-200 text-red-600 text-xs"><i class="fa-solid fa-ban"></i> ยกเลิกลิงก์เดิม + สร้างใหม่</button>
+        </div>
         <button onclick="backToClientBrandList()" class="text-xs text-slate-500 hover:text-slate-700"><i class="fa-solid fa-arrow-left"></i> เลือกแบรนด์อื่น</button>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- ============ CLIENT LINK BLOCKED (disabled/revoked/forged link) ============ -->
+<div id="client-link-blocked-page" class="hidden fixed inset-0 bg-white z-[9999] flex items-center justify-center p-6">
+  <div class="text-center max-w-sm">
+    <div class="text-4xl mb-3">🔒</div>
+    <div class="font-semibold text-lg mb-2">ลิงก์นี้ใช้ไม่ได้</div>
+    <div class="text-sm text-slate-500" id="client-link-blocked-reason">กรุณาขอลิงก์ใหม่จากทีม GEM</div>
   </div>
 </div>
 
@@ -580,24 +593,36 @@ function clientPatchToApi(patch){
   if (patch.scheduledAt !== undefined) out.ScheduledAt = patch.scheduledAt instanceof Date ? patch.scheduledAt.toISOString() : patch.scheduledAt;
   return out;
 }
+// True only for an actual signed client link (?client=1&brand=X&t=Y), never
+// for the admin's own local "preview client mode" toggle (which has no
+// brand lock or signature) -- only a real client link's requests get
+// brand/t attached, so the backend can tell them apart from admin requests.
+function isRealClientLink(){
+  return clientModeLocked && sharedBrandLocked && !!clientSig;
+}
 async function apiCall(action, data){
+  const payload = Object.assign({ action }, data);
+  if (isRealClientLink()) { payload.brand = sharedBrand; payload.t = clientSig; }
   const res = await fetch(API_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // avoids a CORS preflight against Apps Script
-    body: JSON.stringify(Object.assign({ action }, data)),
+    body: JSON.stringify(payload),
   });
   const json = await res.json();
-  if (!json.success) throw new Error(json.error || 'API error');
+  if (!json.success) { const err = new Error(json.error || 'API error'); err.reason = json.reason; throw err; }
   return json;
 }
 async function apiGet(action){
-  const res = await fetch(`${API_URL}?action=${action}`);
+  const extra = isRealClientLink() ? `&brand=${encodeURIComponent(sharedBrand)}&t=${encodeURIComponent(clientSig)}` : '';
+  const res = await fetch(`${API_URL}?action=${action}${extra}`);
   const json = await res.json();
-  if (!json.success) throw new Error(json.error || 'API error');
+  if (!json.success) { const err = new Error(json.error || 'API error'); err.reason = json.reason; throw err; }
   return json;
 }
 function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
 
+let clientLinkInvalid = false;
+let clientLinkReason = '';
 // Apps Script Web Apps can be genuinely slow on their first request after
 // sitting idle for a while ("cold start") -- a single failed/slow attempt
 // doesn't mean the backend is actually down. Retry a couple of times with a
@@ -608,6 +633,17 @@ async function loadFromApi(){
   const attempts = 3;
   for (let attempt = 1; attempt <= attempts; attempt++) {
     try {
+      if (isRealClientLink()) {
+        // A client link only ever gets its own brand's items -- never the
+        // separate owners/brands lists, which would leak every other
+        // brand's name to someone who was only ever given one brand's link.
+        const listResp = await apiGet('list');
+        items = listResp.items.map(apiItemToClient);
+        linkRequiredBrands = listResp.linkRequired ? [sharedBrand] : [];
+        notionOwners = null;
+        notionBrands = null;
+        return true;
+      }
       const [listResp, ownersResp, brandsResp] = await Promise.all([apiGet('list'), apiGet('owners'), apiGet('brands')]);
       items = listResp.items.map(apiItemToClient);
       notionOwners = ownersResp.owners;
@@ -615,6 +651,13 @@ async function loadFromApi(){
       linkRequiredBrands = brandsResp.linkRequiredBrands || [];
       return true;
     } catch (err) {
+      // A deliberately disabled/revoked/forged link should show the "get a
+      // new link" message immediately, not retry 3 times first.
+      if (err.message === 'LINK_INVALID') {
+        clientLinkInvalid = true;
+        clientLinkReason = err.reason || 'invalid';
+        return false;
+      }
       console.error(`Failed to load from API (attempt ${attempt}/${attempts}):`, err);
       if (attempt < attempts) await sleep(1500 * attempt);
     }
@@ -742,7 +785,12 @@ function visibleItems(){
 // ---------- Client mode (view + status/comment only, no create/edit/delete) ----------
 let clientMode = false;
 let clientModeLocked = false; // true when forced via ?client=1 link — toggle button hidden
+let clientSig = ''; // the `t` signature from a real client link (?client=1&brand=X&t=Y)
 const CLIENT_STATUS_OPTIONS = ['Review', 'Revision', 'Approved']; // statuses a client is allowed to set
+// Statuses an item must currently be in for a client to change its status at
+// all -- mirrors Code.gs's CLIENT_EDITABLE_FROM_STATUSES. Once Scheduled/
+// Posted/Cancelled, further changes go through the comment box instead.
+const CLIENT_EDITABLE_FROM_STATUSES = ['Review', 'Revision', 'Approved', 'Ready'];
 function toggleClientMode(){
   if (clientModeLocked) return;
   clientMode = !clientMode;
@@ -774,8 +822,8 @@ function clientLinkBrandList(){
   const fromItems = [...new Set(items.map(i=>i.brand))];
   return [...new Set([...fromNotion, ...fromItems])].filter(Boolean).sort((a,b)=>a.localeCompare(b));
 }
-function buildClientLink(brand){
-  return `${location.origin}${location.pathname}?client=1&brand=${encodeURIComponent(brand)}`;
+function buildClientLink(brand, t){
+  return `${location.origin}${location.pathname}?client=1&brand=${encodeURIComponent(brand)}&t=${encodeURIComponent(t)}`;
 }
 function renderClientLinkList(){
   const search = document.getElementById('client-link-search').value.trim().toLowerCase();
@@ -792,12 +840,49 @@ function renderClientLinkList(){
     </button>
   `).join('');
 }
+let currentClientLinkBrand = '';
+function updateClientLinkToggleBtn(disabled){
+  const btn = document.getElementById('client-link-toggle-btn');
+  btn.dataset.disabled = disabled ? '1' : '0';
+  btn.innerHTML = disabled
+    ? '<i class="fa-solid fa-play"></i> เปิดลิงก์กลับ'
+    : '<i class="fa-solid fa-pause"></i> ปิดลิงก์ชั่วคราว';
+}
 async function selectClientBrand(brand){
+  currentClientLinkBrand = brand;
   document.getElementById('client-link-result-brand').textContent = brand;
-  document.getElementById('client-link-result-input').value = buildClientLink(brand);
+  document.getElementById('client-link-result-input').value = 'กำลังสร้างลิงก์...';
   document.getElementById('client-link-stage-list').classList.add('hidden');
   document.getElementById('client-link-stage-result').classList.remove('hidden');
-  await copyResultLink();
+  try {
+    const resp = await apiCall('adminClientLinkInfo', { brand });
+    document.getElementById('client-link-result-input').value = buildClientLink(brand, resp.t);
+    updateClientLinkToggleBtn(resp.disabled);
+    await copyResultLink();
+  } catch (err) {
+    document.getElementById('client-link-result-input').value = '';
+    alert('สร้างลิงก์ไม่สำเร็จ: ' + err.message);
+  }
+}
+async function toggleCurrentClientLinkDisabled(btn){
+  const nextDisabled = btn.dataset.disabled !== '1';
+  try {
+    const resp = await apiCall('adminClientLinkToggle', { brand: currentClientLinkBrand, disabled: nextDisabled });
+    updateClientLinkToggleBtn(resp.disabled);
+  } catch (err) {
+    alert('ทำรายการไม่สำเร็จ: ' + err.message);
+  }
+}
+async function revokeCurrentClientLink(){
+  if (!confirm('ลิงก์เดิมของแบรนด์นี้จะใช้งานไม่ได้ทันที ต้องส่งลิงก์ใหม่ให้ลูกค้า ดำเนินการต่อ?')) return;
+  try {
+    const resp = await apiCall('adminClientLinkRevoke', { brand: currentClientLinkBrand });
+    document.getElementById('client-link-result-input').value = buildClientLink(currentClientLinkBrand, resp.t);
+    await copyResultLink();
+    alert('สร้างลิงก์ใหม่แล้ว คัดลอกเข้า clipboard ให้อัตโนมัติ — ส่งลิงก์ใหม่นี้ให้ลูกค้าแทนลิงก์เดิม (ลิงก์เดิมใช้ไม่ได้อีกแล้ว)');
+  } catch (err) {
+    alert('ยกเลิกลิงก์เดิมไม่สำเร็จ: ' + err.message);
+  }
 }
 async function copyResultLink(btn){
   const input = document.getElementById('client-link-result-input');
@@ -812,6 +897,17 @@ async function copyResultLink(btn){
     btn.innerHTML = '<i class="fa-solid fa-check"></i> คัดลอกแล้ว';
     setTimeout(() => { btn.innerHTML = original; }, 1500);
   }
+}
+// Full-page takeover for a disabled/revoked/forged client link -- shown
+// instead of ever falling back to mock data, since mock data isn't scoped
+// to any brand and would be a confusing (if harmless) thing for a client to
+// land on when their link stops working.
+function showClientLinkBlockedPage(reason){
+  document.getElementById('client-link-blocked-reason').textContent =
+    reason === 'disabled'
+      ? 'ลิงก์นี้ถูกปิดใช้งานชั่วคราว กรุณาขอลิงก์ใหม่จากทีม GEM'
+      : 'ลิงก์นี้ใช้ไม่ได้ กรุณาขอลิงก์ใหม่จากทีม GEM';
+  document.getElementById('client-link-blocked-page').classList.remove('hidden');
 }
 function applyClientModeUI(){
   const btn = document.getElementById('client-mode-btn');
@@ -1457,9 +1553,11 @@ function viewDetail(id){
         <h3 class="font-semibold text-lg">${i.title}</h3>
       </div>
       ${clientMode
-        ? `<select class="status-pill status-${i.status}" style="border:none;cursor:pointer;" onchange="changeDetailStatus('${i.id}', this.value)">
-             ${[...new Set([i.status, ...CLIENT_STATUS_OPTIONS])].map(s=>`<option value="${s}" ${s===i.status?'selected':''}>${s}</option>`).join('')}
-           </select>`
+        ? (CLIENT_EDITABLE_FROM_STATUSES.includes(i.status)
+            ? `<select class="status-pill status-${i.status}" style="border:none;cursor:pointer;" onchange="changeDetailStatus('${i.id}', this.value)">
+                 ${[...new Set([i.status, ...CLIENT_STATUS_OPTIONS])].map(s=>`<option value="${s}" ${s===i.status?'selected':''}>${s}</option>`).join('')}
+               </select>`
+            : `<span class="status-pill status-${i.status}">โพสต์แล้ว · แจ้งแก้ไขผ่านคอมเมนต์</span>`)
         : `<select class="status-pill status-${i.status}" style="border:none;cursor:pointer;" onchange="changeDetailStatus('${i.id}', this.value)">
              ${['Draft','Review','Revision','Approved','Ready','Scheduled','Posted','Cancelled'].map(s=>`<option value="${s}" ${s===i.status?'selected':''}>${s}</option>`).join('')}
            </select>`
@@ -1771,12 +1869,18 @@ async function initApp(){
     sharedBrand = brandParam;
     sharedBrandLocked = true;
   }
+  const sigParam = params.get('t');
+  if (sigParam) clientSig = sigParam;
+
   if (API_URL) {
     const badge = document.getElementById('data-mode-badge');
     const ok = await loadFromApi();
     if (ok) {
       badge.className = 'text-xs px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200';
       badge.innerHTML = '<i class="fa-solid fa-database"></i> เชื่อมต่อฐานข้อมูลจริงแล้ว';
+    } else if (isRealClientLink() && clientLinkInvalid) {
+      showClientLinkBlockedPage(clientLinkReason);
+      return;
     } else {
       badge.className = 'text-xs px-3 py-1.5 rounded-full bg-red-50 text-red-700 border border-red-200';
       badge.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> เชื่อมฐานข้อมูลไม่สำเร็จ — กำลังใช้ข้อมูลจำลอง (ดู Console เพื่อดูข้อผิดพลาด)';

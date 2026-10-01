@@ -132,6 +132,13 @@ function loadCodeGs(contentRows) {
       _uuidCounter: 0,
       getUuid() { return 'uuid-' + (++this._uuidCounter); },
       formatDate(date) { return date.toISOString(); },
+      // Real HMAC-SHA256, same as Apps Script's own, so signClientLink_'s
+      // signatures in tests match what production would actually produce.
+      computeHmacSha256Signature(payload, key) {
+        const crypto = require('crypto');
+        const mac = crypto.createHmac('sha256', key).update(payload, 'utf8').digest();
+        return Array.from(mac).map(b => (b > 127 ? b - 256 : b)); // signed bytes, like Apps Script
+      },
     },
     Logger: { log() {} },
     ContentService: { createTextOutput: () => ({ setMimeType: () => ({}) }), MimeType: { JSON: 'JSON' } },
