@@ -120,6 +120,13 @@ function doGet(e) {
         const linkRequired = getLinkRequiredBrands().indexOf(clientBrand) !== -1;
         return jsonResponse({ success: true, items: items, linkRequired: linkRequired });
       }
+      if (action === 'theme') {
+        // Only ever reachable after verifyClientLink_ above has already
+        // confirmed this request is signed for clientBrand specifically --
+        // getClientTheme_ is keyed by that same verified brand, so there is
+        // no path from one brand's link to another brand's theme.
+        return jsonResponse({ success: true, theme: getClientTheme_(clientBrand) });
+      }
       // Deliberately no 'owners'/'brands' for client links -- those would
       // hand back every other brand's name, which is exactly what a
       // brand-scoped link must not leak.
@@ -409,6 +416,24 @@ function adminRevokeClientLink_(brand) {
   versions[brand] = (versions[brand] || 1) + 1;
   setClientLinkVersions_(versions);
   return signClientLink_(brand);
+}
+
+// ---------- Client brand theming ----------
+// Script Property CLIENT_THEMES: JSON {brand: {title, subtitle,
+// dashboardUrl, fonts, light, dark, status}}. Optional -- a brand with no
+// entry here (or no CLIENT_THEMES set at all) gets null, and the frontend
+// falls back to the page's default, unthemed look. Only ever read through
+// doGet's client-link branch, after verifyClientLink_ has confirmed the
+// request's signature for that exact brand -- see the `action === 'theme'`
+// handler above, which is the only caller. Never exposed to the admin
+// (non-client-link) side of the API; there is no legitimate reason for the
+// bare /exec URL to list every brand's theme at once.
+function getClientThemes_() {
+  const raw = PropertiesService.getScriptProperties().getProperty('CLIENT_THEMES');
+  try { return raw ? JSON.parse(raw) : {}; } catch (e) { return {}; }
+}
+function getClientTheme_(brand) {
+  return getClientThemes_()[brand] || null;
 }
 
 // Statuses a client link is allowed to set an item to, and the statuses an
