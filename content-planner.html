@@ -132,6 +132,77 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
   .cal-more { font-size: 8.5px; padding: 1px 2px; text-align: center; }
   .day-empty-hint { display: none; }
 }
+
+/* ---------- Client brand theming (client mode only) ----------
+   Structural rules only -- every actual color/font value comes from the
+   verified brand's own theme payload (Code.gs action=theme) and is injected
+   at runtime as CSS custom properties scoped to body[data-client-theme],
+   see applyClientTheme_() below. Nothing here fires unless that attribute
+   is set, which only happens for a real, signature-verified client link
+   whose brand has a theme configured -- every other page (admin, an
+   unthemed brand's client link, the "ลิงก์นี้ใช้ไม่ได้" blocked page) is
+   completely unaffected, since the attribute is simply never present. */
+body[data-client-theme] {
+  background-color: var(--cp-bg) !important;
+  color: var(--cp-ink) !important;
+  font-family: var(--cp-font-body), 'Prompt', sans-serif;
+}
+body[data-client-theme] h1,
+body[data-client-theme] h2,
+body[data-client-theme] h3 {
+  font-family: var(--cp-font-display), var(--cp-font-body), 'Prompt', sans-serif;
+}
+body[data-client-theme] .cp-theme-num {
+  font-family: var(--cp-font-num), 'Prompt', monospace;
+  font-variant-numeric: tabular-nums;
+}
+body[data-client-theme] .bg-white { background-color: var(--cp-surface) !important; }
+body[data-client-theme] .bg-slate-50 { background-color: var(--cp-surface2) !important; }
+body[data-client-theme] .border-slate-200,
+body[data-client-theme] .border-slate-100 { border-color: var(--cp-line) !important; }
+body[data-client-theme] .text-slate-400,
+body[data-client-theme] .text-slate-500 { color: var(--cp-muted) !important; }
+body[data-client-theme] .text-slate-600,
+body[data-client-theme] .text-slate-700,
+body[data-client-theme] .text-slate-800 { color: var(--cp-ink2) !important; }
+body[data-client-theme] .rounded-xl { border-radius: 10px !important; }
+
+/* Tailwind's indigo is this page's one accent color throughout -- override
+   it generically by utility class rather than per-element, so any current
+   or future indigo-colored element in the client-visible UI picks up the
+   brand automatically. */
+body[data-client-theme] .text-indigo-400,
+body[data-client-theme] .text-indigo-600,
+body[data-client-theme] .text-indigo-700 { color: var(--cp-accent) !important; }
+body[data-client-theme] .bg-indigo-50 { background-color: var(--cp-infoBg) !important; }
+body[data-client-theme] .border-indigo-200 { border-color: var(--cp-accent) !important; }
+body[data-client-theme] .bg-indigo-600,
+body[data-client-theme] .bg-indigo-700 { background-color: var(--cp-brand) !important; }
+body[data-client-theme] .hover\:bg-indigo-700:hover { background-color: var(--cp-accent) !important; }
+/* Primary buttons are bg-indigo-600 + text-white together -- only that
+   combination should flip to brandInk, not every white-text element. */
+body[data-client-theme] .bg-indigo-600.text-white,
+body[data-client-theme] .bg-indigo-700.text-white { color: var(--cp-brandInk) !important; }
+
+/* Brand accent bar next to the themed title (requirement: 12x28px, 3px
+   corner radius) and the optional "back to dashboard" link's accent color. */
+body[data-client-theme] .cp-theme-bar {
+  display: inline-block; width: 12px; height: 28px; border-radius: 3px;
+  background: var(--cp-brand); margin-right: 10px; vertical-align: middle;
+}
+body[data-client-theme] #cp-theme-dashboard-link { color: var(--cp-accent) !important; }
+
+/* Today highlight in the calendar: a brand-colored 2px frame instead of the
+   default indigo background wash, so it stays legible against any brand's
+   palette (including when accent/brand are light on light backgrounds). */
+body[data-client-theme] .day-cell.today {
+  background: var(--cp-surface) !important;
+  border: 2px solid var(--cp-brand) !important;
+}
+body[data-client-theme] .day-num.today-badge {
+  background: var(--cp-brand) !important;
+  color: var(--cp-brandInk) !important;
+}
 </style>
 </head>
 <body class="text-slate-800">
@@ -150,10 +221,13 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
   <!-- Header -->
   <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-5">
     <div>
-      <h1 class="text-xl md:text-2xl font-bold flex items-center gap-2">
+      <h1 id="app-title" class="text-xl md:text-2xl font-bold flex items-center gap-2">
         <i class="fa-solid fa-calendar-check text-indigo-600"></i> Content Planner
       </h1>
-      <p class="text-sm text-slate-500">วางแผนคอนเทนต์และแจ้งเตือนสำหรับทุกแบรนด์และแพลตฟอร์ม</p>
+      <p id="app-subtitle" class="text-sm text-slate-500">วางแผนคอนเทนต์และแจ้งเตือนสำหรับทุกแบรนด์และแพลตฟอร์ม</p>
+      <a id="cp-theme-dashboard-link" href="#" target="_blank" class="hidden text-sm font-medium gap-1 mt-1">
+        <i class="fa-solid fa-arrow-left"></i> กลับไป Dashboard
+      </a>
     </div>
     <div class="flex items-center gap-2 flex-wrap">
       <span id="data-mode-badge" class="text-xs px-3 py-1.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
@@ -199,27 +273,27 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
   <div id="view-dashboard">
     <div class="grid grid-cols-2 md:grid-cols-6 gap-3 mb-6">
       <div class="bg-white rounded-xl border border-slate-200 p-4">
-        <div class="text-2xl font-bold text-indigo-600" id="stat-today">0</div>
+        <div class="text-2xl font-bold text-indigo-600 cp-theme-num" id="stat-today">0</div>
         <div class="text-xs text-slate-500 mt-1">ต้องโพสต์วันนี้</div>
       </div>
       <div class="bg-white rounded-xl border border-slate-200 p-4">
-        <div class="text-2xl font-bold text-amber-600" id="stat-soon">0</div>
+        <div class="text-2xl font-bold text-amber-600 cp-theme-num" id="stat-soon">0</div>
         <div class="text-xs text-slate-500 mt-1">กำลังจะถึงกำหนด</div>
       </div>
       <div class="bg-white rounded-xl border border-slate-200 p-4">
-        <div class="text-2xl font-bold text-blue-600" id="stat-review">0</div>
+        <div class="text-2xl font-bold text-blue-600 cp-theme-num" id="stat-review">0</div>
         <div class="text-xs text-slate-500 mt-1">รอตรวจ / รออนุมัติ</div>
       </div>
       <div class="bg-white rounded-xl border border-slate-200 p-4">
-        <div class="text-2xl font-bold text-emerald-600" id="stat-complete">0</div>
+        <div class="text-2xl font-bold text-emerald-600 cp-theme-num" id="stat-complete">0</div>
         <div class="text-xs text-slate-500 mt-1">ข้อมูลครบแล้ว</div>
       </div>
       <div class="bg-white rounded-xl border border-slate-200 p-4">
-        <div class="text-2xl font-bold text-red-600" id="stat-incomplete">0</div>
+        <div class="text-2xl font-bold text-red-600 cp-theme-num" id="stat-incomplete">0</div>
         <div class="text-xs text-slate-500 mt-1">ข้อมูลยังไม่ครบ</div>
       </div>
       <div class="bg-white rounded-xl border border-slate-200 p-4">
-        <div class="text-2xl font-bold text-rose-700" id="stat-overdue">0</div>
+        <div class="text-2xl font-bold text-rose-700 cp-theme-num" id="stat-overdue">0</div>
         <div class="text-xs text-slate-500 mt-1">เลยกำหนด</div>
       </div>
     </div>
@@ -566,6 +640,15 @@ function platformChip(p){
 }
 const STATUS_FLOW = ['Draft','Review','Revision','Approved','Ready','Scheduled','Posted'];
 
+// A themed client view shouldn't rely on the status pill's color alone to
+// signal a finished post -- prefix a checkmark on top of whatever color the
+// brand's theme maps "Posted" to. Plain admin view (or an unthemed brand)
+// never calls this with a theme active, so its pills are untouched.
+function statusPillHtml(status){
+  const prefix = (isRealClientLink() && clientTheme && status === 'Posted') ? '✓ ' : '';
+  return `<span class="status-pill status-${status}">${prefix}${status}</span>`;
+}
+
 // ---------- Backend API (Phase 2) ----------
 // Paste the Apps Script Web App /exec URL here once deployed (see
 // Content_Planner_GAS/SETUP.md). Leave empty to keep using local mock
@@ -642,6 +725,13 @@ async function loadFromApi(){
         linkRequiredBrands = listResp.linkRequired ? [sharedBrand] : [];
         notionOwners = null;
         notionBrands = null;
+        // Best-effort: a brand with no theme configured (or a theme lookup
+        // failure) must never block the dashboard from loading -- it just
+        // means this client sees the page's default, unthemed look.
+        try {
+          const themeResp = await apiGet('theme');
+          clientTheme = themeResp.theme || null;
+        } catch (e) { clientTheme = null; }
         return true;
       }
       const [listResp, ownersResp, brandsResp] = await Promise.all([apiGet('list'), apiGet('owners'), apiGet('brands')]);
@@ -786,6 +876,7 @@ function visibleItems(){
 let clientMode = false;
 let clientModeLocked = false; // true when forced via ?client=1 link — toggle button hidden
 let clientSig = ''; // the `t` signature from a real client link (?client=1&brand=X&t=Y)
+let clientTheme = null; // this brand's theme payload (action=theme), set only for a real, verified client link
 const CLIENT_STATUS_OPTIONS = ['Review', 'Revision', 'Approved']; // statuses a client is allowed to set
 // Statuses an item must currently be in for a client to change its status at
 // all -- mirrors Code.gs's CLIENT_EDITABLE_FROM_STATUSES. Once Scheduled/
@@ -909,6 +1000,91 @@ function showClientLinkBlockedPage(reason){
       : 'ลิงก์นี้ใช้ไม่ได้ กรุณาขอลิงก์ใหม่จากทีม GEM';
   document.getElementById('client-link-blocked-page').classList.remove('hidden');
 }
+
+// Applies a verified brand's theme (fetched via action=theme, only ever
+// reachable through a real signed client link -- see loadFromApi) by
+// injecting its colors/fonts as CSS custom properties scoped to
+// body[data-client-theme], plus the matching Google Fonts stylesheet and
+// the branded header (accent bar, title, subtitle, optional dashboard
+// link). Never called for an unthemed brand (theme is null) or admin/
+// preview client mode, so the page's default look is the untouched
+// fallback in every other case.
+function applyClientTheme_(theme){
+  if (!theme) return;
+  document.body.setAttribute('data-client-theme', sharedBrand);
+
+  const fontSpecs = ['display', 'body', 'num'].map(k => theme.fonts && theme.fonts[k]).filter(Boolean);
+  if (fontSpecs.length) {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = 'https://fonts.googleapis.com/css2?' +
+      fontSpecs.map(f => 'family=' + f.replace(/ /g, '+')).join('&') + '&display=swap';
+    document.head.appendChild(link);
+  }
+  const fontName = spec => spec ? spec.split(':')[0].replace(/\+/g, ' ') : '';
+
+  const colorVars = c => `
+    --cp-bg:${c.bg}; --cp-surface:${c.surface}; --cp-surface2:${c.surface2}; --cp-line:${c.line};
+    --cp-ink:${c.ink}; --cp-ink2:${c.ink2}; --cp-muted:${c.muted};
+    --cp-brand:${c.brand}; --cp-brandInk:${c.brandInk}; --cp-accent:${c.accent};
+    --cp-infoBg:${c.infoBg}; --cp-infoFg:${c.infoFg};
+    --cp-warnBg:${c.warnBg}; --cp-warnFg:${c.warnFg};
+    --cp-critBg:${c.critBg}; --cp-critFg:${c.critFg};
+  `;
+  // Each status maps to a semantic token (brand/info/warn/crit/surface2) in
+  // the theme payload rather than a literal color, so the same four/five
+  // tokens work for any brand's status vocabulary without hardcoding which
+  // status means what per brand here.
+  const TOKEN_VARS = {
+    brand:    { bg: 'var(--cp-brand)',   fg: 'var(--cp-brandInk)' },
+    info:     { bg: 'var(--cp-infoBg)',  fg: 'var(--cp-infoFg)' },
+    warn:     { bg: 'var(--cp-warnBg)',  fg: 'var(--cp-warnFg)' },
+    crit:     { bg: 'var(--cp-critBg)',  fg: 'var(--cp-critFg)' },
+    surface2: { bg: 'var(--cp-surface2)', fg: 'var(--cp-ink2)' },
+  };
+  const statusCss = Object.keys(theme.status || {}).map(status => {
+    const v = TOKEN_VARS[theme.status[status]] || TOKEN_VARS.surface2;
+    return `body[data-client-theme] .status-${status} { background:${v.bg} !important; color:${v.fg} !important; }`;
+  }).join('\n');
+
+  const sel = `body[data-client-theme="${sharedBrand}"]`;
+  const css = `
+    ${sel} {
+      ${colorVars(theme.light || {})}
+      --cp-font-display:'${fontName(theme.fonts && theme.fonts.display)}';
+      --cp-font-body:'${fontName(theme.fonts && theme.fonts.body)}';
+      --cp-font-num:'${fontName(theme.fonts && theme.fonts.num)}';
+    }
+    @media (prefers-color-scheme: dark) {
+      ${sel} { ${colorVars(theme.dark || theme.light || {})} }
+    }
+    ${statusCss}
+  `;
+  const styleEl = document.createElement('style');
+  styleEl.id = 'cp-theme-vars';
+  styleEl.textContent = css;
+  document.head.appendChild(styleEl);
+
+  const titleEl = document.getElementById('app-title');
+  if (titleEl && theme.title) {
+    titleEl.textContent = '';
+    const bar = document.createElement('span');
+    bar.className = 'cp-theme-bar';
+    bar.setAttribute('aria-hidden', 'true');
+    titleEl.appendChild(bar);
+    titleEl.appendChild(document.createTextNode(theme.title));
+  }
+  const subtitleEl = document.getElementById('app-subtitle');
+  if (subtitleEl && theme.subtitle) subtitleEl.textContent = theme.subtitle;
+
+  const dashLink = document.getElementById('cp-theme-dashboard-link');
+  if (dashLink && theme.dashboardUrl) {
+    dashLink.href = theme.dashboardUrl;
+    dashLink.classList.remove('hidden');
+    dashLink.classList.add('flex');
+  }
+}
+
 function applyClientModeUI(){
   const btn = document.getElementById('client-mode-btn');
   btn.classList.toggle('bg-emerald-50', clientMode);
@@ -1077,7 +1253,7 @@ function itemRow(i){
       </div>
       <div class="text-xs text-slate-400">${i.brand} · ${fmtDate(i.scheduledAt)} · ${i.owner}</div>
     </div>
-    <span class="status-pill status-${i.status}">${i.status}</span>
+    ${statusPillHtml(i.status)}
   </div>`;
 }
 
@@ -1106,10 +1282,10 @@ function renderList(){
       <td class="p-3"><div class="font-medium">${i.brand}</div><div class="text-xs text-slate-400">${i.campaign}</div></td>
       <td class="p-3">${i.title}</td>
       <td class="p-3">${i.platforms.map(platformChip).join(' ')}</td>
-      <td class="p-3 text-xs">${fmtDate(i.scheduledAt)} ${flagBadge(i)}</td>
+      <td class="p-3 text-xs"><span class="cp-theme-num">${fmtDate(i.scheduledAt)}</span> ${flagBadge(i)}</td>
       <td class="p-3">${i.owner}</td>
       <td class="p-3">
-        <span class="status-pill status-${i.status}">${i.status}</span>
+        ${statusPillHtml(i.status)}
         ${computeFlags(i).includes('missingLink') ? '<span class="flag-missing-link"><i class="fa-solid fa-link-slash"></i> ยังไม่มีลิงก์</span>' : ''}
         ${publishedLinkIcon(i)}
       </td>
@@ -1161,7 +1337,7 @@ function renderCalendar(){
       data-date="${cellDate.toISOString()}"
       ${inMonth && !clientMode ? `ondragover="onCalDragOver(event)" ondragenter="onCalDragEnter(event)" ondragleave="onCalDragLeave(event)" ondrop="onCalDrop(event, '${cellDate.toISOString()}')"` : ''}>
       <div class="day-num-row">
-        <span class="day-num ${isToday?'today-badge':''}">${cellDate.getDate()}</span>
+        <span class="day-num cp-theme-num ${isToday?'today-badge':''}">${cellDate.getDate()}</span>
       </div>
       ${shown.map(calItemChip).join('')}
       ${overflow>0 ? `<div class="cal-more" onclick="openDayModal('${cellDate.toISOString()}')">+${overflow} เพิ่มเติม</div>` : ''}
@@ -1181,7 +1357,7 @@ function openDayModal(isoDate){
         <div class="text-sm font-medium truncate">${i.title}</div>
         <div class="text-xs text-slate-400">${i.brand} · ${i.owner}</div>
       </div>
-      <span class="status-pill status-${i.status}">${i.status}</span>
+      ${statusPillHtml(i.status)}
     </div>
   `).join('') || '<div class="text-xs text-slate-400 p-2">ไม่มีรายการ</div>';
   document.getElementById('day-modal').classList.remove('hidden');
@@ -1557,14 +1733,14 @@ function viewDetail(id){
             ? `<select class="status-pill status-${i.status}" style="border:none;cursor:pointer;" onchange="changeDetailStatus('${i.id}', this.value)">
                  ${[...new Set([i.status, ...CLIENT_STATUS_OPTIONS])].map(s=>`<option value="${s}" ${s===i.status?'selected':''}>${s}</option>`).join('')}
                </select>`
-            : `<span class="status-pill status-${i.status}">โพสต์แล้ว · แจ้งแก้ไขผ่านคอมเมนต์</span>`)
+            : `<span class="status-pill status-${i.status}">${(isRealClientLink() && clientTheme && i.status === 'Posted') ? '✓ ' : ''}โพสต์แล้ว · แจ้งแก้ไขผ่านคอมเมนต์</span>`)
         : `<select class="status-pill status-${i.status}" style="border:none;cursor:pointer;" onchange="changeDetailStatus('${i.id}', this.value)">
              ${['Draft','Review','Revision','Approved','Ready','Scheduled','Posted','Cancelled'].map(s=>`<option value="${s}" ${s===i.status?'selected':''}>${s}</option>`).join('')}
            </select>`
       }
     </div>
     <div class="text-sm text-slate-500 mb-3">
-      <i class="fa-regular fa-clock"></i> ${fmtDate(i.scheduledAt)}
+      <i class="fa-regular fa-clock"></i> <span class="cp-theme-num">${fmtDate(i.scheduledAt)}</span>
       ${flags.includes('overdue')?' · <span class="flag-overdue">เลยกำหนด</span>':''}
       ${flags.includes('soon')?' · <span class="flag-soon">ใกล้ถึงกำหนด</span>':''}
       ${flags.includes('incomplete')?' · <span class="flag-incomplete">ข้อมูลไม่ครบ</span>':''}
@@ -1878,6 +2054,7 @@ async function initApp(){
     if (ok) {
       badge.className = 'text-xs px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200';
       badge.innerHTML = '<i class="fa-solid fa-database"></i> เชื่อมต่อฐานข้อมูลจริงแล้ว';
+      if (isRealClientLink()) applyClientTheme_(clientTheme);
     } else if (isRealClientLink() && clientLinkInvalid) {
       showClientLinkBlockedPage(clientLinkReason);
       return;
