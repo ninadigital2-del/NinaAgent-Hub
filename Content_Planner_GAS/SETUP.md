@@ -34,6 +34,7 @@ Project Settings → Script Properties → add:
 | `LINE_TARGET_ID` | Who to push reminders to — see below |
 | `GEMINI_API_KEY` | For the "import from calendar image" feature — can reuse the same key as `Social_Media_Assistant_GAS` if you already have one |
 | `CLIENT_LINK_SECRET` | A long random string (e.g. generate one with a password manager). Signs every client link — see "Client links" below. Set once; never needs to change when onboarding a new brand. |
+| `CLIENT_THEMES` | Optional. JSON object `{brand: {title, subtitle, dashboardUrl, fonts, light, dark, status}}` — see "Client brand theming" below. Omit entirely, or omit a given brand's key, to leave that brand on the page's default unthemed look. |
 
 **`LINE_TARGET_ID` accepts one ID or several, comma-separated** — each one
 gets its own individual push (e.g. `userIdA,userIdB` sends the same
@@ -193,6 +194,61 @@ this backend. That's an intentional, pre-existing trade-off of this
 Apps-Script-Web-App-with-no-login architecture, not something this feature
 changes; locking down the PM-facing link is tracked as separate follow-up
 work.
+
+## 9. Client brand theming (optional, client mode only)
+
+A brand with an entry in `CLIENT_THEMES` gets its own look — colors, fonts,
+header title/subtitle, an optional "← กลับไป Dashboard" link, and a
+checkmark on its "Posted"-equivalent status pill — whenever someone opens
+that brand's **signed client link**. It never affects the admin view, a
+brand with no entry (default look, unchanged), or the "ลิงก์นี้ใช้ไม่ได้"
+blocked page (the brand isn't known to be legitimate yet at that point, so
+there's nothing valid to theme with).
+
+`CLIENT_THEMES` is a JSON object keyed by brand name:
+
+```json
+{
+  "AIS": {
+    "title": "AIS Retail Connect",
+    "subtitle": "Content Calendar · ดูแลโดย GEM Digital Agency",
+    "dashboardUrl": "",
+    "fonts": { "display": "Anuphan:wght@500;600;700", "body": "IBM Plex Sans Thai:wght@400;500;600", "num": "IBM Plex Mono:wght@500;600" },
+    "light": { "bg":"#F5F6F2", "surface":"#FFFFFF", "surface2":"#EEF0EA", "line":"#DDE1D6", "ink":"#211E1E", "ink2":"#4B4E47", "muted":"#6F7369",
+               "brand":"#BDDF19", "brandInk":"#211E1E", "accent":"#4E8A16",
+               "infoBg":"#E8EDF7", "infoFg":"#2F4A7A", "warnBg":"#FFF1D6", "warnFg":"#8A5300", "critBg":"#FDE2DF", "critFg":"#A3261B" },
+    "dark":  { "...": "same keys as light, dark-mode values" },
+    "status": { "Posted":"brand", "Scheduled":"surface2", "Approved":"surface2", "Ready":"surface2", "Review":"info", "Revision":"warn", "Draft":"surface2", "Cancelled":"surface2" }
+  }
+}
+```
+
+- `fonts.display/body/num` are Google Fonts `css2` family specs (the part
+  after `family=`) — the frontend builds the stylesheet URL and the
+  `font-family` values from these directly. `display` is used for headings,
+  `body` for everything else, `num` for numbers/dates (with
+  `font-variant-numeric: tabular-nums`).
+- `light`/`dark` must each provide all 16 color keys shown above — `dark` is
+  applied automatically under `prefers-color-scheme: dark`, independent of
+  whatever color scheme the admin view happens to be in.
+- `status` maps each of this brand's status names to one of four semantic
+  tokens — `brand`, `info`, `warn`, `crit` — or `surface2` for a neutral/
+  default look. A status left out of the map falls back to `surface2`.
+- `dashboardUrl` is optional — leave it `""` to hide the "← กลับไป
+  Dashboard" link entirely (shown here for AIS deliberately, since there's
+  no separate client dashboard to link back to yet).
+
+**Security:** `action=theme` lives inside `doGet`'s already-verified
+client-link branch — it only ever returns the theme for the exact brand
+whose signature just verified, the same way `action=list` only ever returns
+that brand's items. There is no path from one brand's link to another
+brand's theme, and no admin-side endpoint lists every brand's theme at
+once.
+
+A brand's theme is fetched once per page load (alongside `list`) and never
+blocks the dashboard from loading — a missing theme, a malformed
+`CLIENT_THEMES` value, or a lookup failure all just mean that client sees
+the page's ordinary default look.
 
 ## Notes
 
