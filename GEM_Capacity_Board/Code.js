@@ -1657,6 +1657,17 @@ function getHtml() {
 <link href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
+/* ทุก <select> ในหน้านี้ใช้ inline style เป็นหลัก ทำให้ลูกศรของ dropdown ชิดขอบขวาเกินไป
+   (ไม่มีที่ว่างเผื่อไอคอนลูกศร) — แก้รวมจุดเดียวแทนการไล่แก้ทีละ element */
+select{
+  -webkit-appearance:none;
+  appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath fill='%23888' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;
+  background-position:right 10px center;
+  background-size:11px 7px;
+  padding-right:30px !important;
+}
 body{font-family:'IBM Plex Sans Thai',sans-serif;background:#f5f4f0;color:#1a1a18;height:100vh;display:flex;flex-direction:column;overflow:hidden}
 header{background:#fff;border-bottom:1px solid #e5e3dd;padding:10px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
 .logo{font-size:15px;font-weight:500;color:#1a1a18}
@@ -2651,10 +2662,10 @@ function openCreateModal() {
 function fillProjectSelect() {
   var pj = document.getElementById('ct-project');
   pj.innerHTML = '<option value="">— เลือก Project —</option>';
+  var nw = document.createElement('option'); nw.value = '__new__'; nw.textContent = '+ สร้าง Project ใหม่'; pj.appendChild(nw);
   (state.projects || []).forEach(function(p) {
     var o = document.createElement('option'); o.value = p.id; o.textContent = p.name; pj.appendChild(o);
   });
-  var nw = document.createElement('option'); nw.value = '__new__'; nw.textContent = '+ สร้าง Project ใหม่'; pj.appendChild(nw);
 }
 function onCtProjectChange() {
   var val = document.getElementById('ct-project').value;
