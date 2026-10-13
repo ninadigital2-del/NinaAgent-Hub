@@ -33,7 +33,24 @@ const COLUMNS = [
   'Sent_Prep2d', 'Sent_Prep1d', 'Sent_24h (ไม่ใช้แล้ว)', 'Sent_1h (ไม่ใช้แล้ว)', 'Sent_OverdueAt',
   'CalendarEventId', // event on the shared "Content Planner" Google Calendar
   'Sent_DayOf', // dedup flag for the day-of-post morning reminder
+  // Appended at the END on purpose (never insert mid-list): existing rows keep
+  // lining up by index, old rows just have these blank. Stamped once, the
+  // first time an item reaches the status — used as KPI evidence by client
+  // dashboards (e.g. AIS Retail Connect "Posting Execution").
+  'ApprovedAt',  // first time Status became Approved/Ready/Scheduled/Posted
+  'PostedAt',    // first time Status became Posted
 ];
+
+// Statuses that mean "the client has approved this item".
+const APPROVED_OR_LATER = ['Approved', 'Ready', 'Scheduled', 'Posted'];
+// Fill ApprovedAt/PostedAt on a row array once, never overwrite an earlier stamp.
+function stampStatusTimes_(row, now) {
+  const status = row[COLUMNS.indexOf('Status')];
+  const aIdx = COLUMNS.indexOf('ApprovedAt');
+  const pIdx = COLUMNS.indexOf('PostedAt');
+  if (APPROVED_OR_LATER.indexOf(status) !== -1 && !row[aIdx]) row[aIdx] = now;
+  if (status === 'Posted' && !row[pIdx]) row[pIdx] = now;
+}
 
 // ---------- Sheet setup ----------
 function getSpreadsheet() {
@@ -86,12 +103,38 @@ function setupSheets(ss) {
 }
 
 // ---------- Web API ----------
+// `brand`+`t` on a request identifies it as a signed client link (see the
+// "Client link security" section below) -- when both are present the
+// request is verified and treated as read-only/brand-scoped regardless of
+// which `action` it asks for, never as a shortcut to the full admin API.
 function doGet(e) {
   const action = (e.parameter.action || 'list');
+  const clientBrand = e.parameter.brand;
+  const clientSig = e.parameter.t;
   try {
+    if (clientBrand && clientSig) {
+      const check = verifyClientLink_(clientBrand, clientSig);
+      if (!check.valid) return jsonResponse({ success: false, error: 'LINK_INVALID', reason: check.reason });
+      if (action === 'list') {
+        const items = listContent().filter(it => it.Brand === clientBrand);
+        const linkRequired = getLinkRequiredBrands().indexOf(clientBrand) !== -1;
+        return jsonResponse({ success: true, items: items, linkRequired: linkRequired });
+      }
+      if (action === 'theme') {
+        // Only ever reachable after verifyClientLink_ above has already
+        // confirmed this request is signed for clientBrand specifically --
+        // getClientTheme_ is keyed by that same verified brand, so there is
+        // no path from one brand's link to another brand's theme.
+        return jsonResponse({ success: true, theme: getClientTheme_(clientBrand) });
+      }
+      // Deliberately no 'owners'/'brands' for client links -- those would
+      // hand back every other brand's name, which is exactly what a
+      // brand-scoped link must not leak.
+      return jsonResponse({ success: false, error: 'Action not allowed for client link: ' + action });
+    }
     if (action === 'list') return jsonResponse({ success: true, items: listContent() });
     if (action === 'owners') return jsonResponse({ success: true, owners: listOwners() });
-    if (action === 'brands') return jsonResponse({ success: true, brands: listBrands() });
+    if (action === 'brands') return jsonResponse({ success: true, brands: listBrands(), linkRequiredBrands: getLinkRequiredBrands() });
     return jsonResponse({ success: false, error: 'Unknown action: ' + action });
   } catch (err) {
     return jsonResponse({ success: false, error: String(err) });
@@ -102,13 +145,34 @@ function doPost(e) {
   try {
     const body = JSON.parse(e.postData.contents);
     const action = body.action;
+    const clientBrand = body.brand;
+    const clientSig = body.t;
+
+    if (clientBrand && clientSig) {
+      const check = verifyClientLink_(clientBrand, clientSig);
+      if (!check.valid) return jsonResponse({ success: false, error: 'LINK_INVALID', reason: check.reason });
+      // Only these two actions exist for a client link -- everything else
+      // (create/update/bulkCreate/delete/extractImage, and any admin-only
+      // action below) is refused outright, not just hidden in the UI.
+      if (action === 'updateStatus') return jsonResponse({ success: true, item: clientUpdateStatus_(clientBrand, body.id, body.status) });
+      if (action === 'addComment') return jsonResponse({ success: true, item: clientAddComment_(clientBrand, body.id, body.author, body.text) });
+      return jsonResponse({ success: false, error: 'Action not allowed for client link: ' + action });
+    }
+
     if (action === 'create') return jsonResponse({ success: true, item: createContent(body.data) });
     if (action === 'update') return jsonResponse({ success: true, item: updateContent(body.id, body.data) });
     if (action === 'updateStatus') return jsonResponse({ success: true, item: updateContent(body.id, { Status: body.status }) });
     if (action === 'addComment') return jsonResponse({ success: true, item: addComment(body.id, body.author, body.text) });
     if (action === 'extractImage') return jsonResponse({ success: true, items: extractCalendarImage(body.imageBase64, body.mimeType) });
-    if (action === 'bulkCreate') return jsonResponse({ success: true, items: (body.items || []).map(createContent) });
+    if (action === 'bulkCreate') return jsonResponse({ success: true, items: bulkCreateContent(body.items || []) });
     if (action === 'delete') { deleteContent(body.id); return jsonResponse({ success: true }); }
+    // Admin-only client-link management (see "Client link security" below).
+    // Reachable the same way every other admin action is -- by knowing the
+    // private base /exec URL, the same trust boundary this whole backend
+    // already relies on -- never via a brand+t client link.
+    if (action === 'adminClientLinkInfo') return jsonResponse({ success: true, t: signClientLink_(body.brand), disabled: getClientLinkDisabledBrands_().indexOf(body.brand) !== -1 });
+    if (action === 'adminClientLinkToggle') return jsonResponse({ success: true, disabled: adminToggleClientLink_(body.brand, !!body.disabled) });
+    if (action === 'adminClientLinkRevoke') return jsonResponse({ success: true, t: adminRevokeClientLink_(body.brand) });
     return jsonResponse({ success: false, error: 'Unknown action: ' + action });
   } catch (err) {
     return jsonResponse({ success: false, error: String(err) });
@@ -162,16 +226,53 @@ function createContent(data) {
     if (col === 'CreatedAt' || col === 'UpdatedAt') return now;
     if (col === 'Platforms') return (data.Platforms || []).join(',');
     if (col === 'Captions') return JSON.stringify(data.Captions || {});
-    if (col === 'PublishedUrls') return JSON.stringify({});
+    // Was hardcoded to {} -- the "สร้างคอนเทนต์ใหม่" form uses the same
+    // per-platform link fields as edit, so a link typed in at creation time
+    // (e.g. importing an already-published post) was silently dropped.
+    if (col === 'PublishedUrls') return JSON.stringify(data.PublishedUrls || {});
     if (col === 'Comments') return JSON.stringify([]);
     if (col === 'CalendarEventId') return '';
     if (col.indexOf('Sent_') === 0) return '';
+    if (col === 'ApprovedAt' || col === 'PostedAt') return '';
     return data[col] || '';
   });
+  stampStatusTimes_(row, now);
   sheet.appendRow(row);
   const item = rowToItem(row);
   syncCalendarEventSafely(sheet, findRowIndexById(sheet, id), item);
   return item;
+}
+
+// One appendRow() + one findRowIndexById() full-column rescan per item made
+// a batch import of N items do N slow round-trips to the Sheets service on
+// top of the N Calendar syncs -- for a calendar-image import of a dozen
+// posts, that's what made it "hang" for a long time. Build every row in
+// memory and write them in a single setValues() call instead; only the
+// (unavoidable) per-item Calendar sync still runs in a loop.
+function bulkCreateContent(itemsData) {
+  if (!itemsData.length) return [];
+  const sheet = getContentSheet();
+  const now = new Date().toISOString();
+  const startRow = sheet.getLastRow() + 1;
+  const rows = itemsData.map(data => COLUMNS.map(col => {
+    if (col === 'ID') return Utilities.getUuid();
+    if (col === 'CreatedAt' || col === 'UpdatedAt') return now;
+    if (col === 'Platforms') return (data.Platforms || []).join(',');
+    if (col === 'Captions') return JSON.stringify(data.Captions || {});
+    if (col === 'PublishedUrls') return JSON.stringify(data.PublishedUrls || {});
+    if (col === 'Comments') return JSON.stringify([]);
+    if (col === 'CalendarEventId') return '';
+    if (col.indexOf('Sent_') === 0) return '';
+    if (col === 'ApprovedAt' || col === 'PostedAt') return '';
+    return data[col] || '';
+  }));
+  rows.forEach(row => stampStatusTimes_(row, now));
+  sheet.getRange(startRow, 1, rows.length, COLUMNS.length).setValues(rows);
+  return rows.map((row, i) => {
+    const item = rowToItem(row);
+    syncCalendarEventSafely(sheet, startRow + i, item);
+    return item;
+  });
 }
 
 function updateContent(id, data) {
@@ -194,8 +295,10 @@ function updateContent(id, data) {
     }
   }
 
+  const oldStatus = current[COLUMNS.indexOf('Status')];
   COLUMNS.forEach((col, i) => {
     if (col === 'ID' || col === 'CreatedAt' || col === 'CalendarEventId') return;
+    if (col === 'ApprovedAt' || col === 'PostedAt') return; // set only by stampStatusTimes_
     if (col === 'UpdatedAt') { current[i] = new Date().toISOString(); return; }
     if (data[col] === undefined) return;
     if (col === 'Platforms') { current[i] = (data.Platforms || []).join(','); return; }
@@ -204,6 +307,9 @@ function updateContent(id, data) {
     }
     current[i] = data[col];
   });
+  // Stamp only on a real status change, so editing an old item (posted before
+  // this column existed) never gets a fake "posted just now" time.
+  if (current[COLUMNS.indexOf('Status')] !== oldStatus) stampStatusTimes_(current, new Date().toISOString());
   range.setValues([current]);
   const item = rowToItem(current);
   syncCalendarEventSafely(sheet, rowIdx, item);
@@ -232,12 +338,157 @@ function deleteContent(id) {
   sheet.deleteRow(rowIdx);
 }
 
+// ---------- Client link security ----------
+// A client link (?client=1&brand=<Brand>&t=<signature>) must prove it was
+// actually issued for that brand, not just claim to be -- otherwise
+// "brand-scoped" is only a UI filter anyone can defeat by editing the URL,
+// which is exactly the gap this closes. `t` is an HMAC-SHA256 of the brand
+// name + a per-brand version number, keyed by a secret that never leaves
+// the server, so it can't be forged or guessed, only verified or reissued.
+//
+// Two ways to revoke a previously-issued link, matching two real needs:
+//   - Temporary: CLIENT_LINK_DISABLED (JSON array of brand names) blocks a
+//     brand's links without touching its signature -- re-enabling makes
+//     the exact same old link work again.
+//   - Permanent: CLIENT_LINK_VERSIONS (JSON {brand: version}, missing/unset
+//     = version 1) bumps just that brand's version, so every link issued
+//     under the old version stops verifying -- a fresh link must be
+//     generated and re-sent. Other brands' versions, and therefore their
+//     links, are completely unaffected.
+//
+// Requires Script Property CLIENT_LINK_SECRET (a long random string, set
+// once -- never needs to change when onboarding a new brand/client).
+function getClientLinkSecret_() {
+  const secret = PropertiesService.getScriptProperties().getProperty('CLIENT_LINK_SECRET');
+  if (!secret) throw new Error('CLIENT_LINK_SECRET not set in Script Properties.');
+  return secret;
+}
+function getClientLinkDisabledBrands_() {
+  const raw = PropertiesService.getScriptProperties().getProperty('CLIENT_LINK_DISABLED');
+  try { return raw ? JSON.parse(raw) : []; } catch (e) { return []; }
+}
+function setClientLinkDisabledBrands_(list) {
+  PropertiesService.getScriptProperties().setProperty('CLIENT_LINK_DISABLED', JSON.stringify(list));
+}
+function getClientLinkVersions_() {
+  const raw = PropertiesService.getScriptProperties().getProperty('CLIENT_LINK_VERSIONS');
+  try { return raw ? JSON.parse(raw) : {}; } catch (e) { return {}; }
+}
+function setClientLinkVersions_(versions) {
+  PropertiesService.getScriptProperties().setProperty('CLIENT_LINK_VERSIONS', JSON.stringify(versions));
+}
+function getClientLinkVersion_(brand) {
+  const versions = getClientLinkVersions_();
+  return versions[brand] || 1;
+}
+function signClientLink_(brand) {
+  const payload = brand + ':' + getClientLinkVersion_(brand);
+  const bytes = Utilities.computeHmacSha256Signature(payload, getClientLinkSecret_());
+  return bytes.map(b => ('0' + (b & 0xFF).toString(16)).slice(-2)).join('');
+}
+// Plain `===` on a secret-derived string leaks timing information (it
+// returns as soon as the first differing character is found, so an
+// attacker can learn the correct signature one byte at a time by timing
+// many guesses). Always walk the full length of both strings instead.
+function constantTimeEquals_(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+/** Verifies a client link's (brand, t). `reason` lets the frontend show a specific message. */
+function verifyClientLink_(brand, t) {
+  if (!brand || !t) return { valid: false, reason: 'invalid' };
+  if (getClientLinkDisabledBrands_().indexOf(brand) !== -1) return { valid: false, reason: 'disabled' };
+  if (!constantTimeEquals_(signClientLink_(brand), String(t))) return { valid: false, reason: 'invalid' };
+  return { valid: true };
+}
+function adminToggleClientLink_(brand, disabled) {
+  const list = getClientLinkDisabledBrands_();
+  const idx = list.indexOf(brand);
+  if (disabled && idx === -1) list.push(brand);
+  if (!disabled && idx !== -1) list.splice(idx, 1);
+  setClientLinkDisabledBrands_(list);
+  return disabled;
+}
+function adminRevokeClientLink_(brand) {
+  const versions = getClientLinkVersions_();
+  versions[brand] = (versions[brand] || 1) + 1;
+  setClientLinkVersions_(versions);
+  return signClientLink_(brand);
+}
+
+// ---------- Client brand theming ----------
+// Script Property CLIENT_THEMES: JSON {brand: {title, subtitle,
+// dashboardUrl, fonts, light, dark, status}}. Optional -- a brand with no
+// entry here (or no CLIENT_THEMES set at all) gets null, and the frontend
+// falls back to the page's default, unthemed look. Only ever read through
+// doGet's client-link branch, after verifyClientLink_ has confirmed the
+// request's signature for that exact brand -- see the `action === 'theme'`
+// handler above, which is the only caller. Never exposed to the admin
+// (non-client-link) side of the API; there is no legitimate reason for the
+// bare /exec URL to list every brand's theme at once.
+function getClientThemes_() {
+  const raw = PropertiesService.getScriptProperties().getProperty('CLIENT_THEMES');
+  try { return raw ? JSON.parse(raw) : {}; } catch (e) { return {}; }
+}
+function getClientTheme_(brand) {
+  return getClientThemes_()[brand] || null;
+}
+
+// Statuses a client link is allowed to set an item to, and the statuses an
+// item must currently be in for a client to be allowed to touch it at all
+// -- once something is Scheduled/Posted/Cancelled it's done, and further
+// changes go through comments instead, not a status edit from the client.
+const CLIENT_ALLOWED_STATUSES = ['Review', 'Revision', 'Approved'];
+const CLIENT_EDITABLE_FROM_STATUSES = ['Review', 'Revision', 'Approved', 'Ready'];
+
+/**
+ * Status changes from a client link never trust the client's own claim of
+ * which brand an item belongs to -- the item's real Brand is read fresh
+ * from the sheet and compared against the brand the link's signature was
+ * actually issued for, so a client link for one brand can't touch another
+ * brand's item by sending its ID directly.
+ */
+function clientUpdateStatus_(brand, id, status) {
+  if (CLIENT_ALLOWED_STATUSES.indexOf(status) === -1) throw new Error('STATUS_NOT_ALLOWED');
+  const sheet = getContentSheet();
+  const rowIdx = findRowIndexById(sheet, id);
+  if (rowIdx === -1) throw new Error('Content not found: ' + id);
+  const item = rowToItem(sheet.getRange(rowIdx, 1, 1, COLUMNS.length).getValues()[0]);
+  if (item.Brand !== brand) throw new Error('BRAND_MISMATCH');
+  if (CLIENT_EDITABLE_FROM_STATUSES.indexOf(item.Status) === -1) throw new Error('STATUS_LOCKED');
+  return updateContent(id, { Status: status });
+}
+function clientAddComment_(brand, id, author, text) {
+  const sheet = getContentSheet();
+  const rowIdx = findRowIndexById(sheet, id);
+  if (rowIdx === -1) throw new Error('Content not found: ' + id);
+  const item = rowToItem(sheet.getRange(rowIdx, 1, 1, COLUMNS.length).getValues()[0]);
+  if (item.Brand !== brand) throw new Error('BRAND_MISMATCH');
+  return addComment(id, author, text);
+}
+
 // ---------- Owners / Brands (synced from Notion) ----------
 function listOwners() {
   return listSyncedNames(SHEET_OWNERS);
 }
 function listBrands() {
   return listSyncedNames(SHEET_BRANDS);
+}
+
+/**
+ * Brands whose posts must have a real published link once Posted (or
+ * Scheduled and overdue) to satisfy a client-facing KPI dashboard (e.g.
+ * AIS Retail Connect's "Posting Execution"). Configurable per Script
+ * Property instead of hardcoded, so onboarding another client with the
+ * same requirement is a Script Properties edit, not a code change -- and
+ * brands not listed here are completely unaffected (no badge, no filter).
+ * Comma-separated, matched against Brand exactly as it appears from Notion.
+ */
+function getLinkRequiredBrands() {
+  const raw = PropertiesService.getScriptProperties().getProperty('LINK_REQUIRED_BRANDS');
+  return (raw || '').split(',').map(s => s.trim()).filter(Boolean);
 }
 function listSyncedNames(sheetName) {
   const ss = getSpreadsheet();

@@ -12,6 +12,11 @@
 // 4. Deploy → New deployment → Web app
 //    Execute as: Me | Who has access: Anyone with Google Account
 // ============================================================
+// doGet/doPost and the PM Task Status Board backend live in Router.js,
+// NOT here. Never paste a full old backup of this file over the current
+// one, and never add doGet/doPost here — see Router.js's header comment
+// for why.
+// ============================================================
 
 // ---------- CONFIG ----------
 const SHEET_IDS = {
@@ -34,19 +39,8 @@ const CAPACITY_THRESHOLD = { green: 3, amber: 8 }; // >8 = red
 
 // ---------- ENTRY POINTS ----------
 
-function doGet(e) {
-  const action = e && e.parameter && e.parameter.action;
-
-  if (action === 'getAll')      return jsonResponse(getAllData());
-  if (action === 'getTasks')    return jsonResponse(getNotionTasks());
-  if (action === 'getCapacity') return jsonResponse(getCapacityData());
-  if (action === 'getBrands')   return jsonResponse(getNotionBrands());
-  if (action === 'manual')      return HtmlService.createHtmlOutputFromFile('manual').setTitle('คู่มือการใช้งาน GEM Graphic Capacity Board').setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-
-  return HtmlService.createHtmlOutput(getHtml())
-    .setTitle('GEM Graphic Capacity Board')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-}
+// doGet/doPost moved to Router.js — see the big comment at the top of that
+// file before adding a route or touching the PM Task Status Board backend.
 
 function getAllData() {
   const t0 = new Date();
@@ -179,40 +173,7 @@ function addDropdownSetting(type, newValue) {
   return { ok: true, list: list };
 }
 
-function doPost(e) {
-  const body = JSON.parse(e.postData.contents);
-  if (body.action === 'assign') {
-    return jsonResponse(handleAssign(body));
-  }
-  if (body.action === 'markDone') {
-    return jsonResponse(handleMarkDone(body));
-  }
-  if (body.action === 'relocate') {
-    return jsonResponse(handleRelocate(body));
-  }
-  if (body.action === 'edit') {
-    return jsonResponse(handleEditTask(body));
-  }
-  if (body.action === 'unassign') {
-    return jsonResponse(handleUnassignTask(body));
-  }
-  if (body.action === 'deletePermanent') {
-    return jsonResponse(handleDeleteTaskPermanently(body));
-  }
-  if (body.action === 'editNotion') {
-    return jsonResponse(handleEditNotionTask(body));
-  }
-  if (body.action === 'deleteNotion') {
-    return jsonResponse(handleDeleteNotionTask(body));
-  }
-  if (body.action === 'addSetting') {
-    return jsonResponse(addDropdownSetting(body.type, body.newValue));
-  }
-  if (body.action === 'createTask') {
-    return jsonResponse(handleCreateTask(body));
-  }
-  return jsonResponse({ ok: false, error: 'Unknown action' });
-}
+// doPost moved to Router.js — see that file.
 
 // ---------- DATA: NOTION ----------
 
@@ -374,6 +335,9 @@ function getNotionPropertyLabels_(property, relationNames) {
   return labels.map(function(value) { return String(value || '').trim(); })
     .filter(function(value, index, all) { return value && all.indexOf(value) === index; });
 }
+
+// PM Task Status Board backend (getTasksForStatusBoard, bulkUpdateStatus)
+// moved to Router.js.
 
 function getNotionBrands() {
   const props = PropertiesService.getScriptProperties();
@@ -1710,11 +1674,7 @@ function notionFetch(endpoint, method, payload, key, version) {
 
 // ---------- JSON HELPER ----------
 
-function jsonResponse(data) {
-  return ContentService
-    .createTextOutput(JSON.stringify(data))
-    .setMimeType(ContentService.MimeType.JSON);
-}
+// jsonResponse moved to Router.js.
 
 // ---------- HTML APP ----------
 

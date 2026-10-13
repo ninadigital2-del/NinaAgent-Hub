@@ -33,6 +33,8 @@ Project Settings → Script Properties → add:
 | `LINE_CHANNEL_TOKEN` | Channel access token from the LINE Official Account (Messaging API) |
 | `LINE_TARGET_ID` | Who to push reminders to — see below |
 | `GEMINI_API_KEY` | For the "import from calendar image" feature — can reuse the same key as `Social_Media_Assistant_GAS` if you already have one |
+| `CLIENT_LINK_SECRET` | A long random string (e.g. generate one with a password manager). Signs every client link — see "Client links" below. Set once; never needs to change when onboarding a new brand. |
+| `CLIENT_THEMES` | Optional. JSON object `{brand: {title, subtitle, dashboardUrl, fonts, light, dark, status}}` — see "Client brand theming" below. Omit entirely, or omit a given brand's key, to leave that brand on the page's default unthemed look. |
 
 **`LINE_TARGET_ID` accepts one ID or several, comma-separated** — each one
 gets its own individual push (e.g. `userIdA,userIdB` sends the same
@@ -147,6 +149,107 @@ first), not a quick edit made in passing. `OWNER_TAG_TO_NICKNAME` above is
 deliberately read-only against Notion's current setup so it can't break
 any of that.
 
+## 8. Client links (brand-scoped, read-mostly access)
+
+The web UI's "โหมดลูกค้า" (client mode) button generates a link like
+`.../exec?client=1&brand=AIS&t=<signature>` to hand to a client — it shows
+only that brand's items, lets them move an item between Review/Revision/
+Approved (nothing else) while it's still in one of those states (or Ready),
+and lets them comment. Everything else (seeing other brands, editing,
+deleting, changing status on a Scheduled/Posted/Cancelled item) is refused
+by the backend itself, not just hidden in the UI — a client opening
+DevTools and calling the API directly still can't do more than the link
+allows.
+
+`t` is an HMAC-SHA256 signature of the brand name (keyed by
+`CLIENT_LINK_SECRET`), so it can't be forged or guessed without that
+secret, and the base `/exec` URL with no `brand`/`t` params still works
+exactly as before as the full admin view — nothing about day-to-day PM use
+changes.
+
+**Generating a link:** "โหมดลูกค้า (อ่านอย่างเดียว)" button → pick a brand →
+the link (with a valid signature) is built and copied automatically. Every
+brand works immediately, with no per-brand setup needed.
+
+**Revoking a link**, from the same brand-picker screen after selecting a
+brand:
+- **"ปิดลิงก์ชั่วคราว" / "เปิดลิงก์กลับ"** — toggles that brand on/off without
+  changing its signature. The *exact same* link works again once
+  re-enabled. Good for "pause this client's access for now."
+- **"ยกเลิกลิงก์เดิม + สร้างใหม่"** — permanently invalidates every link
+  previously issued for that brand (bumps an internal version number) and
+  immediately generates + copies a new one. Only that brand is affected;
+  every other brand's links keep working untouched. Use this if a link
+  leaked or a client engagement ends for good — the old link can never be
+  un-revoked, unlike the temporary toggle above.
+
+A client whose link stops working (disabled, revoked, or just malformed)
+sees a plain "ลิงก์นี้ใช้ไม่ได้ — กรุณาขอลิงก์ใหม่จากทีม GEM" page, never the
+mock-data fallback or a raw error.
+
+**Known limitation:** this protects the *client* link specifically. The
+bare `/exec` URL (what PMs use day to day) is still the de facto admin
+credential — whoever has it has full access, same as every other action in
+this backend. That's an intentional, pre-existing trade-off of this
+Apps-Script-Web-App-with-no-login architecture, not something this feature
+changes; locking down the PM-facing link is tracked as separate follow-up
+work.
+
+## 9. Client brand theming (optional, client mode only)
+
+A brand with an entry in `CLIENT_THEMES` gets its own look — colors, fonts,
+header title/subtitle, an optional "← กลับไป Dashboard" link, and a
+checkmark on its "Posted"-equivalent status pill — whenever someone opens
+that brand's **signed client link**. It never affects the admin view, a
+brand with no entry (default look, unchanged), or the "ลิงก์นี้ใช้ไม่ได้"
+blocked page (the brand isn't known to be legitimate yet at that point, so
+there's nothing valid to theme with).
+
+`CLIENT_THEMES` is a JSON object keyed by brand name:
+
+```json
+{
+  "AIS": {
+    "title": "AIS Retail Connect",
+    "subtitle": "Content Calendar · ดูแลโดย GEM Digital Agency",
+    "dashboardUrl": "",
+    "fonts": { "display": "Anuphan:wght@500;600;700", "body": "IBM Plex Sans Thai:wght@400;500;600", "num": "IBM Plex Mono:wght@500;600" },
+    "light": { "bg":"#F5F6F2", "surface":"#FFFFFF", "surface2":"#EEF0EA", "line":"#DDE1D6", "ink":"#211E1E", "ink2":"#4B4E47", "muted":"#6F7369",
+               "brand":"#BDDF19", "brandInk":"#211E1E", "accent":"#4E8A16",
+               "infoBg":"#E8EDF7", "infoFg":"#2F4A7A", "warnBg":"#FFF1D6", "warnFg":"#8A5300", "critBg":"#FDE2DF", "critFg":"#A3261B" },
+    "dark":  { "...": "same keys as light, dark-mode values" },
+    "status": { "Posted":"brand", "Scheduled":"surface2", "Approved":"surface2", "Ready":"surface2", "Review":"info", "Revision":"warn", "Draft":"surface2", "Cancelled":"surface2" }
+  }
+}
+```
+
+- `fonts.display/body/num` are Google Fonts `css2` family specs (the part
+  after `family=`) — the frontend builds the stylesheet URL and the
+  `font-family` values from these directly. `display` is used for headings,
+  `body` for everything else, `num` for numbers/dates (with
+  `font-variant-numeric: tabular-nums`).
+- `light`/`dark` must each provide all 16 color keys shown above — `dark` is
+  applied automatically under `prefers-color-scheme: dark`, independent of
+  whatever color scheme the admin view happens to be in.
+- `status` maps each of this brand's status names to one of four semantic
+  tokens — `brand`, `info`, `warn`, `crit` — or `surface2` for a neutral/
+  default look. A status left out of the map falls back to `surface2`.
+- `dashboardUrl` is optional — leave it `""` to hide the "← กลับไป
+  Dashboard" link entirely (shown here for AIS deliberately, since there's
+  no separate client dashboard to link back to yet).
+
+**Security:** `action=theme` lives inside `doGet`'s already-verified
+client-link branch — it only ever returns the theme for the exact brand
+whose signature just verified, the same way `action=list` only ever returns
+that brand's items. There is no path from one brand's link to another
+brand's theme, and no admin-side endpoint lists every brand's theme at
+once.
+
+A brand's theme is fetched once per page load (alongside `list`) and never
+blocks the dashboard from loading — a missing theme, a malformed
+`CLIENT_THEMES` value, or a lookup failure all just mean that client sees
+the page's ordinary default look.
+
 ## Notes
 
 - Reminders now run on two triggers, both installed by `setupReminderTrigger`:
@@ -215,3 +318,32 @@ any of that.
   (not installed alongside it — the 15-minute trigger is removed, per the
   overdue-nag being turned off above). The next Deploy → Manage deployments
   → New version may prompt you to re-authorize.
+- **`ApprovedAt` / `PostedAt`** (last two columns) record, once each, the
+  first time an item's Status ever reached "the client approved this"
+  (`Approved`, `Ready`, `Scheduled`, or `Posted` — whichever it hits first,
+  since an item can skip straight from Review to Ready) and the first time
+  it reached `Posted`. They exist as evidence for client-facing KPI
+  dashboards that read this sheet via `doGet?action=list` and filter by
+  Brand (e.g. AIS Retail Connect's "Posting Execution: โพสต์ครบตามแผนที่
+  อนุมัติ 100%", which needs to know the item was actually approved and
+  actually posted, not just that `UpdatedAt` changed — `UpdatedAt` moves on
+  every edit, so it can't answer "when was this approved" or "was this
+  posted on time"). Stamped once and never overwritten — editing an item
+  after it's Approved/Posted (fixing a typo, reassigning the Owner, etc.)
+  does not move these times, and a client-supplied value for either column
+  in a `create`/`update` payload is always ignored; only the backend itself
+  sets them, exclusively on an actual Status change. Existing rows created
+  before this update simply have both blank — there's no way to know a real
+  past approval/post time for those, so nothing is backfilled.
+- If you already had this backend deployed before `ApprovedAt`/`PostedAt`
+  existed: before re-pasting `Code.gs`, open the Content sheet and confirm
+  there is **no other column to the right of `Sent_DayOf`** — `setupSheets`
+  always appends new columns at the current end of `COLUMNS`, so anything
+  already sitting in that next column would get silently overwritten by the
+  new header. If there is something there, stop and sort that out first
+  instead of running `setupSheets`.
+- **Any client link generated before the "Client links" feature above
+  (i.e. anything shaped `?client=1&brand=X` with no `&t=...`) stops working
+  the moment this version is deployed** — those links carried no signature
+  at all. Set `CLIENT_LINK_SECRET` (step 3) and re-generate + re-send a
+  fresh link to every client currently using the old style.

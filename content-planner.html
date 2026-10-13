@@ -30,6 +30,7 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
 .flag-overdue { color: #dc2626; }
 .flag-soon { color: #d97706; }
 .flag-incomplete { color: #b91c1c; }
+.flag-missing-link { color: #dc2626; font-size: 11px; font-weight: 600; margin-left: 6px; white-space: nowrap; }
 
 .platform-chip { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 6px; }
 .plat-Facebook { background: #dbeafe; color: #1d4ed8; }
@@ -112,6 +113,96 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
 
 .cal-more { font-size: 10px; font-weight: 600; color: #6366f1; padding: 2px 6px; cursor: pointer; }
 .cal-more:hover { text-decoration: underline; }
+
+/* Narrow phones: 7 columns of full event pills don't fit and forcing a
+   min-width forced a horizontal scroll that fought the page's own vertical
+   scroll (iOS routes ambiguous diagonal drags to whichever axis it guesses,
+   so both ended up feeling broken). Shrink the grid to fit instead -- drop
+   the event title down to just its status dot so every column stays
+   tappable without needing any horizontal scroll at all. */
+@media (max-width: 640px) {
+  .cal-weekday { font-size: 9px; padding: 2px 0 4px; }
+  .day-cell { min-height: 46px; padding: 4px 2px; gap: 2px; border-radius: 8px; }
+  .day-num { font-size: 10.5px; }
+  .day-num.today-badge { width: 17px; height: 17px; font-size: 10px; }
+  .cal-item { padding: 2px; justify-content: center; border-radius: 999px; }
+  .cal-item .truncate { display: none; }
+  .cal-item .cal-dot { width: 7px; height: 7px; }
+  .cal-item .cal-missing-link-icon { display: none; } /* keep the tiny mobile pill to just its status dot */
+  .cal-more { font-size: 8.5px; padding: 1px 2px; text-align: center; }
+  .day-empty-hint { display: none; }
+}
+
+/* ---------- Client brand theming (client mode only) ----------
+   Structural rules only -- every actual color/font value comes from the
+   verified brand's own theme payload (Code.gs action=theme) and is injected
+   at runtime as CSS custom properties scoped to body[data-client-theme],
+   see applyClientTheme_() below. Nothing here fires unless that attribute
+   is set, which only happens for a real, signature-verified client link
+   whose brand has a theme configured -- every other page (admin, an
+   unthemed brand's client link, the "ลิงก์นี้ใช้ไม่ได้" blocked page) is
+   completely unaffected, since the attribute is simply never present. */
+body[data-client-theme] {
+  background-color: var(--cp-bg) !important;
+  color: var(--cp-ink) !important;
+  font-family: var(--cp-font-body), 'Prompt', sans-serif;
+}
+body[data-client-theme] h1,
+body[data-client-theme] h2,
+body[data-client-theme] h3 {
+  font-family: var(--cp-font-display), var(--cp-font-body), 'Prompt', sans-serif;
+}
+body[data-client-theme] .cp-theme-num {
+  font-family: var(--cp-font-num), 'Prompt', monospace;
+  font-variant-numeric: tabular-nums;
+}
+body[data-client-theme] .bg-white { background-color: var(--cp-surface) !important; }
+body[data-client-theme] .bg-slate-50 { background-color: var(--cp-surface2) !important; }
+body[data-client-theme] .border-slate-200,
+body[data-client-theme] .border-slate-100 { border-color: var(--cp-line) !important; }
+body[data-client-theme] .text-slate-400,
+body[data-client-theme] .text-slate-500 { color: var(--cp-muted) !important; }
+body[data-client-theme] .text-slate-600,
+body[data-client-theme] .text-slate-700,
+body[data-client-theme] .text-slate-800 { color: var(--cp-ink2) !important; }
+body[data-client-theme] .rounded-xl { border-radius: 10px !important; }
+
+/* Tailwind's indigo is this page's one accent color throughout -- override
+   it generically by utility class rather than per-element, so any current
+   or future indigo-colored element in the client-visible UI picks up the
+   brand automatically. */
+body[data-client-theme] .text-indigo-400,
+body[data-client-theme] .text-indigo-600,
+body[data-client-theme] .text-indigo-700 { color: var(--cp-accent) !important; }
+body[data-client-theme] .bg-indigo-50 { background-color: var(--cp-infoBg) !important; }
+body[data-client-theme] .border-indigo-200 { border-color: var(--cp-accent) !important; }
+body[data-client-theme] .bg-indigo-600,
+body[data-client-theme] .bg-indigo-700 { background-color: var(--cp-brand) !important; }
+body[data-client-theme] .hover\:bg-indigo-700:hover { background-color: var(--cp-accent) !important; }
+/* Primary buttons are bg-indigo-600 + text-white together -- only that
+   combination should flip to brandInk, not every white-text element. */
+body[data-client-theme] .bg-indigo-600.text-white,
+body[data-client-theme] .bg-indigo-700.text-white { color: var(--cp-brandInk) !important; }
+
+/* Brand accent bar next to the themed title (requirement: 12x28px, 3px
+   corner radius) and the optional "back to dashboard" link's accent color. */
+body[data-client-theme] .cp-theme-bar {
+  display: inline-block; width: 12px; height: 28px; border-radius: 3px;
+  background: var(--cp-brand); margin-right: 10px; vertical-align: middle;
+}
+body[data-client-theme] #cp-theme-dashboard-link { color: var(--cp-accent) !important; }
+
+/* Today highlight in the calendar: a brand-colored 2px frame instead of the
+   default indigo background wash, so it stays legible against any brand's
+   palette (including when accent/brand are light on light backgrounds). */
+body[data-client-theme] .day-cell.today {
+  background: var(--cp-surface) !important;
+  border: 2px solid var(--cp-brand) !important;
+}
+body[data-client-theme] .day-num.today-badge {
+  background: var(--cp-brand) !important;
+  color: var(--cp-brandInk) !important;
+}
 </style>
 </head>
 <body class="text-slate-800">
@@ -130,10 +221,13 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
   <!-- Header -->
   <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-5">
     <div>
-      <h1 class="text-xl md:text-2xl font-bold flex items-center gap-2">
+      <h1 id="app-title" class="text-xl md:text-2xl font-bold flex items-center gap-2">
         <i class="fa-solid fa-calendar-check text-indigo-600"></i> Content Planner
       </h1>
-      <p class="text-sm text-slate-500">วางแผนคอนเทนต์และแจ้งเตือนสำหรับทุกแบรนด์และแพลตฟอร์ม</p>
+      <p id="app-subtitle" class="text-sm text-slate-500">วางแผนคอนเทนต์และแจ้งเตือนสำหรับทุกแบรนด์และแพลตฟอร์ม</p>
+      <a id="cp-theme-dashboard-link" href="#" target="_blank" class="hidden text-sm font-medium gap-1 mt-1">
+        <i class="fa-solid fa-arrow-left"></i> กลับไป Dashboard
+      </a>
     </div>
     <div class="flex items-center gap-2 flex-wrap">
       <span id="data-mode-badge" class="text-xs px-3 py-1.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
@@ -168,6 +262,9 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
       <option value="">ทุกแพลตฟอร์ม</option>
       <option>Facebook</option><option>Instagram</option><option>TikTok</option><option>LINE</option><option>YouTube</option>
     </select>
+    <label class="flex items-center gap-1 text-xs text-slate-600 border border-slate-200 rounded-lg px-2 py-1.5 cursor-pointer">
+      <input type="checkbox" id="shared-missing-link" onchange="applySharedFilter()"> ขาดลิงก์โพสต์
+    </label>
     <button onclick="clearSharedFilter()" class="text-xs text-slate-400 hover:text-slate-600 ml-1"><i class="fa-solid fa-xmark"></i> ล้างตัวกรอง</button>
     <span id="shared-filter-badge" class="text-xs text-indigo-600 font-medium ml-auto"></span>
   </div>
@@ -176,27 +273,27 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
   <div id="view-dashboard">
     <div class="grid grid-cols-2 md:grid-cols-6 gap-3 mb-6">
       <div class="bg-white rounded-xl border border-slate-200 p-4">
-        <div class="text-2xl font-bold text-indigo-600" id="stat-today">0</div>
+        <div class="text-2xl font-bold text-indigo-600 cp-theme-num" id="stat-today">0</div>
         <div class="text-xs text-slate-500 mt-1">ต้องโพสต์วันนี้</div>
       </div>
       <div class="bg-white rounded-xl border border-slate-200 p-4">
-        <div class="text-2xl font-bold text-amber-600" id="stat-soon">0</div>
+        <div class="text-2xl font-bold text-amber-600 cp-theme-num" id="stat-soon">0</div>
         <div class="text-xs text-slate-500 mt-1">กำลังจะถึงกำหนด</div>
       </div>
       <div class="bg-white rounded-xl border border-slate-200 p-4">
-        <div class="text-2xl font-bold text-blue-600" id="stat-review">0</div>
+        <div class="text-2xl font-bold text-blue-600 cp-theme-num" id="stat-review">0</div>
         <div class="text-xs text-slate-500 mt-1">รอตรวจ / รออนุมัติ</div>
       </div>
       <div class="bg-white rounded-xl border border-slate-200 p-4">
-        <div class="text-2xl font-bold text-emerald-600" id="stat-complete">0</div>
+        <div class="text-2xl font-bold text-emerald-600 cp-theme-num" id="stat-complete">0</div>
         <div class="text-xs text-slate-500 mt-1">ข้อมูลครบแล้ว</div>
       </div>
       <div class="bg-white rounded-xl border border-slate-200 p-4">
-        <div class="text-2xl font-bold text-red-600" id="stat-incomplete">0</div>
+        <div class="text-2xl font-bold text-red-600 cp-theme-num" id="stat-incomplete">0</div>
         <div class="text-xs text-slate-500 mt-1">ข้อมูลยังไม่ครบ</div>
       </div>
       <div class="bg-white rounded-xl border border-slate-200 p-4">
-        <div class="text-2xl font-bold text-rose-700" id="stat-overdue">0</div>
+        <div class="text-2xl font-bold text-rose-700 cp-theme-num" id="stat-overdue">0</div>
         <div class="text-xs text-slate-500 mt-1">เลยกำหนด</div>
       </div>
     </div>
@@ -216,11 +313,11 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
         <button onclick="shiftMonth(1)" class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-sm"><i class="fa-solid fa-chevron-right"></i></button>
       </div>
     </div>
-    <div id="cal-hint" class="text-xs text-slate-400 mb-3"><i class="fa-solid fa-hand"></i> ลากการ์ดไปวางวันที่ต้องการเพื่อเลื่อนกำหนดโพสต์</div>
+    <div id="cal-hint" class="text-xs text-slate-400 mb-3"><i class="fa-solid fa-hand"></i> ลากการ์ดไปวางวันที่ต้องการเพื่อเลื่อนกำหนดโพสต์ — บนมือถือแตะที่จุดสีเพื่อดูรายละเอียด</div>
     <div class="grid grid-cols-7">
       <div class="cal-weekday weekend">อา</div><div class="cal-weekday">จ</div><div class="cal-weekday">อ</div><div class="cal-weekday">พ</div><div class="cal-weekday">พฤ</div><div class="cal-weekday">ศ</div><div class="cal-weekday weekend">ส</div>
     </div>
-    <div id="cal-body" class="grid grid-cols-7 gap-2"></div>
+    <div id="cal-body" class="grid grid-cols-7 gap-1 md:gap-2"></div>
   </div>
 
   <!-- ============ LIST VIEW ============ -->
@@ -496,9 +593,22 @@ body { font-family: 'Prompt', sans-serif; background-color: #f3f4f6; }
           <input id="client-link-result-input" readonly class="form-input flex-1 text-xs" onclick="this.select()">
           <button onclick="copyResultLink(this)" class="px-3 py-2 rounded-lg bg-indigo-600 text-white text-xs shrink-0 whitespace-nowrap"><i class="fa-regular fa-copy"></i> คัดลอกอีกครั้ง</button>
         </div>
+        <div class="flex items-center gap-2 mb-4">
+          <button id="client-link-toggle-btn" onclick="toggleCurrentClientLinkDisabled(this)" class="px-3 py-2 rounded-lg border border-slate-200 text-xs"></button>
+          <button onclick="revokeCurrentClientLink()" class="px-3 py-2 rounded-lg border border-red-200 text-red-600 text-xs"><i class="fa-solid fa-ban"></i> ยกเลิกลิงก์เดิม + สร้างใหม่</button>
+        </div>
         <button onclick="backToClientBrandList()" class="text-xs text-slate-500 hover:text-slate-700"><i class="fa-solid fa-arrow-left"></i> เลือกแบรนด์อื่น</button>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- ============ CLIENT LINK BLOCKED (disabled/revoked/forged link) ============ -->
+<div id="client-link-blocked-page" class="hidden fixed inset-0 bg-white z-[9999] flex items-center justify-center p-6">
+  <div class="text-center max-w-sm">
+    <div class="text-4xl mb-3">🔒</div>
+    <div class="font-semibold text-lg mb-2">ลิงก์นี้ใช้ไม่ได้</div>
+    <div class="text-sm text-slate-500" id="client-link-blocked-reason">กรุณาขอลิงก์ใหม่จากทีม GEM</div>
   </div>
 </div>
 
@@ -530,6 +640,15 @@ function platformChip(p){
 }
 const STATUS_FLOW = ['Draft','Review','Revision','Approved','Ready','Scheduled','Posted'];
 
+// A themed client view shouldn't rely on the status pill's color alone to
+// signal a finished post -- prefix a checkmark on top of whatever color the
+// brand's theme maps "Posted" to. Plain admin view (or an unthemed brand)
+// never calls this with a theme active, so its pills are untouched.
+function statusPillHtml(status){
+  const prefix = (isRealClientLink() && clientTheme && status === 'Posted') ? '✓ ' : '';
+  return `<span class="status-pill status-${status}">${prefix}${status}</span>`;
+}
+
 // ---------- Backend API (Phase 2) ----------
 // Paste the Apps Script Web App /exec URL here once deployed (see
 // Content_Planner_GAS/SETUP.md). Leave empty to keep using local mock
@@ -557,34 +676,83 @@ function clientPatchToApi(patch){
   if (patch.scheduledAt !== undefined) out.ScheduledAt = patch.scheduledAt instanceof Date ? patch.scheduledAt.toISOString() : patch.scheduledAt;
   return out;
 }
+// True only for an actual signed client link (?client=1&brand=X&t=Y), never
+// for the admin's own local "preview client mode" toggle (which has no
+// brand lock or signature) -- only a real client link's requests get
+// brand/t attached, so the backend can tell them apart from admin requests.
+function isRealClientLink(){
+  return clientModeLocked && sharedBrandLocked && !!clientSig;
+}
 async function apiCall(action, data){
+  const payload = Object.assign({ action }, data);
+  if (isRealClientLink()) { payload.brand = sharedBrand; payload.t = clientSig; }
   const res = await fetch(API_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // avoids a CORS preflight against Apps Script
-    body: JSON.stringify(Object.assign({ action }, data)),
+    body: JSON.stringify(payload),
   });
   const json = await res.json();
-  if (!json.success) throw new Error(json.error || 'API error');
+  if (!json.success) { const err = new Error(json.error || 'API error'); err.reason = json.reason; throw err; }
   return json;
 }
 async function apiGet(action){
-  const res = await fetch(`${API_URL}?action=${action}`);
+  const extra = isRealClientLink() ? `&brand=${encodeURIComponent(sharedBrand)}&t=${encodeURIComponent(clientSig)}` : '';
+  const res = await fetch(`${API_URL}?action=${action}${extra}`);
   const json = await res.json();
-  if (!json.success) throw new Error(json.error || 'API error');
+  if (!json.success) { const err = new Error(json.error || 'API error'); err.reason = json.reason; throw err; }
   return json;
 }
+function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
+
+let clientLinkInvalid = false;
+let clientLinkReason = '';
+// Apps Script Web Apps can be genuinely slow on their first request after
+// sitting idle for a while ("cold start") -- a single failed/slow attempt
+// doesn't mean the backend is actually down. Retry a couple of times with a
+// short backoff before giving up and falling back to mock data, since a
+// retry right after a cold start is usually fast (the instance is now warm).
 async function loadFromApi(){
   if (!API_URL) return false;
-  try {
-    const [listResp, ownersResp, brandsResp] = await Promise.all([apiGet('list'), apiGet('owners'), apiGet('brands')]);
-    items = listResp.items.map(apiItemToClient);
-    notionOwners = ownersResp.owners;
-    notionBrands = brandsResp.brands;
-    return true;
-  } catch (err) {
-    console.error('Failed to load from API, falling back to mock data:', err);
-    return false;
+  const attempts = 3;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      if (isRealClientLink()) {
+        // A client link only ever gets its own brand's items -- never the
+        // separate owners/brands lists, which would leak every other
+        // brand's name to someone who was only ever given one brand's link.
+        const listResp = await apiGet('list');
+        items = listResp.items.map(apiItemToClient);
+        linkRequiredBrands = listResp.linkRequired ? [sharedBrand] : [];
+        notionOwners = null;
+        notionBrands = null;
+        // Best-effort: a brand with no theme configured (or a theme lookup
+        // failure) must never block the dashboard from loading -- it just
+        // means this client sees the page's default, unthemed look.
+        try {
+          const themeResp = await apiGet('theme');
+          clientTheme = themeResp.theme || null;
+        } catch (e) { clientTheme = null; }
+        return true;
+      }
+      const [listResp, ownersResp, brandsResp] = await Promise.all([apiGet('list'), apiGet('owners'), apiGet('brands')]);
+      items = listResp.items.map(apiItemToClient);
+      notionOwners = ownersResp.owners;
+      notionBrands = brandsResp.brands;
+      linkRequiredBrands = brandsResp.linkRequiredBrands || [];
+      return true;
+    } catch (err) {
+      // A deliberately disabled/revoked/forged link should show the "get a
+      // new link" message immediately, not retry 3 times first.
+      if (err.message === 'LINK_INVALID') {
+        clientLinkInvalid = true;
+        clientLinkReason = err.reason || 'invalid';
+        return false;
+      }
+      console.error(`Failed to load from API (attempt ${attempt}/${attempts}):`, err);
+      if (attempt < attempts) await sleep(1500 * attempt);
+    }
   }
+  return false;
 }
 
 // ---------- Mock data ----------
@@ -662,6 +830,7 @@ let sharedBrand = '';
 let sharedBrandLocked = false; // true when forced via ?brand=... link — dropdown disabled, survives "clear filter"
 let sharedOwner = '';
 let sharedPlatform = '';
+let sharedMissingLink = false;
 function populateSharedFilter(){
   const brands = [...new Set(items.map(i=>i.brand))];
   document.getElementById('shared-brand').innerHTML = '<option value="">ทุกแบรนด์</option>' + brands.map(b=>`<option ${b===sharedBrand?'selected':''}>${b}</option>`).join('');
@@ -669,6 +838,7 @@ function populateSharedFilter(){
   const owners = [...new Set(items.map(i=>i.owner))];
   document.getElementById('shared-owner').innerHTML = '<option value="">ทุกผู้รับผิดชอบ</option>' + owners.map(o=>`<option ${o===sharedOwner?'selected':''}>${o}</option>`).join('');
   document.getElementById('shared-platform').value = sharedPlatform;
+  document.getElementById('shared-missing-link').checked = sharedMissingLink;
   updateSharedFilterBadge();
 }
 function updateSharedFilterBadge(){
@@ -676,18 +846,20 @@ function updateSharedFilterBadge(){
   if (sharedBrand) parts.push(sharedBrand + (sharedBrandLocked ? ' (ล็อก)' : ''));
   if (sharedOwner) parts.push(sharedOwner);
   if (sharedPlatform) parts.push(sharedPlatform);
+  if (sharedMissingLink) parts.push('ขาดลิงก์โพสต์');
   document.getElementById('shared-filter-badge').textContent = parts.length ? `กำลังกรอง: ${parts.join(' · ')}` : '';
 }
 function applySharedFilter(){
   if (!sharedBrandLocked) sharedBrand = document.getElementById('shared-brand').value;
   sharedOwner = document.getElementById('shared-owner').value;
   sharedPlatform = document.getElementById('shared-platform').value;
+  sharedMissingLink = document.getElementById('shared-missing-link').checked;
   updateSharedFilterBadge();
   refreshAll();
 }
 function clearSharedFilter(){
   if (!sharedBrandLocked) sharedBrand = '';
-  sharedOwner = ''; sharedPlatform = '';
+  sharedOwner = ''; sharedPlatform = ''; sharedMissingLink = false;
   populateSharedFilter();
   refreshAll();
 }
@@ -695,14 +867,21 @@ function visibleItems(){
   return items.filter(i =>
     (!sharedBrand || i.brand===sharedBrand) &&
     (!sharedOwner || i.owner===sharedOwner) &&
-    (!sharedPlatform || i.platforms.includes(sharedPlatform))
+    (!sharedPlatform || i.platforms.includes(sharedPlatform)) &&
+    (!sharedMissingLink || computeFlags(i).includes('missingLink'))
   );
 }
 
 // ---------- Client mode (view + status/comment only, no create/edit/delete) ----------
 let clientMode = false;
 let clientModeLocked = false; // true when forced via ?client=1 link — toggle button hidden
+let clientSig = ''; // the `t` signature from a real client link (?client=1&brand=X&t=Y)
+let clientTheme = null; // this brand's theme payload (action=theme), set only for a real, verified client link
 const CLIENT_STATUS_OPTIONS = ['Review', 'Revision', 'Approved']; // statuses a client is allowed to set
+// Statuses an item must currently be in for a client to change its status at
+// all -- mirrors Code.gs's CLIENT_EDITABLE_FROM_STATUSES. Once Scheduled/
+// Posted/Cancelled, further changes go through the comment box instead.
+const CLIENT_EDITABLE_FROM_STATUSES = ['Review', 'Revision', 'Approved', 'Ready'];
 function toggleClientMode(){
   if (clientModeLocked) return;
   clientMode = !clientMode;
@@ -734,8 +913,8 @@ function clientLinkBrandList(){
   const fromItems = [...new Set(items.map(i=>i.brand))];
   return [...new Set([...fromNotion, ...fromItems])].filter(Boolean).sort((a,b)=>a.localeCompare(b));
 }
-function buildClientLink(brand){
-  return `${location.origin}${location.pathname}?client=1&brand=${encodeURIComponent(brand)}`;
+function buildClientLink(brand, t){
+  return `${location.origin}${location.pathname}?client=1&brand=${encodeURIComponent(brand)}&t=${encodeURIComponent(t)}`;
 }
 function renderClientLinkList(){
   const search = document.getElementById('client-link-search').value.trim().toLowerCase();
@@ -752,12 +931,49 @@ function renderClientLinkList(){
     </button>
   `).join('');
 }
+let currentClientLinkBrand = '';
+function updateClientLinkToggleBtn(disabled){
+  const btn = document.getElementById('client-link-toggle-btn');
+  btn.dataset.disabled = disabled ? '1' : '0';
+  btn.innerHTML = disabled
+    ? '<i class="fa-solid fa-play"></i> เปิดลิงก์กลับ'
+    : '<i class="fa-solid fa-pause"></i> ปิดลิงก์ชั่วคราว';
+}
 async function selectClientBrand(brand){
+  currentClientLinkBrand = brand;
   document.getElementById('client-link-result-brand').textContent = brand;
-  document.getElementById('client-link-result-input').value = buildClientLink(brand);
+  document.getElementById('client-link-result-input').value = 'กำลังสร้างลิงก์...';
   document.getElementById('client-link-stage-list').classList.add('hidden');
   document.getElementById('client-link-stage-result').classList.remove('hidden');
-  await copyResultLink();
+  try {
+    const resp = await apiCall('adminClientLinkInfo', { brand });
+    document.getElementById('client-link-result-input').value = buildClientLink(brand, resp.t);
+    updateClientLinkToggleBtn(resp.disabled);
+    await copyResultLink();
+  } catch (err) {
+    document.getElementById('client-link-result-input').value = '';
+    alert('สร้างลิงก์ไม่สำเร็จ: ' + err.message);
+  }
+}
+async function toggleCurrentClientLinkDisabled(btn){
+  const nextDisabled = btn.dataset.disabled !== '1';
+  try {
+    const resp = await apiCall('adminClientLinkToggle', { brand: currentClientLinkBrand, disabled: nextDisabled });
+    updateClientLinkToggleBtn(resp.disabled);
+  } catch (err) {
+    alert('ทำรายการไม่สำเร็จ: ' + err.message);
+  }
+}
+async function revokeCurrentClientLink(){
+  if (!confirm('ลิงก์เดิมของแบรนด์นี้จะใช้งานไม่ได้ทันที ต้องส่งลิงก์ใหม่ให้ลูกค้า ดำเนินการต่อ?')) return;
+  try {
+    const resp = await apiCall('adminClientLinkRevoke', { brand: currentClientLinkBrand });
+    document.getElementById('client-link-result-input').value = buildClientLink(currentClientLinkBrand, resp.t);
+    await copyResultLink();
+    alert('สร้างลิงก์ใหม่แล้ว คัดลอกเข้า clipboard ให้อัตโนมัติ — ส่งลิงก์ใหม่นี้ให้ลูกค้าแทนลิงก์เดิม (ลิงก์เดิมใช้ไม่ได้อีกแล้ว)');
+  } catch (err) {
+    alert('ยกเลิกลิงก์เดิมไม่สำเร็จ: ' + err.message);
+  }
 }
 async function copyResultLink(btn){
   const input = document.getElementById('client-link-result-input');
@@ -773,6 +989,102 @@ async function copyResultLink(btn){
     setTimeout(() => { btn.innerHTML = original; }, 1500);
   }
 }
+// Full-page takeover for a disabled/revoked/forged client link -- shown
+// instead of ever falling back to mock data, since mock data isn't scoped
+// to any brand and would be a confusing (if harmless) thing for a client to
+// land on when their link stops working.
+function showClientLinkBlockedPage(reason){
+  document.getElementById('client-link-blocked-reason').textContent =
+    reason === 'disabled'
+      ? 'ลิงก์นี้ถูกปิดใช้งานชั่วคราว กรุณาขอลิงก์ใหม่จากทีม GEM'
+      : 'ลิงก์นี้ใช้ไม่ได้ กรุณาขอลิงก์ใหม่จากทีม GEM';
+  document.getElementById('client-link-blocked-page').classList.remove('hidden');
+}
+
+// Applies a verified brand's theme (fetched via action=theme, only ever
+// reachable through a real signed client link -- see loadFromApi) by
+// injecting its colors/fonts as CSS custom properties scoped to
+// body[data-client-theme], plus the matching Google Fonts stylesheet and
+// the branded header (accent bar, title, subtitle, optional dashboard
+// link). Never called for an unthemed brand (theme is null) or admin/
+// preview client mode, so the page's default look is the untouched
+// fallback in every other case.
+function applyClientTheme_(theme){
+  if (!theme) return;
+  document.body.setAttribute('data-client-theme', sharedBrand);
+
+  const fontSpecs = ['display', 'body', 'num'].map(k => theme.fonts && theme.fonts[k]).filter(Boolean);
+  if (fontSpecs.length) {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = 'https://fonts.googleapis.com/css2?' +
+      fontSpecs.map(f => 'family=' + f.replace(/ /g, '+')).join('&') + '&display=swap';
+    document.head.appendChild(link);
+  }
+  const fontName = spec => spec ? spec.split(':')[0].replace(/\+/g, ' ') : '';
+
+  const colorVars = c => `
+    --cp-bg:${c.bg}; --cp-surface:${c.surface}; --cp-surface2:${c.surface2}; --cp-line:${c.line};
+    --cp-ink:${c.ink}; --cp-ink2:${c.ink2}; --cp-muted:${c.muted};
+    --cp-brand:${c.brand}; --cp-brandInk:${c.brandInk}; --cp-accent:${c.accent};
+    --cp-infoBg:${c.infoBg}; --cp-infoFg:${c.infoFg};
+    --cp-warnBg:${c.warnBg}; --cp-warnFg:${c.warnFg};
+    --cp-critBg:${c.critBg}; --cp-critFg:${c.critFg};
+  `;
+  // Each status maps to a semantic token (brand/info/warn/crit/surface2) in
+  // the theme payload rather than a literal color, so the same four/five
+  // tokens work for any brand's status vocabulary without hardcoding which
+  // status means what per brand here.
+  const TOKEN_VARS = {
+    brand:    { bg: 'var(--cp-brand)',   fg: 'var(--cp-brandInk)' },
+    info:     { bg: 'var(--cp-infoBg)',  fg: 'var(--cp-infoFg)' },
+    warn:     { bg: 'var(--cp-warnBg)',  fg: 'var(--cp-warnFg)' },
+    crit:     { bg: 'var(--cp-critBg)',  fg: 'var(--cp-critFg)' },
+    surface2: { bg: 'var(--cp-surface2)', fg: 'var(--cp-ink2)' },
+  };
+  const statusCss = Object.keys(theme.status || {}).map(status => {
+    const v = TOKEN_VARS[theme.status[status]] || TOKEN_VARS.surface2;
+    return `body[data-client-theme] .status-${status} { background:${v.bg} !important; color:${v.fg} !important; }`;
+  }).join('\n');
+
+  const sel = `body[data-client-theme="${sharedBrand}"]`;
+  const css = `
+    ${sel} {
+      ${colorVars(theme.light || {})}
+      --cp-font-display:'${fontName(theme.fonts && theme.fonts.display)}';
+      --cp-font-body:'${fontName(theme.fonts && theme.fonts.body)}';
+      --cp-font-num:'${fontName(theme.fonts && theme.fonts.num)}';
+    }
+    @media (prefers-color-scheme: dark) {
+      ${sel} { ${colorVars(theme.dark || theme.light || {})} }
+    }
+    ${statusCss}
+  `;
+  const styleEl = document.createElement('style');
+  styleEl.id = 'cp-theme-vars';
+  styleEl.textContent = css;
+  document.head.appendChild(styleEl);
+
+  const titleEl = document.getElementById('app-title');
+  if (titleEl && theme.title) {
+    titleEl.textContent = '';
+    const bar = document.createElement('span');
+    bar.className = 'cp-theme-bar';
+    bar.setAttribute('aria-hidden', 'true');
+    titleEl.appendChild(bar);
+    titleEl.appendChild(document.createTextNode(theme.title));
+  }
+  const subtitleEl = document.getElementById('app-subtitle');
+  if (subtitleEl && theme.subtitle) subtitleEl.textContent = theme.subtitle;
+
+  const dashLink = document.getElementById('cp-theme-dashboard-link');
+  if (dashLink && theme.dashboardUrl) {
+    dashLink.href = theme.dashboardUrl;
+    dashLink.classList.remove('hidden');
+    dashLink.classList.add('flex');
+  }
+}
+
 function applyClientModeUI(){
   const btn = document.getElementById('client-mode-btn');
   btn.classList.toggle('bg-emerald-50', clientMode);
@@ -864,7 +1176,27 @@ function computeFlags(item){
     if (diffH < 0) flags.push('overdue');
     else if (diffH <= 24) flags.push('soon');
   }
+  // Posted always needs proof; Scheduled only once its own post time has
+  // actually passed (an item scheduled for later today isn't "missing" a
+  // link yet — it just hasn't happened). Only applies to brands configured
+  // via LINK_REQUIRED_BRANDS -- other brands never see this flag.
+  const linkRequired = linkRequiredBrands.includes(item.brand);
+  const shouldHaveLink = linkRequired && (item.status === 'Posted' || (item.status === 'Scheduled' && item.scheduledAt <= now));
+  const hasLink = hasPublishedLink(item);
+  if (shouldHaveLink && !hasLink) flags.push('missingLink');
   return flags;
+}
+function hasPublishedLink(item){
+  return (item.platforms || []).some(p => item.published && item.published[p] && /^https?:\/\//i.test(item.published[p]));
+}
+// One small clickable icon per platform that has a real published link —
+// visible/clickable in client mode too (view-only, not an edit control).
+function publishedLinkIcon(item){
+  if (!item.published) return '';
+  return Object.keys(item.published)
+    .filter(p => item.published[p] && /^https?:\/\//i.test(item.published[p]))
+    .map(p => `<a href="${item.published[p]}" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="ลิงก์โพสต์จริง (${p})" class="text-indigo-600 ml-1"><i class="fa-solid fa-link"></i></a>`)
+    .join('');
 }
 
 // ---------- Tabs ----------
@@ -921,7 +1253,7 @@ function itemRow(i){
       </div>
       <div class="text-xs text-slate-400">${i.brand} · ${fmtDate(i.scheduledAt)} · ${i.owner}</div>
     </div>
-    <span class="status-pill status-${i.status}">${i.status}</span>
+    ${statusPillHtml(i.status)}
   </div>`;
 }
 
@@ -950,9 +1282,13 @@ function renderList(){
       <td class="p-3"><div class="font-medium">${i.brand}</div><div class="text-xs text-slate-400">${i.campaign}</div></td>
       <td class="p-3">${i.title}</td>
       <td class="p-3">${i.platforms.map(platformChip).join(' ')}</td>
-      <td class="p-3 text-xs">${fmtDate(i.scheduledAt)} ${flagBadge(i)}</td>
+      <td class="p-3 text-xs"><span class="cp-theme-num">${fmtDate(i.scheduledAt)}</span> ${flagBadge(i)}</td>
       <td class="p-3">${i.owner}</td>
-      <td class="p-3"><span class="status-pill status-${i.status}">${i.status}</span></td>
+      <td class="p-3">
+        ${statusPillHtml(i.status)}
+        ${computeFlags(i).includes('missingLink') ? '<span class="flag-missing-link"><i class="fa-solid fa-link-slash"></i> ยังไม่มีลิงก์</span>' : ''}
+        ${publishedLinkIcon(i)}
+      </td>
       <td class="p-3 text-right">${clientMode?'':`<button onclick="event.stopPropagation();editContent('${i.id}')" class="text-indigo-600 text-xs"><i class="fa-solid fa-pen"></i></button>`}</td>
     </tr>
   `).join('') || `<tr><td colspan="8" class="p-6 text-center text-slate-400 text-sm">ไม่พบรายการ</td></tr>`;
@@ -971,8 +1307,9 @@ function fmtDate(d){
 const MAX_CAL_ITEMS = 3;
 function shiftMonth(n){ calCursor.setMonth(calCursor.getMonth()+n); renderCalendar(); }
 function calItemChip(i){
-  return `<div class="cal-item cal-item-${i.status}" ${clientMode?'':`draggable="true" ondragstart="onCalDragStart(event, '${i.id}')"`} onclick="event.stopPropagation();viewDetail('${i.id}')" title="${i.title}">
-    <span class="cal-dot cal-dot-${i.status}"></span><span class="truncate">${i.title}</span>
+  const missing = computeFlags(i).includes('missingLink');
+  return `<div class="cal-item cal-item-${i.status}" ${clientMode?'':`draggable="true" ondragstart="onCalDragStart(event, '${i.id}')"`} onclick="event.stopPropagation();viewDetail('${i.id}')" title="${i.title}${missing?' (ยังไม่มีลิงก์โพสต์จริง)':''}">
+    <span class="cal-dot cal-dot-${i.status}"></span><span class="truncate">${i.title}</span>${missing?' <i class="fa-solid fa-link-slash cal-missing-link-icon" style="color:#dc2626;font-size:8px"></i>':''}
   </div>`;
 }
 function renderCalendar(){
@@ -1000,7 +1337,7 @@ function renderCalendar(){
       data-date="${cellDate.toISOString()}"
       ${inMonth && !clientMode ? `ondragover="onCalDragOver(event)" ondragenter="onCalDragEnter(event)" ondragleave="onCalDragLeave(event)" ondrop="onCalDrop(event, '${cellDate.toISOString()}')"` : ''}>
       <div class="day-num-row">
-        <span class="day-num ${isToday?'today-badge':''}">${cellDate.getDate()}</span>
+        <span class="day-num cp-theme-num ${isToday?'today-badge':''}">${cellDate.getDate()}</span>
       </div>
       ${shown.map(calItemChip).join('')}
       ${overflow>0 ? `<div class="cal-more" onclick="openDayModal('${cellDate.toISOString()}')">+${overflow} เพิ่มเติม</div>` : ''}
@@ -1020,7 +1357,7 @@ function openDayModal(isoDate){
         <div class="text-sm font-medium truncate">${i.title}</div>
         <div class="text-xs text-slate-400">${i.brand} · ${i.owner}</div>
       </div>
-      <span class="status-pill status-${i.status}">${i.status}</span>
+      ${statusPillHtml(i.status)}
     </div>
   `).join('') || '<div class="text-xs text-slate-400 p-2">ไม่มีรายการ</div>';
   document.getElementById('day-modal').classList.remove('hidden');
@@ -1122,6 +1459,11 @@ function resolvedBrand(selectId){
 // ---------- Owner / Reviewer dropdowns (Notion-synced when API is connected) ----------
 let notionOwners = null; // set by loadFromApi() when API_URL is configured
 let notionBrands = null; // set by loadFromApi() when API_URL is configured
+// Brands that must have a real published link once Posted (or Scheduled and
+// overdue) -- e.g. ["AIS"] for the Retail Connect KPI dashboard. Configured
+// server-side via the LINK_REQUIRED_BRANDS Script Property so other brands
+// are never affected; empty by default (mock/local mode, or unconfigured).
+let linkRequiredBrands = [];
 function personRoster(){
   if (notionOwners && notionOwners.length) return notionOwners;
   return [...new Set(items.flatMap(i => [i.owner, i.reviewer]).filter(Boolean))];
@@ -1168,6 +1510,7 @@ function openForm(){
   populatePersonDropdown('fld-reviewer');
   document.getElementById('fld-status').value = 'Draft';
   document.querySelectorAll('#fld-platforms input').forEach(cb=>{ cb.checked=false; cb.onchange=renderCaptionTabs; });
+  window.__editPublished = {};
   renderCaptionTabs();
   document.getElementById('form-modal').classList.remove('hidden');
   document.getElementById('form-modal').classList.add('flex');
@@ -1188,6 +1531,7 @@ function editContent(id){
   document.getElementById('fld-status').value = i.status;
   document.querySelectorAll('#fld-platforms input').forEach(cb=>{ cb.checked = i.platforms.includes(cb.value); cb.onchange=renderCaptionTabs; });
   window.__editCaptions = JSON.parse(JSON.stringify(i.captions));
+  window.__editPublished = JSON.parse(JSON.stringify(i.published || {}));
   renderCaptionTabs();
   document.getElementById('form-modal').classList.remove('hidden');
   document.getElementById('form-modal').classList.add('flex');
@@ -1200,6 +1544,7 @@ function closeForm(){
   document.getElementById('form-modal').classList.add('hidden');
   document.getElementById('form-modal').classList.remove('flex');
   window.__editCaptions = null;
+  window.__editPublished = null;
 }
 function selectedPlatforms(){
   return [...document.querySelectorAll('#fld-platforms input:checked')].map(cb=>cb.value);
@@ -1247,13 +1592,22 @@ function renderCaptionPanel(){
       <label class="form-label">${activeCapTab==='Instagram'?'Hashtag':'CTA'}</label>
       <input class="form-input" value="${activeCapTab==='Instagram'?(data.hashtag||''):(data.cta||'')}" oninput="updateCaption('${activeCapTab==='Instagram'?'hashtag':'cta'}', this.value)">`;
   }
-  panel.innerHTML = fields + `<button class="mt-2 text-xs text-indigo-600" onclick="copyCaption()"><i class="fa-regular fa-copy"></i> คัดลอกข้อความ</button>`;
+  const pubStore = window.__editPublished || (window.__editPublished = {});
+  const pubUrl = pubStore[activeCapTab] || '';
+  panel.innerHTML = fields
+    + `<button class="mt-2 text-xs text-indigo-600" onclick="copyCaption()"><i class="fa-regular fa-copy"></i> คัดลอกข้อความ</button>`
+    + `<label class="form-label mt-3 block">ลิงก์โพสต์จริง (${activeCapTab})</label>
+       <input class="form-input" placeholder="https://..." value="${pubUrl}" oninput="updatePublishedUrl(this.value)">`;
 }
 function updateCaption(field, value){
   const store = window.__editCaptions || (window.__editCaptions = {});
   store[activeCapTab] = store[activeCapTab] || {};
   store[activeCapTab][field] = value;
   renderChecklistPreview();
+}
+function updatePublishedUrl(value){
+  const store = window.__editPublished || (window.__editPublished = {});
+  store[activeCapTab] = value;
 }
 function copyCaption(){
   const data = (window.__editCaptions||{})[activeCapTab] || {};
@@ -1290,6 +1644,21 @@ async function saveContent(){
   if (!document.getElementById('fld-title').value.trim()){ alert('กรุณาระบุหัวข้อคอนเทนต์'); return; }
   const brand = resolvedBrand('fld-brand');
   if (!brand){ alert('กรุณาระบุแบรนด์ / ลูกค้า'); return; }
+
+  // Only keep non-empty links, and only for the currently-selected platforms
+  // (a link typed in, then that platform unchecked, shouldn't linger).
+  const publishedInput = window.__editPublished || {};
+  const published = {};
+  for (const p of platforms) {
+    const url = (publishedInput[p] || '').trim();
+    if (!url) continue;
+    if (!/^https?:\/\//i.test(url)) {
+      alert(`ลิงก์โพสต์จริงของ ${p} ต้องขึ้นต้นด้วย http:// หรือ https://`);
+      return;
+    }
+    published[p] = url;
+  }
+
   const payload = {
     brand,
     campaign: document.getElementById('fld-campaign').value,
@@ -1302,11 +1671,17 @@ async function saveContent(){
     reviewer: resolvedPerson('fld-reviewer'),
     status: document.getElementById('fld-status').value,
     captions: window.__editCaptions || {},
-    published: {},
+    // Was hardcoded to {} on every save -- editing any item silently wiped
+    // out whatever published links it already had. Now built from the
+    // form's own per-platform link fields (seeded from the existing item
+    // when editing), so an unrelated edit no longer loses them.
+    published,
   };
 
   const saveBtn = document.getElementById('save-content-btn');
+  const originalSaveBtnHtml = saveBtn.innerHTML;
   saveBtn.disabled = true;
+  saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังบันทึก...';
 
   if (API_URL) {
     try {
@@ -1320,6 +1695,7 @@ async function saveContent(){
       }
     } catch (err) {
       saveBtn.disabled = false;
+      saveBtn.innerHTML = originalSaveBtnHtml;
       alert('บันทึกไปที่ระบบหลังบ้านไม่สำเร็จ: ' + err.message);
       return;
     }
@@ -1328,6 +1704,7 @@ async function saveContent(){
   }
 
   saveBtn.disabled = false;
+  saveBtn.innerHTML = originalSaveBtnHtml;
   closeForm();
   populateFilters();
   refreshAll();
@@ -1352,30 +1729,37 @@ function viewDetail(id){
         <h3 class="font-semibold text-lg">${i.title}</h3>
       </div>
       ${clientMode
-        ? `<select class="status-pill status-${i.status}" style="border:none;cursor:pointer;" onchange="changeDetailStatus('${i.id}', this.value)">
-             ${[...new Set([i.status, ...CLIENT_STATUS_OPTIONS])].map(s=>`<option value="${s}" ${s===i.status?'selected':''}>${s}</option>`).join('')}
-           </select>`
+        ? (CLIENT_EDITABLE_FROM_STATUSES.includes(i.status)
+            ? `<select class="status-pill status-${i.status}" style="border:none;cursor:pointer;" onchange="changeDetailStatus('${i.id}', this.value)">
+                 ${[...new Set([i.status, ...CLIENT_STATUS_OPTIONS])].map(s=>`<option value="${s}" ${s===i.status?'selected':''}>${s}</option>`).join('')}
+               </select>`
+            : `<span class="status-pill status-${i.status}">${(isRealClientLink() && clientTheme && i.status === 'Posted') ? '✓ ' : ''}โพสต์แล้ว · แจ้งแก้ไขผ่านคอมเมนต์</span>`)
         : `<select class="status-pill status-${i.status}" style="border:none;cursor:pointer;" onchange="changeDetailStatus('${i.id}', this.value)">
              ${['Draft','Review','Revision','Approved','Ready','Scheduled','Posted','Cancelled'].map(s=>`<option value="${s}" ${s===i.status?'selected':''}>${s}</option>`).join('')}
            </select>`
       }
     </div>
     <div class="text-sm text-slate-500 mb-3">
-      <i class="fa-regular fa-clock"></i> ${fmtDate(i.scheduledAt)}
+      <i class="fa-regular fa-clock"></i> <span class="cp-theme-num">${fmtDate(i.scheduledAt)}</span>
       ${flags.includes('overdue')?' · <span class="flag-overdue">เลยกำหนด</span>':''}
       ${flags.includes('soon')?' · <span class="flag-soon">ใกล้ถึงกำหนด</span>':''}
       ${flags.includes('incomplete')?' · <span class="flag-incomplete">ข้อมูลไม่ครบ</span>':''}
+      ${flags.includes('missingLink')?' · <span class="flag-missing-link"><i class="fa-solid fa-link-slash"></i> ยังไม่มีลิงก์โพสต์จริง</span>':''}
     </div>
     <div class="flex gap-1 mb-3 flex-wrap">${i.platforms.map(platformChip).join('')}</div>
     <div class="text-sm mb-3"><b>ผู้รับผิดชอบ:</b> ${i.owner} · <b>ผู้ตรวจ:</b> ${i.reviewer}</div>
-    ${i.media?`<div class="text-sm mb-3"><a href="${i.media}" target="_blank" class="text-indigo-600"><i class="fa-solid fa-link"></i> ลิงก์งาน (กดดู/คอมเมนต์ได้)</a></div>`:''}
+    ${i.media?`<div class="text-sm mb-3"><a href="${i.media}" target="_blank" class="text-indigo-600"><i class="fa-solid fa-link"></i> ดูไฟล์งาน</a></div>`:''}
     <div class="space-y-2">
       ${i.platforms.map(p=>{
         const c = i.captions[p]||{};
         const text = c.caption || c.message || '(ยังไม่ได้เตรียมข้อความ)';
+        const pubUrl = i.published && i.published[p];
         return `<div class="border border-slate-100 rounded-lg p-2">
           <div class="flex items-center justify-between mb-1">
-            ${platformChip(p)}
+            <div class="flex items-center gap-2">
+              ${platformChip(p)}
+              ${pubUrl ? `<a href="${pubUrl}" target="_blank" rel="noopener" class="text-xs text-indigo-600"><i class="fa-solid fa-link"></i> ดูโพสต์จริง</a>` : ''}
+            </div>
             <button class="text-xs text-indigo-600" onclick="navigator.clipboard.writeText(\`${(text||'').replace(/`/g,"'")}\`).then(()=>alert('คัดลอกแล้ว'))"><i class="fa-regular fa-copy"></i> คัดลอก</button>
           </div>
           <div class="text-sm whitespace-pre-wrap">${text}</div>
@@ -1527,7 +1911,9 @@ async function runImportAnalysis(){
   if (!API_URL) { resetImportStatus(); return; }
   if (!resolvedBrand('import-brand')) { alert('กรุณาเลือกแบรนด์ก่อน'); return; }
   const analyzeBtn = document.getElementById('import-analyze-btn');
+  const originalAnalyzeBtnHtml = analyzeBtn.innerHTML;
   analyzeBtn.disabled = true;
+  analyzeBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังวิเคราะห์...';
   const status = document.getElementById('import-status');
   status.className = 'mt-4 text-sm bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-lg p-3';
   status.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังอ่านรูปด้วย AI... (อาจใช้เวลาสักครู่)';
@@ -1561,6 +1947,7 @@ async function runImportAnalysis(){
     status.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> อ่านรูปไม่สำเร็จ: ' + err.message;
   } finally {
     analyzeBtn.disabled = false;
+    analyzeBtn.innerHTML = originalAnalyzeBtnHtml;
   }
 }
 function fileToBase64(file){
@@ -1611,8 +1998,11 @@ async function confirmImport(){
   const owner = resolvedPerson('import-owner');
   const reviewer = resolvedPerson('import-reviewer');
   const defaultTime = document.getElementById('import-default-time').value || '10:00';
+
   const btn = document.getElementById('import-confirm-btn');
+  const originalBtnHtml = btn.innerHTML;
   btn.disabled = true;
+  btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> กำลังสร้าง ${selected.length} รายการ...`;
   try {
     const payload = selected.map(it => ({
       Brand: brand, Campaign: '', Title: it.title, Note: it.note,
@@ -1630,6 +2020,7 @@ async function confirmImport(){
     alert('สร้างรายการไม่สำเร็จ: ' + err.message);
   } finally {
     btn.disabled = false;
+    btn.innerHTML = originalBtnHtml;
   }
 }
 
@@ -1654,12 +2045,19 @@ async function initApp(){
     sharedBrand = brandParam;
     sharedBrandLocked = true;
   }
+  const sigParam = params.get('t');
+  if (sigParam) clientSig = sigParam;
+
   if (API_URL) {
     const badge = document.getElementById('data-mode-badge');
     const ok = await loadFromApi();
     if (ok) {
       badge.className = 'text-xs px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200';
       badge.innerHTML = '<i class="fa-solid fa-database"></i> เชื่อมต่อฐานข้อมูลจริงแล้ว';
+      if (isRealClientLink()) applyClientTheme_(clientTheme);
+    } else if (isRealClientLink() && clientLinkInvalid) {
+      showClientLinkBlockedPage(clientLinkReason);
+      return;
     } else {
       badge.className = 'text-xs px-3 py-1.5 rounded-full bg-red-50 text-red-700 border border-red-200';
       badge.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> เชื่อมฐานข้อมูลไม่สำเร็จ — กำลังใช้ข้อมูลจำลอง (ดู Console เพื่อดูข้อผิดพลาด)';
@@ -1671,6 +2069,24 @@ async function initApp(){
   refreshAll();
 }
 initApp();
+
+// Report real content height to the parent Hub page so it can size the
+// embedding iframe to fit instead of clipping this page into its own
+// internally-scrolling region -- nested iframe scroll is unreliable on
+// mobile. Harmless when opened standalone (no parent).
+(function(){
+  function reportHeight(){
+    try{
+      var h = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);
+      window.parent.postMessage({ ninaHubResize:true, height:h }, '*');
+    }catch(e){}
+  }
+  if(window.ResizeObserver) new ResizeObserver(reportHeight).observe(document.body);
+  window.addEventListener('load', reportHeight);
+  window.addEventListener('resize', reportHeight);
+  setTimeout(reportHeight, 300);
+  setTimeout(reportHeight, 1200);
+})();
 </script>
 </body>
 </html>
