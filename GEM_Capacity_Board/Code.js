@@ -2583,7 +2583,7 @@ function readBriefLinkInput_(inputId) {
   const input = document.getElementById(inputId);
   const value = String(input && input.value || '').trim();
   if (!value) return { ok: true, value: '' };
-  if (value.length > 2000 || !/^https?:\/\/\S+$/i.test(value)) {
+  if (value.length > 2000 || !/^https?:\\/\\/\\S+$/i.test(value)) {
     showToast('กรุณาใช้ลิงก์ที่ขึ้นต้นด้วย http:// หรือ https://');
     return { ok: false, value: '' };
   }
