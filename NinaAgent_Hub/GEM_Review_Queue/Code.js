@@ -21,7 +21,12 @@ const CONFIG = {
 
   // ตั้งค่า LINE (ตั้งค่าจริงใน Script Properties: Project Settings > Script Properties > LINE_CHANNEL_ACCESS_TOKEN)
   LINE_CHANNEL_ACCESS_TOKEN: PropertiesService.getScriptProperties().getProperty('LINE_CHANNEL_ACCESS_TOKEN'),
-  LINE_GROUP_ID: 'C73656d16402ca46690a9ef39b9382bfd',
+  // bindGroupId() (triggered by typing "ผูกกลุ่ม" in a LINE chat) writes a new
+  // destination to this same Script Property — read it here instead of a
+  // hardcoded literal, or re-binding silently has no effect on where alerts
+  // actually go. The literal is only a fallback for a brand-new deployment
+  // that has never had the property set.
+  LINE_GROUP_ID: PropertiesService.getScriptProperties().getProperty('LINE_GROUP_ID') || 'C73656d16402ca46690a9ef39b9382bfd',
 
   // ตำแหน่งคอลัมน์ใน GEM_Graphic_Master (📥 RAW DATA sheet)
   // Row 4: Header, Row 5+: Data
