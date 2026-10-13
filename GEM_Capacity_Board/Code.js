@@ -1163,6 +1163,41 @@ function createNotionProject(name, brandName, ownerName, scopeItemIds, key) {
   return { ok: true, id: res.id };
 }
 
+// Work Type → {Work By, Task Type, Financial Risk} ค่าเริ่มต้นอัตโนมัติ —
+// ใช้ชื่อ option ตรงตาม schema จริงของ Tasks DB (มีเว้นวรรครอบ "/" เช่น
+// "Graphic / Artwork") ถ้า Work Type ไม่อยู่ใน list นี้ (เช่นของเก่าที่ custom
+// ไว้) จะไม่เดาให้ ปล่อยว่างให้คนกรอกเอง workBy: 'project' แปลว่าใช้ Owner
+// ของ Project ที่ Task นี้ผูกอยู่ (ดึงสดจาก Notion ไม่ hardcode ชื่อ PM)
+const WORK_TYPE_DEFAULTS_ = {
+  'Content':             { workBy: ['Graphic Team'], taskType: 'Internal', financialRisk: 'No' },
+  'Graphic / Artwork':   { workBy: ['Graphic Team'], taskType: 'Internal', financialRisk: 'No' },
+  'Video':               { workBy: ['Graphic Team & VDO Editor'], taskType: 'Internal', financialRisk: 'No' },
+  'Ads / Performance':   { workBy: ['Ads Specialist'], taskType: 'Internal', financialRisk: 'No' },
+  'Project Management':  { workBy: 'project', taskType: 'External / Vendor', financialRisk: 'Yes' },
+  'Affiliate':           { workBy: 'project', taskType: 'External / Vendor', financialRisk: 'No' },
+  'Influencer / KOL':    { workBy: 'project', taskType: 'External / Vendor', financialRisk: 'Yes' },
+  'Operation':           { workBy: 'project', taskType: 'Internal', financialRisk: 'No' },
+  'General':             { workBy: 'project', taskType: 'Internal', financialRisk: 'No' },
+};
+
+function applyWorkTypeDefaults_(properties, workType, projectId, key) {
+  const rule = WORK_TYPE_DEFAULTS_[workType];
+  if (!rule) return;
+
+  let workByNames = rule.workBy;
+  if (workByNames === 'project') {
+    workByNames = [];
+    if (projectId) {
+      const proj = notionFetch(`pages/${projectId}`, 'GET', null, key);
+      const owners = proj?.properties?.['Owner']?.multi_select || [];
+      workByNames = owners.map(function(o) { return o.name; });
+    }
+  }
+  if (workByNames.length) properties['Work By'] = { multi_select: workByNames.map(function(n) { return { name: n }; }) };
+  properties['Task Type'] = { multi_select: [{ name: rule.taskType }] };
+  properties['Financial Risk'] = { select: { name: rule.financialRisk } };
+}
+
 function handleCreateTask(body) {
   const key = PropertiesService.getScriptProperties().getProperty('NOTION_API_KEY');
   if (!body || !body.taskName) return { ok: false, error: 'ไม่มีชื่อชิ้นงาน' };
@@ -1196,6 +1231,7 @@ function handleCreateTask(body) {
   if (workTypes.length) properties['Work Type'] = { multi_select: workTypes.map(name => ({ name: name })) };
   if (body.dueDate) properties['Due Date'] = { date: { start: body.dueDate } };
   if (body.assignee) properties['Graphic Assignee'] = { select: { name: body.assignee } };
+  if (workTypes.length) applyWorkTypeDefaults_(properties, workTypes[0], projectId, key);
 
   const res = notionFetch('pages', 'POST', {
     parent: { database_id: '2e69dccd181d81df8919fbacf921c7d5' },
