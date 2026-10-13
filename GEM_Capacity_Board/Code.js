@@ -1045,7 +1045,76 @@ function getProjectOwnerOptions() {
   return res.properties['Owner'].multi_select.options.map(o => o.name).sort((a, b) => a.localeCompare(b, 'th'));
 }
 
-function createNotionProject(name, brandName, ownerName, key) {
+// ============================================================
+// Scope Item (Scope Baseline) — ผูก Project กับบรรทัดใบเสนอราคา
+// ============================================================
+const SCOPE_BASELINE_DB_ID = '0e9b74ddce4747078198a3a9d9228459';
+
+function getScopeItemsForBrand(brandId) {
+  if (!brandId) return [];
+  const key = PropertiesService.getScriptProperties().getProperty('NOTION_API_KEY');
+  const filter = {
+    and: [
+      { property: 'Brand', relation: { contains: brandId } },
+      { property: 'Closed (Override)', checkbox: { equals: false } }
+    ]
+  };
+
+  let allResults = [];
+  let cursor = null;
+  do {
+    const payload = { page_size: 100, filter: filter };
+    if (cursor) payload.start_cursor = cursor;
+    const res = notionFetch(`databases/${SCOPE_BASELINE_DB_ID}/query`, 'POST', payload, key);
+    if (!res || !res.results) break;
+    allResults = allResults.concat(res.results);
+    cursor = res.has_more ? res.next_cursor : null;
+  } while (cursor);
+
+  const today = new Date();
+  const windowStart = new Date(today); windowStart.setDate(today.getDate() - 31);
+  const windowEnd = new Date(today); windowEnd.setDate(today.getDate() + 60);
+
+  const items = allResults.map(function(p) {
+    const props = p.properties;
+    const period = (props['Period'] && props['Period'].date) || null;
+    const targetMonth = (props['Target Month'] && props['Target Month'].date) || null;
+    return {
+      id: p.id,
+      item: (props['Item'] && props['Item'].title && props['Item'].title[0] && props['Item'].title[0].plain_text) || '',
+      itemType: (props['Item Type'] && props['Item Type'].select && props['Item Type'].select.name) || '',
+      status: (props['Status'] && props['Status'].formula && props['Status'].formula.string) || '',
+      qtNo: (props['QT No.'] && props['QT No.'].rich_text && props['QT No.'].rich_text[0] && props['QT No.'].rich_text[0].plain_text) || '',
+      periodStart: period ? (period.start || '') : '',
+      periodEnd: period ? (period.end || '') : '',
+      targetMonth: targetMonth ? (targetMonth.start || '') : '',
+      platformTarget: (props['Platform Target'] && props['Platform Target'].rich_text && props['Platform Target'].rich_text[0] && props['Platform Target'].rich_text[0].plain_text) || ''
+    };
+  }).filter(function(it) {
+    if (it.itemType === 'Service') return false;
+    if (it.status === 'ส่งมอบแล้ว' || it.status === 'ปิด') return false;
+    if (it.itemType === 'Retainer' && (it.periodStart || it.periodEnd)) {
+      const end = it.periodEnd ? new Date(it.periodEnd) : null;
+      const start = it.periodStart ? new Date(it.periodStart) : null;
+      if (end && end < windowStart) return false;
+      if (start && start > windowEnd) return false;
+    }
+    return true;
+  });
+
+  // Retainer ก่อน → Deliverable เรียงตาม QT No. ใหม่ → เก่า
+  items.sort(function(a, b) {
+    if (a.itemType !== b.itemType) {
+      if (a.itemType === 'Retainer') return -1;
+      if (b.itemType === 'Retainer') return 1;
+    }
+    return (b.qtNo || '').localeCompare(a.qtNo || '');
+  });
+
+  return items;
+}
+
+function createNotionProject(name, brandName, ownerName, scopeItemIds, key) {
   const payload = {
     parent: { type: 'data_source_id', data_source_id: '2e69dccd-181d-81d0-83af-000b1fd9260b' },
     template: { type: 'default' },
@@ -1054,6 +1123,9 @@ function createNotionProject(name, brandName, ownerName, key) {
     }
   };
   if (ownerName) payload.properties['Owner'] = { multi_select: [{ name: ownerName }] };
+  if (scopeItemIds && scopeItemIds.length) {
+    payload.properties['Scope Item'] = { relation: scopeItemIds.map(function(id) { return { id: id }; }) };
+  }
   if (brandName) {
     const brands = getNotionBrands();
     if (brands.ok) {
@@ -1076,7 +1148,7 @@ function handleCreateTask(body) {
   // 1) หา / สร้าง Project
   let projectId = body.projectId || '';
   if (!projectId && body.newProjectName) {
-    const created = createNotionProject(body.newProjectName, body.newProjectBrand, body.newProjectOwner, key);
+    const created = createNotionProject(body.newProjectName, body.newProjectBrand, body.newProjectOwner, body.newProjectScopeItemIds, key);
     if (!created.ok) return { ok: false, error: 'สร้าง Project ไม่สำเร็จ: ' + created.error };
     projectId = created.id;
   }
@@ -1423,7 +1495,7 @@ function handleBulkCreateCalendarPlan(body) {
     let projectId = existing ? existing.id : '';
     let projectCreated = false;
     if (!projectId) {
-      const projectResult = createNotionProject(projectName, brandName, ownerName, key);
+      const projectResult = createNotionProject(projectName, brandName, ownerName, [], key);
       if (!projectResult.ok) return { ok: false, error: 'สร้าง Project ไม่สำเร็จ: ' + projectResult.error };
       projectId = projectResult.id;
       projectCreated = true;
@@ -1727,6 +1799,16 @@ header{background:#fff;border-bottom:1px solid #e5e3dd;padding:10px 20px;display
 .chip:hover{background:#e5e3dd;}
 .chip.selected{background:#eef2ff;border-color:#6366f1;color:#4f46e5;font-weight:600;box-shadow:0 2px 6px rgba(99,102,241,0.15);}
 .chip-add{background:transparent;border:1px dashed #bbb;color:#6366f1;}
+.scope-item-list{display:flex;flex-direction:column;gap:6px;max-height:220px;overflow-y:auto;margin-top:6px}
+.scope-item-row{border:1px solid #e5e3dd;border-radius:8px;padding:8px 10px;cursor:pointer;transition:border-color .15s,background .15s;display:flex;gap:8px;align-items:flex-start;background:#fff}
+.scope-item-row:hover{border-color:#bbb}
+.scope-item-row.selected{border-color:#378ADD;background:#EBF4FD}
+.scope-item-check{width:16px;height:16px;border:1.5px solid #ccc;border-radius:4px;flex-shrink:0;margin-top:2px;display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;background:#fff}
+.scope-item-row.selected .scope-item-check{background:#378ADD;border-color:#378ADD}
+.scope-item-title{font-size:13px;font-weight:500;color:#1a1a18}
+.scope-item-sub{font-size:11px;color:#888;margin-top:2px}
+.scope-item-hint{font-size:10px;color:#aaa;margin-top:2px}
+.scope-item-empty{font-size:12px;color:#888;padding:6px 2px}
 .chip-add:hover{background:#f8fafc;border-color:#6366f1;}
 .modal-title{font-size:15px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:6px}
 .status-tag{display:inline-block;padding:2px 6px;font-size:10px;border-radius:10px;margin-right:6px;font-weight:600;text-transform:uppercase;letter-spacing:0.02em;vertical-align:middle}
@@ -1855,7 +1937,11 @@ header{background:#fff;border-bottom:1px solid #e5e3dd;padding:10px 20px;display
       <label for="ct-new-project-name" style="display:block; font-size:13px; font-weight:500; color:#555; margin-bottom:5px;">ชื่อ Project ใหม่</label>
       <input type="text" id="ct-new-project-name" placeholder="ชื่อโปรเจกต์" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;">
       <label for="ct-new-project-brand" style="display:block; font-size:13px; font-weight:500; color:#555; margin:8px 0 5px;">แบรนด์ / ลูกค้า (ถ้ามีในระบบ)</label>
-      <select id="ct-new-project-brand" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;"><option value="">— ไม่ระบุ —</option></select>
+      <select id="ct-new-project-brand" onchange="onCtNewProjectBrandChange()" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;"><option value="">— ไม่ระบุ —</option></select>
+      <div id="ct-scope-item-box" style="display:none; margin-top:10px;">
+        <label style="display:block; font-size:13px; font-weight:500; color:#555; margin-bottom:5px;">ผูก Scope Item (จากใบเสนอราคา) <span style="color:#888;font-weight:normal;">(เลือกได้หลายรายการ ไม่บังคับ)</span></label>
+        <div id="ct-scope-item-list" class="scope-item-list"></div>
+      </div>
       <label for="ct-new-project-owner" style="display:block; font-size:13px; font-weight:500; color:#555; margin:8px 0 5px;">Project Owner</label>
       <select id="ct-new-project-owner" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;"><option value="">— เลือก PM —</option></select>
     </div>
@@ -2646,6 +2732,9 @@ function openCreateModal() {
   document.getElementById('ct-brief-link').value = '';
   document.getElementById('ct-newproject-box').style.display = 'none';
   document.getElementById('ct-pminbox-box').style.display = 'block';
+  document.getElementById('ct-scope-item-box').style.display = 'none';
+  state.scopeItems = null;
+  state.selectedScopeItemIds = [];
   // Project (lazy load)
   var pj = document.getElementById('ct-project');
   if (!state.projects) {
@@ -2671,6 +2760,78 @@ function onCtProjectChange() {
   var val = document.getElementById('ct-project').value;
   document.getElementById('ct-newproject-box').style.display = (val === '__new__') ? 'block' : 'none';
   document.getElementById('ct-pminbox-box').style.display = (val === '') ? 'block' : 'none';
+}
+function ensureBrandsLoaded_(callback) {
+  if (state.brandsList) { callback(); return; }
+  google.script.run
+    .withSuccessHandler(function(res) { state.brandsList = (res && res.brands) || []; callback(); })
+    .withFailureHandler(function() { state.brandsList = []; callback(); })
+    .getNotionBrands();
+}
+function renderScopeItemEmpty_(message) {
+  document.getElementById('ct-scope-item-list').innerHTML = '<div class="scope-item-empty">' + esc(message) + '</div>';
+}
+function renderScopeItemList_() {
+  var el = document.getElementById('ct-scope-item-list');
+  if (!state.scopeItems || !state.scopeItems.length) {
+    renderScopeItemEmpty_('ยังไม่มี Scope จากใบเสนอราคาของแบรนด์นี้');
+    return;
+  }
+  var selected = state.selectedScopeItemIds || [];
+  var html = '';
+  state.scopeItems.forEach(function(it) {
+    var label = (it.item || '').replace(/^[^|]+\|\s*/, '');
+    var periodText = it.periodStart ? (it.periodStart + (it.periodEnd ? ' – ' + it.periodEnd : '')) : (it.targetMonth || '');
+    var sub = [it.itemType, it.qtNo, periodText].filter(Boolean).join(' · ');
+    var isSel = selected.indexOf(it.id) >= 0;
+    html += '<div class="scope-item-row' + (isSel ? ' selected' : '') + '" data-scope-id="' + esc(it.id) + '" onclick="toggleScopeItem(this)">'
+      + '<div class="scope-item-check">' + (isSel ? '✓' : '') + '</div>'
+      + '<div style="flex:1;min-width:0;">'
+      + '<div class="scope-item-title">' + esc(label) + '</div>'
+      + '<div class="scope-item-sub">' + esc(sub) + '</div>'
+      + (it.platformTarget ? '<div class="scope-item-hint">' + esc(it.platformTarget) + '</div>' : '')
+      + '</div></div>';
+  });
+  var noneSel = selected.indexOf('__none__') >= 0;
+  html += '<div class="scope-item-row' + (noneSel ? ' selected' : '') + '" data-scope-id="__none__" onclick="toggleScopeItem(this)">'
+    + '<div class="scope-item-check">' + (noneSel ? '✓' : '') + '</div>'
+    + '<div class="scope-item-title">ไม่อยู่ในใบเสนอราคา / ยังไม่มี QT</div></div>';
+  el.innerHTML = html;
+}
+function toggleScopeItem(el) {
+  var id = el.getAttribute('data-scope-id');
+  var selected = state.selectedScopeItemIds || [];
+  if (id === '__none__') {
+    selected = (selected.indexOf('__none__') >= 0) ? [] : ['__none__'];
+  } else {
+    var idx = selected.indexOf(id);
+    if (idx >= 0) {
+      selected.splice(idx, 1);
+    } else {
+      var noneIdx = selected.indexOf('__none__');
+      if (noneIdx >= 0) selected.splice(noneIdx, 1);
+      selected.push(id);
+    }
+  }
+  state.selectedScopeItemIds = selected;
+  renderScopeItemList_();
+}
+function onCtNewProjectBrandChange() {
+  var brandName = document.getElementById('ct-new-project-brand').value;
+  var box = document.getElementById('ct-scope-item-box');
+  state.scopeItems = null;
+  state.selectedScopeItemIds = [];
+  if (!brandName) { box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  renderScopeItemEmpty_('กำลังโหลด...');
+  ensureBrandsLoaded_(function() {
+    var brand = (state.brandsList || []).find(function(b) { return b.name === brandName; });
+    if (!brand) { renderScopeItemEmpty_('ยังไม่มี Scope จากใบเสนอราคาของแบรนด์นี้'); return; }
+    google.script.run
+      .withSuccessHandler(function(items) { state.scopeItems = items || []; renderScopeItemList_(); })
+      .withFailureHandler(function() { renderScopeItemEmpty_('โหลด Scope Item ไม่สำเร็จ'); })
+      .getScopeItemsForBrand(brand.id);
+  });
 }
 function closeCreateModal() {
   document.getElementById('create-modal').classList.remove('show');
@@ -2699,9 +2860,15 @@ function submitCreateTask() {
     if (!pn) { showToast('กรุณาใส่ชื่อ Project ใหม่'); return; }
     var projectOwner = document.getElementById('ct-new-project-owner').value;
     if (!projectOwner) { showToast('กรุณาเลือก Project Owner'); return; }
+    var selectedScopeIds = (state.selectedScopeItemIds || []).filter(function(id) { return id !== '__none__'; });
+    var pickedNone = (state.selectedScopeItemIds || []).indexOf('__none__') >= 0;
+    if (!selectedScopeIds.length && !pickedNone) {
+      if (!confirm('Project นี้ยังไม่ผูก Scope — งานจะไม่ถูกนับเข้าเป้าลูกค้า\n\nยืนยันสร้างต่อไหม?')) return;
+    }
     payload.newProjectName = pn;
     payload.newProjectBrand = document.getElementById('ct-new-project-brand').value;
     payload.newProjectOwner = projectOwner;
+    payload.newProjectScopeItemIds = selectedScopeIds;
   } else if (projectSel) {
     payload.projectId = projectSel;
   } else {
