@@ -238,7 +238,25 @@
       </div>
     </div>
 
-    <!-- Section 2: การจ่ายงาน -->
+    <!-- Section 2: สร้างงานจากรูปปฏิทิน -->
+    <div class="section">
+      <div class="section-title">
+        <i class="ti ti-calendar-up"></i> สร้าง Project และ Task จากรูปปฏิทิน
+      </div>
+      <div class="highlight-box" style="margin-bottom:16px;">
+        ระบบจะส่งรูปให้ Gemini อ่านหัวเรื่อง รายการ Content และวันที่ จากนั้นจะแสดงผลให้ตรวจแก้ก่อนสร้างข้อมูลจริงใน Notion
+      </div>
+      <ol class="step-list">
+        <li>กดปุ่ม <strong>สร้างงานจากรูปปฏิทิน</strong> ที่มุมขวาบนของฝั่งงานรอ Assign</li>
+        <li>วางรูปจาก Clipboard, ลากรูปมาวาง หรือคลิกเพื่อเลือกไฟล์ JPG/PNG/WebP</li>
+        <li>กด <strong>วิเคราะห์รูป</strong> และรอให้ระบบแสดงชื่อ Project, Brand, Work Type และรายการ Task จากนั้นเลือก Project Owner</li>
+        <li>ตรวจและแก้ชื่อ Task กับ Due Date ทุกแถว โดยเฉพาะรายการที่มีค่าความมั่นใจต่ำ</li>
+        <li>กด <strong>สร้าง Project และ Task</strong> แล้วยืนยัน ระบบจะสร้าง Task ทั้งหมดภายใต้ Project เดียวกันใน Notion โดยยังไม่ Assign ให้ Graphic</li>
+      </ol>
+      <p style="margin-top:14px;font-size:13px;color:#777;">ถ้ามี Project ชื่อเดียวกันอยู่แล้ว ระบบจะนำ Project เดิมมาใช้เพื่อลดการสร้างข้อมูลซ้ำ</p>
+    </div>
+
+    <!-- Section 3: การจ่ายงาน -->
     <div class="section">
       <div class="section-title">
         <i class="ti ti-hand-click"></i> วิธีการจ่ายงาน (Assign Task)
@@ -251,7 +269,8 @@
           <ol class="step-list" style="margin-top:16px;">
             <li>คลิกค้างที่ "การ์ดงาน" จากฝั่งขวา</li>
             <li>ลากมาวาง (Drop) ใส่กรอบชื่อ Graphic ฝั่งซ้าย</li>
-            <li>ระบบจะทำการเซฟลง Google Sheet และอัปเดตชื่อใน Notion ให้ทันที!</li>
+            <li>ตรวจวันทำงานและใส่ลิงก์บรีฟหรือตัวอย่าง (ถ้ามี) แล้วกดยืนยัน</li>
+            <li>ระบบจะบันทึกลิงก์ลงคอลัมน์ N ของ Google Sheet และอัปเดตชื่อใน Notion ให้ทันที!</li>
           </ol>
         </div>
         
@@ -259,14 +278,14 @@
           <h3><i class="ti ti-pointer"></i> วิธีที่ 2: เลือกจากแถบด้านล่าง</h3>
           <ol class="step-list" style="margin-top:16px;">
             <li>คลิกเลือก "การ์ดงาน" ฝั่งขวา (การ์ดจะขึ้นขอบสีฟ้า)</li>
-            <li>ดูที่แถบด้านล่างขวา เลือกชื่อ Graphic จาก Dropdown</li>
+            <li>ดูที่แถบด้านล่างขวา เลือกชื่อ Graphic และใส่ลิงก์บรีฟหรือตัวอย่าง (ถ้ามี)</li>
             <li>กดปุ่ม <strong>Assign</strong></li>
           </ol>
         </div>
       </div>
     </div>
 
-    <!-- Section 3: การจัดการงานที่ Assign แล้ว -->
+    <!-- Section 4: การจัดการงานที่ Assign แล้ว -->
     <div class="section">
       <div class="section-title">
         <i class="ti ti-settings"></i> การจัดการงานที่จ่ายไปแล้ว
@@ -308,7 +327,7 @@
       </div>
     </div>
     
-    <!-- Section 4: ย้ายงานข้ามคน -->
+    <!-- Section 5: ย้ายงานข้ามคน -->
     <div class="section">
       <div class="section-title">
         <i class="ti ti-arrows-right-left"></i> การย้ายงานให้คนอื่น (Relocate Task)
