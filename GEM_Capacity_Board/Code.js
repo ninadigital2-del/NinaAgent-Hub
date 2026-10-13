@@ -959,11 +959,9 @@ function handleAssign(body) {
 // สร้าง Task ใหม่จากหน้า Capacity Board (feature: Create Task)
 // ============================================================
 // Owner ของ Bot Inbox project ต้องตรงกับ PM ที่กำลังสร้าง Task ให้ถูกต้อง —
-// map ตายตัวไปที่ Project ที่มีอยู่แล้ว (คนละอันต่อ PM คนละคน) แทนการสร้างใหม่
-const PM_INBOX_PROJECT_ID = {
-  'PM - ยู้': '3889dccd181d81b6af2bc0a3cb4983c7', // Bot Inbox — รอจัด Project (PM - ยู้)
-};
-
+// หา/สร้าง Project ให้ผ่าน getOrCreateBotInboxProjectId_() (ดูด้านล่าง ใกล้
+// getProjectOwnerOptions()) ซึ่ง query จาก "GEM Team Member" แบบ dynamic
+// แทนตารางผูกตายตัวแบบเดิม — ไม่ต้องแก้โค้ดทุกครั้งที่มี PM เข้า/ออกทีม
 // Service Type "Brand Management" — Project กลุ่มนี้ไม่มี Task ประเภท Graphic
 // ให้สร้างผ่านบอร์ดนี้ เลยตัดออกจาก dropdown
 const SERVICE_TYPE_BRAND_MANAGEMENT_ID = '2f09dccd-181d-8059-b2a6-cfa7b4a18b1e';
@@ -998,15 +996,69 @@ function getNotionProjects() {
 }
 
 // รายชื่อ PM สำหรับ dropdown "Project Owner" / "PM ผู้สร้างงาน" — ดึงจาก
-// schema จริงของ Owner property (Projects DB) ตรงๆ แทนการเดาจาก Task ที่
-// บังเอิญแสดงอยู่บนจอตอนนั้น (ของเดิมใช้ getAvailablePmNames_() ซึ่งพังง่าย
-// เพราะ Task ที่ยังไม่ assign อาจไม่มีอันไหนผูก Project ที่มี Owner เลย).
+// "GEM Team Member" (Role มี "PM" และ Active = true) แทนการอ่าน schema ของ
+// Owner property ใน Projects DB ตรงๆ เพราะ schema นั้นสะสม option เก่าของ PM
+// ที่ออกจากทีมไปแล้วไว้ตลอด ไม่เคยถูกลบ (ของเดิมใช้ getAvailablePmNames_()
+// ซึ่งพังง่ายเพราะ Task ที่ยังไม่ assign อาจไม่มีอันไหนผูก Project ที่มี
+// Owner เลย). ชื่อที่ใช้เป็น Owner คือ "PM - " + ชื่อเล่น เสมอ ตามรูปแบบที่
+// ใช้จริงใน Projects.Owner (เช่น "PM - ยู้").
+const GEM_TEAM_MEMBER_DB_ID = '092e35e997424e4a9b20d7df03c31dc6';
+
+function getActivePmTeamMembers_(key) {
+  const payload = {
+    filter: {
+      and: [
+        { property: 'Role', multi_select: { contains: 'PM' } },
+        { property: 'Active', checkbox: { equals: true } }
+      ]
+    }
+  };
+  const res = notionFetch(`databases/${GEM_TEAM_MEMBER_DB_ID}/query`, 'POST', payload, key);
+  if (!res || !res.results) return [];
+  return res.results.map(function(p) {
+    const nickname = (p.properties['ชื่อเล่น']?.rich_text || []).map(function(t) { return t.plain_text; }).join('').trim();
+    const botInboxRelation = p.properties['Bot Inbox Project']?.relation || [];
+    return {
+      pageId: p.id,
+      ownerName: nickname ? ('PM - ' + nickname) : '',
+      botInboxProjectId: botInboxRelation[0]?.id || ''
+    };
+  }).filter(function(m) { return m.ownerName; });
+}
+
 function getProjectOwnerOptions() {
   const key = PropertiesService.getScriptProperties().getProperty('NOTION_API_KEY');
-  const dbId = '2e69dccd181d81fabee1e65a00e86e72'; // Projects DB
-  const res = notionFetch(`databases/${dbId}`, 'GET', null, key);
-  if (!res || !res.properties || !res.properties['Owner'] || !res.properties['Owner'].multi_select) return [];
-  return res.properties['Owner'].multi_select.options.map(o => o.name).sort((a, b) => a.localeCompare(b, 'th'));
+  return getActivePmTeamMembers_(key).map(function(m) { return m.ownerName; }).sort((a, b) => a.localeCompare(b, 'th'));
+}
+
+// หา Bot Inbox Project ของ PM คนนั้น (จาก relation "Bot Inbox Project" ใน
+// GEM Team Member) — ถ้ายังไม่เคยมี ให้สร้าง Project ใหม่ให้อัตโนมัติ แล้ว
+// ผูก relation กลับไว้ใช้ครั้งถัดไป กัน PM คนใหม่ต้องรอแอดมินมาแก้โค้ด/deploy
+// ทุกครั้งที่มีคนเข้าทีม
+function getOrCreateBotInboxProjectId_(pmOwnerName, key) {
+  const member = getActivePmTeamMembers_(key).find(function(m) { return m.ownerName === pmOwnerName; });
+  if (!member) {
+    return { ok: false, error: 'ไม่พบ PM "' + pmOwnerName + '" ใน GEM Team Member (อาจยังไม่ได้เพิ่ม หรือ Active ถูกปิดไว้)' };
+  }
+  if (member.botInboxProjectId) return { ok: true, id: member.botInboxProjectId };
+
+  const nickname = pmOwnerName.replace(/^PM - /, '');
+  const created = notionFetch('pages', 'POST', {
+    parent: { database_id: '2e69dccd181d81fabee1e65a00e86e72' }, // Projects DB
+    properties: {
+      'Project Name': { title: [{ text: { content: '🤖 Bot Inbox — รอจัด Project (' + nickname + ')' } }] },
+      'Owner': { multi_select: [{ name: pmOwnerName }] }
+    }
+  }, key);
+  if (!created || created.object === 'error') {
+    return { ok: false, error: 'สร้าง Bot Inbox Project ให้ ' + pmOwnerName + ' ไม่สำเร็จ: ' + ((created && created.message) || 'Notion API error') };
+  }
+
+  notionFetch(`pages/${member.pageId}`, 'PATCH', {
+    properties: { 'Bot Inbox Project': { relation: [{ id: created.id }] } }
+  }, key);
+
+  return { ok: true, id: created.id };
 }
 
 // ============================================================
@@ -1126,14 +1178,12 @@ function handleCreateTask(body) {
   }
   // ไม่ระบุ Project เลย → จัดเข้า Bot Inbox ของ PM ที่เลือก (Project เดิมที่มีอยู่แล้ว
   // ต่อ PM แต่ละคน) แทนการปล่อยว่างไว้ ให้ Owner ถูกต้องตั้งแต่แรก
-  // ถ้าเลือก PM ที่ยังไม่มี Bot Inbox ผูกไว้ (เช่น ตัวเลือกใน Notion schema ยังไม่ถูกลบ
-  // แม้ PM คนนั้นจะออกจากทีมไปแล้ว) ต้องเตือน ไม่ใช่ปล่อยให้ Task สร้างแบบไม่มี Project ลอยเงียบๆ
+  // ถ้าเลือก PM ที่ไม่พบใน GEM Team Member หรือ Active=false ต้องเตือน
+  // ไม่ใช่ปล่อยให้ Task สร้างแบบไม่มี Project ลอยเงียบๆ
   if (!projectId && !body.newProjectName && body.pmOwner) {
-    if (PM_INBOX_PROJECT_ID[body.pmOwner]) {
-      projectId = PM_INBOX_PROJECT_ID[body.pmOwner];
-    } else {
-      return { ok: false, error: 'PM "' + body.pmOwner + '" ยังไม่มี Bot Inbox Project ผูกไว้ กรุณาเลือก Project อื่น หรือแจ้งแอดมินให้เพิ่ม PM นี้ในระบบก่อน' };
-    }
+    const botInbox = getOrCreateBotInboxProjectId_(body.pmOwner, key);
+    if (!botInbox.ok) return { ok: false, error: botInbox.error };
+    projectId = botInbox.id;
   }
 
   // 2) สร้างหน้า Task ใน Notion
