@@ -2823,7 +2823,7 @@ function submitCreateTask() {
     var selectedScopeIds = (state.selectedScopeItemIds || []).filter(function(id) { return id !== '__none__'; });
     var pickedNone = (state.selectedScopeItemIds || []).indexOf('__none__') >= 0;
     if (!selectedScopeIds.length && !pickedNone) {
-      if (!confirm('Project นี้ยังไม่ผูก Scope — งานจะไม่ถูกนับเข้าเป้าลูกค้า\n\nยืนยันสร้างต่อไหม?')) return;
+      if (!confirm('Project นี้ยังไม่ผูก Scope — งานจะไม่ถูกนับเข้าเป้าลูกค้า\\n\\nยืนยันสร้างต่อไหม?')) return;
     }
     payload.newProjectName = pn;
     payload.newProjectBrand = document.getElementById('ct-new-project-brand').value;
