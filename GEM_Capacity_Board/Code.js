@@ -1660,12 +1660,12 @@ function getHtml() {
 /* ทุก <select> ในหน้านี้ใช้ inline style เป็นหลัก ทำให้ลูกศรของ dropdown ชิดขอบขวาเกินไป
    (ไม่มีที่ว่างเผื่อไอคอนลูกศร) — แก้รวมจุดเดียวแทนการไล่แก้ทีละ element */
 select{
-  -webkit-appearance:none;
-  appearance:none;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath fill='%23888' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
-  background-repeat:no-repeat;
-  background-position:right 10px center;
-  background-size:11px 7px;
+  -webkit-appearance:none !important;
+  appearance:none !important;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath fill='%23888' d='M1 1l5 5 5-5'/%3E%3C/svg%3E") !important;
+  background-repeat:no-repeat !important;
+  background-position:right 10px center !important;
+  background-size:11px 7px !important;
   padding-right:30px !important;
 }
 body{font-family:'IBM Plex Sans Thai',sans-serif;background:#f5f4f0;color:#1a1a18;height:100vh;display:flex;flex-direction:column;overflow:hidden}
