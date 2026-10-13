@@ -2740,7 +2740,7 @@ function renderScopeItemList_() {
   var selected = state.selectedScopeItemIds || [];
   var html = '';
   state.scopeItems.forEach(function(it) {
-    var label = (it.item || '').replace(/^[^|]+\|\s*/, '');
+    var label = (it.item || '').replace(/^[^|]+\\|\\s*/, '');
     var periodText = it.periodStart ? (it.periodStart + (it.periodEnd ? ' – ' + it.periodEnd : '')) : (it.targetMonth || '');
     var sub = [it.itemType, it.qtNo, periodText].filter(Boolean).join(' · ');
     var isSel = selected.indexOf(it.id) >= 0;
@@ -3328,8 +3328,8 @@ function relocateTaskViaDrag(fromAssignee, rowIndex, targetAssignee) {
 function parseToIsoDate(dStr) {
   if (!dStr) return '';
   dStr = String(dStr).trim();
-  if (/^\d{4}-\d{2}-\d{2}$/.test(dStr)) return dStr;
-  const match = dStr.match(/^(\d{1,2})([A-Za-z]{3})(\d{2})$/);
+  if (/^\\d{4}-\\d{2}-\\d{2}$/.test(dStr)) return dStr;
+  const match = dStr.match(/^(\\d{1,2})([A-Za-z]{3})(\\d{2})$/);
   if (match) {
     const day = match[1].padStart(2, '0');
     const mNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
