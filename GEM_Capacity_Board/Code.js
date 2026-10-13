@@ -1130,12 +1130,30 @@ function getScopeItemsForBrand(brandId) {
   return items;
 }
 
-function createNotionProject(name, brandName, ownerName, scopeItemIds, key) {
+// Service Type DB (relation จาก Projects.Service Type) — "Content / Graphic
+// Design Production" คือ default ของ Project ที่สร้างผ่านบอร์ดนี้ เพราะเป็น
+// บอร์ดของทีม Graphic โดยเฉพาะ ใช้ fallback นี้เมื่อไม่ได้ระบุ serviceTypeId
+// มา (เช่น flow สร้าง Project จากรูปปฏิทินที่ยังไม่มี UI ให้เลือก)
+const SERVICE_TYPE_CONTENT_GRAPHIC_ID = '2e89dccd181d80f59747e0c36a461402';
+
+function getServiceTypeOptions() {
+  const key = PropertiesService.getScriptProperties().getProperty('NOTION_API_KEY');
+  const dbId = '2e89dccd181d805f8e33000bc3850d13'; // Service Type DB
+  const res = notionFetch(`databases/${dbId}/query`, 'POST', { page_size: 100 }, key);
+  if (!res || !res.results) return [];
+  return res.results
+    .map(function(p) { return { id: p.id, name: p.properties['Name']?.title?.[0]?.plain_text || '' }; })
+    .filter(function(s) { return s.name && s.id !== SERVICE_TYPE_BRAND_MANAGEMENT_ID; })
+    .sort(function(a, b) { return a.name.localeCompare(b, 'th'); });
+}
+
+function createNotionProject(name, brandName, ownerName, scopeItemIds, serviceTypeId, key) {
   const payload = {
     parent: { type: 'data_source_id', data_source_id: '2e69dccd-181d-81d0-83af-000b1fd9260b' },
     template: { type: 'default' },
     properties: {
-      'Project Name': { title: [{ text: { content: name } }] }
+      'Project Name': { title: [{ text: { content: name } }] },
+      'Service Type': { relation: [{ id: serviceTypeId || SERVICE_TYPE_CONTENT_GRAPHIC_ID }] }
     }
   };
   if (ownerName) payload.properties['Owner'] = { multi_select: [{ name: ownerName }] };
@@ -1207,7 +1225,7 @@ function handleCreateTask(body) {
   // 1) หา / สร้าง Project
   let projectId = body.projectId || '';
   if (!projectId && body.newProjectName) {
-    const created = createNotionProject(body.newProjectName, body.newProjectBrand, body.newProjectOwner, body.newProjectScopeItemIds, key);
+    const created = createNotionProject(body.newProjectName, body.newProjectBrand, body.newProjectOwner, body.newProjectScopeItemIds, body.newProjectServiceTypeId, key);
     if (!created.ok) return { ok: false, error: 'สร้าง Project ไม่สำเร็จ: ' + created.error };
     projectId = created.id;
   }
@@ -1559,7 +1577,7 @@ function handleBulkCreateCalendarPlan(body) {
     let projectId = existing ? existing.id : '';
     let projectCreated = false;
     if (!projectId) {
-      const projectResult = createNotionProject(projectName, brandName, ownerName, [], key);
+      const projectResult = createNotionProject(projectName, brandName, ownerName, [], null, key);
       if (!projectResult.ok) return { ok: false, error: 'สร้าง Project ไม่สำเร็จ: ' + projectResult.error };
       projectId = projectResult.id;
       projectCreated = true;
@@ -2004,6 +2022,8 @@ header{background:#fff;border-bottom:1px solid #e5e3dd;padding:10px 20px;display
       </div>
       <label for="ct-new-project-owner" style="display:block; font-size:13px; font-weight:500; color:#555; margin:8px 0 5px;">Project Owner</label>
       <select id="ct-new-project-owner" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;"><option value="">— เลือก PM —</option></select>
+      <label for="ct-new-project-service-type" style="display:block; font-size:13px; font-weight:500; color:#555; margin:8px 0 5px;">ประเภทงาน (Service Type)</label>
+      <select id="ct-new-project-service-type" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;"></select>
     </div>
 
     <div class="modal-form-group">
@@ -2511,6 +2531,29 @@ function fillProjectOwnerSelect_(selectId) {
   }
 }
 
+function ensureServiceTypesLoaded_(callback) {
+  if (state.serviceTypes) { callback(); return; }
+  google.script.run
+    .withSuccessHandler(function(list) { state.serviceTypes = list || []; callback(); })
+    .withFailureHandler(function() { state.serviceTypes = []; callback(); })
+    .getServiceTypeOptions();
+}
+
+function fillServiceTypeSelect_(selectId) {
+  const select = document.getElementById(selectId);
+  if (!select) return;
+  const types = (state.serviceTypes || []).slice();
+  select.innerHTML = '';
+  types.forEach(function(t) {
+    const option = document.createElement('option');
+    option.value = t.id;
+    option.textContent = t.name;
+    select.appendChild(option);
+  });
+  const defaultType = types.find(function(t) { return t.name === 'Content / Graphic Design Production'; });
+  if (defaultType) select.value = defaultType.id;
+}
+
 function syncPmFilterOptions_() {
   const select = document.getElementById('pm-filter');
   if (!select) return;
@@ -2785,6 +2828,9 @@ function openCreateModal() {
     fillProjectOwnerSelect_('ct-new-project-owner');
     fillProjectOwnerSelect_('ct-pm-owner');
   });
+  ensureServiceTypesLoaded_(function() {
+    fillServiceTypeSelect_('ct-new-project-service-type');
+  });
   // reset
   document.getElementById('ct-task-name').value = '';
   document.getElementById('ct-due-date').value = '';
@@ -2920,6 +2966,8 @@ function submitCreateTask() {
     if (!pn) { showToast('กรุณาใส่ชื่อ Project ใหม่'); return; }
     var projectOwner = document.getElementById('ct-new-project-owner').value;
     if (!projectOwner) { showToast('กรุณาเลือก Project Owner'); return; }
+    var serviceTypeId = document.getElementById('ct-new-project-service-type').value;
+    if (!serviceTypeId) { showToast('กรุณาเลือกประเภทงาน (Service Type)'); return; }
     var selectedScopeIds = (state.selectedScopeItemIds || []).filter(function(id) { return id !== '__none__'; });
     var pickedNone = (state.selectedScopeItemIds || []).indexOf('__none__') >= 0;
     if (!selectedScopeIds.length && !pickedNone) {
@@ -2928,6 +2976,7 @@ function submitCreateTask() {
     payload.newProjectName = pn;
     payload.newProjectBrand = document.getElementById('ct-new-project-brand').value;
     payload.newProjectOwner = projectOwner;
+    payload.newProjectServiceTypeId = serviceTypeId;
     payload.newProjectScopeItemIds = selectedScopeIds;
   } else if (projectSel) {
     payload.projectId = projectSel;
