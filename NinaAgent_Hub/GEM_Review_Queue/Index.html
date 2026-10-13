@@ -1306,12 +1306,24 @@ html>body{padding:0}</style>
 
       window.handleAction = (taskId, newStatus) => {
         if (newStatus === "มีปรับแก้" && !confirm('ยืนยันส่งกลับแก้ไขงานชิ้นนี้?')) return;
-        
+
         const prevTask = rawTasks.find(t => t.id === taskId);
         const prevStatus = prevTask ? prevTask.status : 'รอรีวิว';
 
+        // Flip the card's status in the already-loaded list and re-render
+        // immediately — don't wait for the round trip (the server call now
+        // waits on a lock shared with the background sync, which can add a
+        // few seconds) before the card leaves the "waiting"/"revision" tab.
+        // The real state still comes from the server; loadData() below
+        // reconciles silently once it replies, or restores the card if the
+        // update actually failed.
+        if (prevTask) {
+          prevTask.status = newStatus;
+          renderList();
+        }
+
         announce('กำลังอัปเดต...');
-        
+
         google.script.run
           .withSuccessHandler(resStr => {
              try {
