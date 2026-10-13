@@ -961,7 +961,6 @@ function handleAssign(body) {
 // Owner ของ Bot Inbox project ต้องตรงกับ PM ที่กำลังสร้าง Task ให้ถูกต้อง —
 // map ตายตัวไปที่ Project ที่มีอยู่แล้ว (คนละอันต่อ PM คนละคน) แทนการสร้างใหม่
 const PM_INBOX_PROJECT_ID = {
-  'PM - อ้อ': '39e9dccd181d81d68199cce9fdd27675', // 🤖 Bot Inbox — รอจัด Project (PM - อ้อ)
   'PM - ยู้': '3889dccd181d81b6af2bc0a3cb4983c7', // Bot Inbox — รอจัด Project (PM - ยู้)
 };
 
