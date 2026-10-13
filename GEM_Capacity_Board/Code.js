@@ -1126,8 +1126,14 @@ function handleCreateTask(body) {
   }
   // ไม่ระบุ Project เลย → จัดเข้า Bot Inbox ของ PM ที่เลือก (Project เดิมที่มีอยู่แล้ว
   // ต่อ PM แต่ละคน) แทนการปล่อยว่างไว้ ให้ Owner ถูกต้องตั้งแต่แรก
-  if (!projectId && !body.newProjectName && body.pmOwner && PM_INBOX_PROJECT_ID[body.pmOwner]) {
-    projectId = PM_INBOX_PROJECT_ID[body.pmOwner];
+  // ถ้าเลือก PM ที่ยังไม่มี Bot Inbox ผูกไว้ (เช่น ตัวเลือกใน Notion schema ยังไม่ถูกลบ
+  // แม้ PM คนนั้นจะออกจากทีมไปแล้ว) ต้องเตือน ไม่ใช่ปล่อยให้ Task สร้างแบบไม่มี Project ลอยเงียบๆ
+  if (!projectId && !body.newProjectName && body.pmOwner) {
+    if (PM_INBOX_PROJECT_ID[body.pmOwner]) {
+      projectId = PM_INBOX_PROJECT_ID[body.pmOwner];
+    } else {
+      return { ok: false, error: 'PM "' + body.pmOwner + '" ยังไม่มี Bot Inbox Project ผูกไว้ กรุณาเลือก Project อื่น หรือแจ้งแอดมินให้เพิ่ม PM นี้ในระบบก่อน' };
+    }
   }
 
   // 2) สร้างหน้า Task ใน Notion
