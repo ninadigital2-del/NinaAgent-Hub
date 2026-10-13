@@ -1061,6 +1061,26 @@ function getOrCreateBotInboxProjectId_(pmOwnerName, key) {
   return { ok: true, id: created.id };
 }
 
+// ผู้ติดต่อ (Contacts) ของแบรนด์ — ให้ PM เลือกเองว่าจะผูกใครเข้า Project ใหม่
+// แทนการ copy ทุกคนมาอัตโนมัติเหมือนก่อน (Brand ที่มี Contact หลายคนจะรกถ้า
+// เอามาหมด)
+function getContactsForBrand(brandId) {
+  if (!brandId) return [];
+  const key = PropertiesService.getScriptProperties().getProperty('NOTION_API_KEY');
+  const dbId = '2e69dccd181d8132bd28000bc5e2bf37'; // Contacts DB
+  const res = notionFetch(`databases/${dbId}/query`, 'POST', {
+    filter: { property: 'Brand', relation: { contains: brandId } }
+  }, key);
+  if (!res || !res.results) return [];
+  return res.results.map(function(p) {
+    return {
+      id: p.id,
+      name: p.properties['Contact Name']?.title?.[0]?.plain_text || '(ไม่มีชื่อ)',
+      email: p.properties['Email']?.email || '',
+    };
+  });
+}
+
 // ============================================================
 // Scope Item (Scope Baseline) — ผูก Project กับบรรทัดใบเสนอราคา
 // ============================================================
@@ -1147,7 +1167,7 @@ function getServiceTypeOptions() {
     .sort(function(a, b) { return a.name.localeCompare(b, 'th'); });
 }
 
-function createNotionProject(name, brandName, ownerName, scopeItemIds, serviceTypeId, key) {
+function createNotionProject(name, brandName, ownerName, scopeItemIds, serviceTypeId, contactIds, key) {
   const payload = {
     parent: { type: 'data_source_id', data_source_id: '2e69dccd-181d-81d0-83af-000b1fd9260b' },
     template: { type: 'default' },
@@ -1166,11 +1186,14 @@ function createNotionProject(name, brandName, ownerName, scopeItemIds, serviceTy
       const match = brands.brands.find(b => b.name === brandName);
       if (match) {
         payload.properties['Brand'] = { relation: [{ id: match.id }] };
-        // ดึง Contacts ของ Brand มาใส่ Project ให้อัตโนมัติ — "Company" ของ Project เป็น
-        // rollup ที่คำนวณจาก Contacts (ไม่ใช่จาก Brand โดยตรง) เลยต้องมี Contacts ก่อน
-        // ถึงจะคำนวณ Company ให้เองได้ ไม่ต้องให้ PM มาเลือกเองทุกครั้ง
-        if (match.contactIds && match.contactIds.length) {
-          payload.properties['Contacts'] = { relation: match.contactIds.map(id => ({ id })) };
+        // "Company" ของ Project เป็น rollup ที่คำนวณจาก Contacts (ไม่ใช่จาก Brand
+        // โดยตรง) เลยต้องมี Contacts ก่อนถึงจะคำนวณ Company ให้เองได้ — ใช้ contactIds
+        // ที่ PM เลือกมาจากฟอร์ม (ถ้ามี) แทนการ copy ทุกคนของ Brand มาอัตโนมัติ
+        // (ของเดิม) ซึ่งรกถ้า Brand มี Contact หลายคน; ถ้าไม่ได้ส่ง contactIds มาเลย
+        // (เช่น flow Calendar Import ที่ยังไม่มี UI ให้เลือก) ใช้ของเดิมคือเอาทุกคน
+        const finalContactIds = (contactIds !== undefined && contactIds !== null) ? contactIds : (match.contactIds || []);
+        if (finalContactIds.length) {
+          payload.properties['Contacts'] = { relation: finalContactIds.map(id => ({ id })) };
         }
       }
     }
@@ -1225,7 +1248,7 @@ function handleCreateTask(body) {
   // 1) หา / สร้าง Project
   let projectId = body.projectId || '';
   if (!projectId && body.newProjectName) {
-    const created = createNotionProject(body.newProjectName, body.newProjectBrand, body.newProjectOwner, body.newProjectScopeItemIds, body.newProjectServiceTypeId, key);
+    const created = createNotionProject(body.newProjectName, body.newProjectBrand, body.newProjectOwner, body.newProjectScopeItemIds, body.newProjectServiceTypeId, body.newProjectContactIds, key);
     if (!created.ok) return { ok: false, error: 'สร้าง Project ไม่สำเร็จ: ' + created.error };
     projectId = created.id;
   }
@@ -1577,7 +1600,7 @@ function handleBulkCreateCalendarPlan(body) {
     let projectId = existing ? existing.id : '';
     let projectCreated = false;
     if (!projectId) {
-      const projectResult = createNotionProject(projectName, brandName, ownerName, [], null, key);
+      const projectResult = createNotionProject(projectName, brandName, ownerName, [], null, null, key);
       if (!projectResult.ok) return { ok: false, error: 'สร้าง Project ไม่สำเร็จ: ' + projectResult.error };
       projectId = projectResult.id;
       projectCreated = true;
@@ -2016,6 +2039,10 @@ header{background:#fff;border-bottom:1px solid #e5e3dd;padding:10px 20px;display
       <input type="text" id="ct-new-project-name" placeholder="ชื่อโปรเจกต์" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;">
       <label for="ct-new-project-brand" style="display:block; font-size:13px; font-weight:500; color:#555; margin:8px 0 5px;">แบรนด์ / ลูกค้า (ถ้ามีในระบบ)</label>
       <select id="ct-new-project-brand" onchange="onCtNewProjectBrandChange()" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;"><option value="">— ไม่ระบุ —</option></select>
+      <div id="ct-contact-box" style="display:none; margin-top:10px;">
+        <label style="display:block; font-size:13px; font-weight:500; color:#555; margin-bottom:5px;">Contact ของแบรนด์นี้ <span style="color:#888;font-weight:normal;">(เลือกได้หลายคน — ถ้ามีคนเดียวเลือกให้อัตโนมัติ)</span></label>
+        <div id="ct-contact-list" class="scope-item-list"></div>
+      </div>
       <div id="ct-scope-item-box" style="display:none; margin-top:10px;">
         <label style="display:block; font-size:13px; font-weight:500; color:#555; margin-bottom:5px;">ผูก Scope Item (จากใบเสนอราคา) <span style="color:#888;font-weight:normal;">(เลือกได้หลายรายการ ไม่บังคับ)</span></label>
         <div id="ct-scope-item-list" class="scope-item-list"></div>
@@ -2839,8 +2866,11 @@ function openCreateModal() {
   document.getElementById('ct-newproject-box').style.display = 'none';
   document.getElementById('ct-pminbox-box').style.display = 'block';
   document.getElementById('ct-scope-item-box').style.display = 'none';
+  document.getElementById('ct-contact-box').style.display = 'none';
   state.scopeItems = null;
   state.selectedScopeItemIds = [];
+  state.contacts = null;
+  state.selectedContactIds = [];
   // Project (lazy load)
   var pj = document.getElementById('ct-project');
   if (!state.projects) {
@@ -2922,21 +2952,69 @@ function toggleScopeItem(el) {
   state.selectedScopeItemIds = selected;
   renderScopeItemList_();
 }
+function renderContactEmpty_(message) {
+  document.getElementById('ct-contact-list').innerHTML = '<div class="scope-item-empty">' + esc(message) + '</div>';
+}
+function renderContactList_() {
+  var el = document.getElementById('ct-contact-list');
+  if (!state.contacts || !state.contacts.length) {
+    renderContactEmpty_('ยังไม่มี Contact ของแบรนด์นี้ในระบบ');
+    return;
+  }
+  var selected = state.selectedContactIds || [];
+  var html = '';
+  state.contacts.forEach(function(c) {
+    var isSel = selected.indexOf(c.id) >= 0;
+    html += '<div class="scope-item-row' + (isSel ? ' selected' : '') + '" data-contact-id="' + esc(c.id) + '" onclick="toggleContact(this)">'
+      + '<div class="scope-item-check">' + (isSel ? '✓' : '') + '</div>'
+      + '<div style="flex:1;min-width:0;">'
+      + '<div class="scope-item-title">' + esc(c.name) + '</div>'
+      + (c.email ? '<div class="scope-item-sub">' + esc(c.email) + '</div>' : '')
+      + '</div></div>';
+  });
+  el.innerHTML = html;
+}
+function toggleContact(el) {
+  var id = el.getAttribute('data-contact-id');
+  var selected = state.selectedContactIds || [];
+  var idx = selected.indexOf(id);
+  if (idx >= 0) { selected.splice(idx, 1); } else { selected.push(id); }
+  state.selectedContactIds = selected;
+  renderContactList_();
+}
 function onCtNewProjectBrandChange() {
   var brandName = document.getElementById('ct-new-project-brand').value;
   var box = document.getElementById('ct-scope-item-box');
+  var contactBox = document.getElementById('ct-contact-box');
   state.scopeItems = null;
   state.selectedScopeItemIds = [];
-  if (!brandName) { box.style.display = 'none'; return; }
+  state.contacts = null;
+  state.selectedContactIds = [];
+  if (!brandName) { box.style.display = 'none'; contactBox.style.display = 'none'; return; }
   box.style.display = 'block';
+  contactBox.style.display = 'block';
   renderScopeItemEmpty_('กำลังโหลด...');
+  renderContactEmpty_('กำลังโหลด...');
   ensureBrandsLoaded_(function() {
     var brand = (state.brandsList || []).find(function(b) { return b.name === brandName; });
-    if (!brand) { renderScopeItemEmpty_('ยังไม่มี Scope จากใบเสนอราคาของแบรนด์นี้'); return; }
+    if (!brand) {
+      renderScopeItemEmpty_('ยังไม่มี Scope จากใบเสนอราคาของแบรนด์นี้');
+      renderContactEmpty_('ยังไม่มี Contact ของแบรนด์นี้ในระบบ');
+      return;
+    }
     google.script.run
       .withSuccessHandler(function(items) { state.scopeItems = items || []; renderScopeItemList_(); })
       .withFailureHandler(function() { renderScopeItemEmpty_('โหลด Scope Item ไม่สำเร็จ'); })
       .getScopeItemsForBrand(brand.id);
+    google.script.run
+      .withSuccessHandler(function(contacts) {
+        state.contacts = contacts || [];
+        // แบรนด์มี Contact คนเดียว ไม่ต้องให้เลือก เลือกให้เลย
+        state.selectedContactIds = (state.contacts.length === 1) ? [state.contacts[0].id] : [];
+        renderContactList_();
+      })
+      .withFailureHandler(function() { renderContactEmpty_('โหลด Contact ไม่สำเร็จ'); })
+      .getContactsForBrand(brand.id);
   });
 }
 function closeCreateModal() {
@@ -2978,6 +3056,7 @@ function submitCreateTask() {
     payload.newProjectOwner = projectOwner;
     payload.newProjectServiceTypeId = serviceTypeId;
     payload.newProjectScopeItemIds = selectedScopeIds;
+    payload.newProjectContactIds = state.selectedContactIds || [];
   } else if (projectSel) {
     payload.projectId = projectSel;
   } else {
