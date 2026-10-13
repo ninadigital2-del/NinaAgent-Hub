@@ -356,6 +356,7 @@ function getNotionBrands() {
     id:   p.id,
     name: p.properties['Name']?.title?.[0]?.plain_text || '',
     code: p.properties['Client Code']?.rich_text?.[0]?.plain_text || '',
+    contactIds: (p.properties['Contacts']?.relation || []).map(r => r.id),
   })).filter(b => b.name);
 
   return { ok: true, brands };
@@ -1094,7 +1095,15 @@ function createNotionProject(name, brandName, ownerName, scopeItemIds, key) {
     const brands = getNotionBrands();
     if (brands.ok) {
       const match = brands.brands.find(b => b.name === brandName);
-      if (match) payload.properties['Brand'] = { relation: [{ id: match.id }] };
+      if (match) {
+        payload.properties['Brand'] = { relation: [{ id: match.id }] };
+        // ดึง Contacts ของ Brand มาใส่ Project ให้อัตโนมัติ — "Company" ของ Project เป็น
+        // rollup ที่คำนวณจาก Contacts (ไม่ใช่จาก Brand โดยตรง) เลยต้องมี Contacts ก่อน
+        // ถึงจะคำนวณ Company ให้เองได้ ไม่ต้องให้ PM มาเลือกเองทุกครั้ง
+        if (match.contactIds && match.contactIds.length) {
+          payload.properties['Contacts'] = { relation: match.contactIds.map(id => ({ id })) };
+        }
+      }
     }
   }
   // parent.type=data_source_id + template ต้องใช้ Notion-Version 2025-09-03 เฉพาะ call นี้
