@@ -346,6 +346,7 @@ function getNotionBrands() {
   const dbId  = '2eb9dccd181d808fb888cdf883503df6';
 
   const res = notionFetch(`databases/${dbId}/query`, 'POST', {
+    filter: { property: 'Active = Yes', checkbox: { equals: true } },
     sorts: [{ property: 'Name', direction: 'ascending' }],
     page_size: 100
   }, key);
