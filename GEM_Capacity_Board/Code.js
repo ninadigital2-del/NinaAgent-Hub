@@ -2023,9 +2023,12 @@ header{background:#fff;border-bottom:1px solid #e5e3dd;padding:10px 20px;display
 <div class="toast" id="toast"></div>
 
 <!-- Create Task Modal -->
-<div class="modal-backdrop" id="create-modal">
+<div class="modal-backdrop" id="create-modal" onclick="if(event.target===this)closeCreateModal()">
   <div class="modal-box">
-    <div class="modal-title"><i class="ti ti-plus" style="color:#22A06B"></i> สร้าง Task ใหม่</div>
+    <div class="modal-title" style="display:flex; justify-content:space-between; align-items:center;">
+      <div><i class="ti ti-plus" style="color:#22A06B"></i> สร้าง Task ใหม่</div>
+      <button onclick="closeCreateModal()" style="background:none; border:none; font-size:20px; line-height:1; color:#888; cursor:pointer; padding:4px 6px;" title="ปิด">✕</button>
+    </div>
 
     <div class="modal-form-group">
       <label for="ct-project">Project</label>
@@ -3021,6 +3024,11 @@ function onCtNewProjectBrandChange() {
 function closeCreateModal() {
   document.getElementById('create-modal').classList.remove('show');
 }
+document.addEventListener('keydown', function(event) {
+  if (event.key === 'Escape' && document.getElementById('create-modal').classList.contains('show')) {
+    closeCreateModal();
+  }
+});
 function submitCreateTask() {
   var name = document.getElementById('ct-task-name').value.trim();
   if (!name) { showToast('กรุณาใส่ชื่อชิ้นงาน'); return; }
