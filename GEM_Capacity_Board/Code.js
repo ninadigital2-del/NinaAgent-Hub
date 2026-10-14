@@ -1067,7 +1067,7 @@ function getOrCreateBotInboxProjectId_(pmOwnerName, key) {
 function getContactsForBrand(brandId) {
   if (!brandId) return [];
   const key = PropertiesService.getScriptProperties().getProperty('NOTION_API_KEY');
-  const dbId = '2e69dccd181d8132bd28000bc5e2bf37'; // Contacts DB
+  const dbId = '2e69dccd181d810bb092e486e4d9c7db'; // Contacts DB (database page id, not data source id)
   const res = notionFetch(`databases/${dbId}/query`, 'POST', {
     filter: { property: 'Brand', relation: { contains: brandId } }
   }, key);
@@ -1158,7 +1158,7 @@ const SERVICE_TYPE_CONTENT_GRAPHIC_ID = '2e89dccd181d80f59747e0c36a461402';
 
 function getServiceTypeOptions() {
   const key = PropertiesService.getScriptProperties().getProperty('NOTION_API_KEY');
-  const dbId = '2e89dccd181d805f8e33000bc3850d13'; // Service Type DB
+  const dbId = '2e89dccd181d8024a6edf9ead857546c'; // Service Type DB (database page id, not data source id)
   const res = notionFetch(`databases/${dbId}/query`, 'POST', { page_size: 100 }, key);
   if (!res || !res.results) return [];
   return res.results
