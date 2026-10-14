@@ -2067,7 +2067,7 @@ header{background:#fff;border-bottom:1px solid #e5e3dd;padding:10px 20px;display
     </div>
     <div class="modal-form-group">
       <label for="ct-due-date">Due Date (วันส่งงาน)</label>
-      <input type="date" id="ct-due-date">
+      <input type="date" id="ct-due-date" onclick="try{this.showPicker()}catch(e){}">
     </div>
     <div class="modal-form-group">
       <label for="ct-assignee">Graphic Assignee <span style="color:#888;font-weight:normal;">(ไม่บังคับ — เว้นว่าง = เข้าคิวงานรอ assign)</span></label>
