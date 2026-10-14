@@ -1924,6 +1924,8 @@ header{background:#fff;border-bottom:1px solid #e5e3dd;padding:10px 20px;display
 .modal-form-group{margin-bottom:12px}
 .modal-form-group label{display:block;font-size:12px;color:#888;margin-bottom:4px;text-transform:uppercase;font-weight:500}
 .modal-form-group input{width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:6px;font-size:14px;background:#fff;color:#1a1a18}
+input[type="date"]{position:relative}
+input[type="date"]::-webkit-calendar-picker-indicator{position:absolute;left:0;top:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer}
 .modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:16px}
 .modal-btn{padding:8px 16px;font-size:13px;font-weight:500;border:1px solid #ddd;border-radius:6px;background:#fff;color:#555;cursor:pointer}
 .modal-btn-save{border-color:#378ADD;background:#EBF4FD;color:#185FA5}
