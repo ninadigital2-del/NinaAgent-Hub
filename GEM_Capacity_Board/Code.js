@@ -2088,9 +2088,12 @@ input[type="date"]::-webkit-calendar-picker-indicator{position:absolute;left:0;t
 </div>
 
 <!-- Calendar Image Import Modal -->
-<div class="modal-backdrop" id="calendar-import-modal">
+<div class="modal-backdrop" id="calendar-import-modal" onclick="if(event.target===this)closeCalendarImportModal()">
   <div class="modal-box calendar-modal-box">
-    <div class="modal-title"><i class="ti ti-calendar-up" style="color:#378ADD"></i> สร้าง Project และ Task จากรูปปฏิทิน</div>
+    <div class="modal-title" style="display:flex; justify-content:space-between; align-items:center;">
+      <div><i class="ti ti-calendar-up" style="color:#378ADD"></i> สร้าง Project และ Task จากรูปปฏิทิน</div>
+      <button onclick="closeCalendarImportModal()" style="background:none; border:none; font-size:20px; line-height:1; color:#888; cursor:pointer; padding:4px 6px;" title="ปิด">✕</button>
+    </div>
     <div id="calendar-dropzone" class="calendar-dropzone" onclick="document.getElementById('calendar-file-input').click()">
       <input type="file" id="calendar-file-input" accept="image/jpeg,image/png,image/webp" style="display:none" onchange="handleCalendarFileInput(this.files)">
       <img id="calendar-preview-image" class="calendar-preview-image" alt="รูปปฏิทินที่เลือก">
@@ -3027,9 +3030,9 @@ function closeCreateModal() {
   document.getElementById('create-modal').classList.remove('show');
 }
 document.addEventListener('keydown', function(event) {
-  if (event.key === 'Escape' && document.getElementById('create-modal').classList.contains('show')) {
-    closeCreateModal();
-  }
+  if (event.key !== 'Escape') return;
+  if (document.getElementById('create-modal').classList.contains('show')) closeCreateModal();
+  if (document.getElementById('calendar-import-modal').classList.contains('show')) closeCalendarImportModal();
 });
 function submitCreateTask() {
   var name = document.getElementById('ct-task-name').value.trim();
