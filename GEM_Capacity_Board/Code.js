@@ -1924,7 +1924,7 @@ header{background:#fff;border-bottom:1px solid #e5e3dd;padding:10px 20px;display
 .modal-form-group{margin-bottom:12px}
 .modal-form-group label{display:block;font-size:12px;color:#888;margin-bottom:4px;text-transform:uppercase;font-weight:500}
 .modal-form-group input{width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:6px;font-size:14px;background:#fff;color:#1a1a18}
-input[type="date"]{position:relative}
+input[type="date"]{position:relative;padding-right:32px;background-repeat:no-repeat;background-position:right 10px center;background-size:15px 15px;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%23666' stroke-width='1.5'><rect x='1' y='2.5' width='14' height='12' rx='1.5'/><line x1='1' y1='6' x2='15' y2='6'/><line x1='4.5' y1='1' x2='4.5' y2='3.5'/><line x1='11.5' y1='1' x2='11.5' y2='3.5'/></svg>")}
 input[type="date"]::-webkit-calendar-picker-indicator{position:absolute;left:0;top:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer}
 .modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:16px}
 .modal-btn{padding:8px 16px;font-size:13px;font-weight:500;border:1px solid #ddd;border-radius:6px;background:#fff;color:#555;cursor:pointer}
