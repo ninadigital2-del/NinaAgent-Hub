@@ -346,6 +346,7 @@ function getNotionBrands() {
   const dbId  = '2eb9dccd181d808fb888cdf883503df6';
 
   const res = notionFetch(`databases/${dbId}/query`, 'POST', {
+    filter: { property: 'Active = Yes', checkbox: { equals: true } },
     sorts: [{ property: 'Name', direction: 'ascending' }],
     page_size: 100
   }, key);
@@ -959,11 +960,9 @@ function handleAssign(body) {
 // สร้าง Task ใหม่จากหน้า Capacity Board (feature: Create Task)
 // ============================================================
 // Owner ของ Bot Inbox project ต้องตรงกับ PM ที่กำลังสร้าง Task ให้ถูกต้อง —
-// map ตายตัวไปที่ Project ที่มีอยู่แล้ว (คนละอันต่อ PM คนละคน) แทนการสร้างใหม่
-const PM_INBOX_PROJECT_ID = {
-  'PM - ยู้': '3889dccd181d81b6af2bc0a3cb4983c7', // Bot Inbox — รอจัด Project (PM - ยู้)
-};
-
+// หา/สร้าง Project ให้ผ่าน getOrCreateBotInboxProjectId_() (ดูด้านล่าง ใกล้
+// getProjectOwnerOptions()) ซึ่ง query จาก "GEM Team Member" แบบ dynamic
+// แทนตารางผูกตายตัวแบบเดิม — ไม่ต้องแก้โค้ดทุกครั้งที่มี PM เข้า/ออกทีม
 // Service Type "Brand Management" — Project กลุ่มนี้ไม่มี Task ประเภท Graphic
 // ให้สร้างผ่านบอร์ดนี้ เลยตัดออกจาก dropdown
 const SERVICE_TYPE_BRAND_MANAGEMENT_ID = '2f09dccd-181d-8059-b2a6-cfa7b4a18b1e';
@@ -998,15 +997,89 @@ function getNotionProjects() {
 }
 
 // รายชื่อ PM สำหรับ dropdown "Project Owner" / "PM ผู้สร้างงาน" — ดึงจาก
-// schema จริงของ Owner property (Projects DB) ตรงๆ แทนการเดาจาก Task ที่
-// บังเอิญแสดงอยู่บนจอตอนนั้น (ของเดิมใช้ getAvailablePmNames_() ซึ่งพังง่าย
-// เพราะ Task ที่ยังไม่ assign อาจไม่มีอันไหนผูก Project ที่มี Owner เลย).
+// "GEM Team Member" (Role มี "PM" และ Active = true) แทนการอ่าน schema ของ
+// Owner property ใน Projects DB ตรงๆ เพราะ schema นั้นสะสม option เก่าของ PM
+// ที่ออกจากทีมไปแล้วไว้ตลอด ไม่เคยถูกลบ (ของเดิมใช้ getAvailablePmNames_()
+// ซึ่งพังง่ายเพราะ Task ที่ยังไม่ assign อาจไม่มีอันไหนผูก Project ที่มี
+// Owner เลย). ชื่อที่ใช้เป็น Owner คือ "PM - " + ชื่อเล่น เสมอ ตามรูปแบบที่
+// ใช้จริงใน Projects.Owner (เช่น "PM - ยู้").
+const GEM_TEAM_MEMBER_DB_ID = '092e35e997424e4a9b20d7df03c31dc6';
+
+function getActivePmTeamMembers_(key) {
+  const payload = {
+    filter: {
+      and: [
+        { property: 'Role', multi_select: { contains: 'PM' } },
+        { property: 'Active', checkbox: { equals: true } }
+      ]
+    }
+  };
+  const res = notionFetch(`databases/${GEM_TEAM_MEMBER_DB_ID}/query`, 'POST', payload, key);
+  if (!res || !res.results) return [];
+  return res.results.map(function(p) {
+    const nickname = (p.properties['ชื่อเล่น']?.rich_text || []).map(function(t) { return t.plain_text; }).join('').trim();
+    const botInboxRelation = p.properties['Bot Inbox Project']?.relation || [];
+    return {
+      pageId: p.id,
+      ownerName: nickname ? ('PM - ' + nickname) : '',
+      botInboxProjectId: botInboxRelation[0]?.id || ''
+    };
+  }).filter(function(m) { return m.ownerName; });
+}
+
 function getProjectOwnerOptions() {
   const key = PropertiesService.getScriptProperties().getProperty('NOTION_API_KEY');
-  const dbId = '2e69dccd181d81fabee1e65a00e86e72'; // Projects DB
-  const res = notionFetch(`databases/${dbId}`, 'GET', null, key);
-  if (!res || !res.properties || !res.properties['Owner'] || !res.properties['Owner'].multi_select) return [];
-  return res.properties['Owner'].multi_select.options.map(o => o.name).sort((a, b) => a.localeCompare(b, 'th'));
+  return getActivePmTeamMembers_(key).map(function(m) { return m.ownerName; }).sort((a, b) => a.localeCompare(b, 'th'));
+}
+
+// หา Bot Inbox Project ของ PM คนนั้น (จาก relation "Bot Inbox Project" ใน
+// GEM Team Member) — ถ้ายังไม่เคยมี ให้สร้าง Project ใหม่ให้อัตโนมัติ แล้ว
+// ผูก relation กลับไว้ใช้ครั้งถัดไป กัน PM คนใหม่ต้องรอแอดมินมาแก้โค้ด/deploy
+// ทุกครั้งที่มีคนเข้าทีม
+function getOrCreateBotInboxProjectId_(pmOwnerName, key) {
+  const member = getActivePmTeamMembers_(key).find(function(m) { return m.ownerName === pmOwnerName; });
+  if (!member) {
+    return { ok: false, error: 'ไม่พบ PM "' + pmOwnerName + '" ใน GEM Team Member (อาจยังไม่ได้เพิ่ม หรือ Active ถูกปิดไว้)' };
+  }
+  if (member.botInboxProjectId) return { ok: true, id: member.botInboxProjectId };
+
+  const nickname = pmOwnerName.replace(/^PM - /, '');
+  const created = notionFetch('pages', 'POST', {
+    parent: { database_id: '2e69dccd181d81fabee1e65a00e86e72' }, // Projects DB
+    properties: {
+      'Project Name': { title: [{ text: { content: '🤖 Bot Inbox — รอจัด Project (' + nickname + ')' } }] },
+      'Owner': { multi_select: [{ name: pmOwnerName }] }
+    }
+  }, key);
+  if (!created || created.object === 'error') {
+    return { ok: false, error: 'สร้าง Bot Inbox Project ให้ ' + pmOwnerName + ' ไม่สำเร็จ: ' + ((created && created.message) || 'Notion API error') };
+  }
+
+  notionFetch(`pages/${member.pageId}`, 'PATCH', {
+    properties: { 'Bot Inbox Project': { relation: [{ id: created.id }] } }
+  }, key);
+
+  return { ok: true, id: created.id };
+}
+
+// ผู้ติดต่อ (Contacts) ของแบรนด์ — ให้ PM เลือกเองว่าจะผูกใครเข้า Project ใหม่
+// แทนการ copy ทุกคนมาอัตโนมัติเหมือนก่อน (Brand ที่มี Contact หลายคนจะรกถ้า
+// เอามาหมด)
+function getContactsForBrand(brandId) {
+  if (!brandId) return [];
+  const key = PropertiesService.getScriptProperties().getProperty('NOTION_API_KEY');
+  const dbId = '2e69dccd181d810bb092e486e4d9c7db'; // Contacts DB (database page id, not data source id)
+  const res = notionFetch(`databases/${dbId}/query`, 'POST', {
+    filter: { property: 'Brand', relation: { contains: brandId } }
+  }, key);
+  if (!res || !res.results) return [];
+  return res.results.map(function(p) {
+    return {
+      id: p.id,
+      name: p.properties['Contact Name']?.title?.[0]?.plain_text || '(ไม่มีชื่อ)',
+      email: p.properties['Email']?.email || '',
+    };
+  });
 }
 
 // ============================================================
@@ -1078,12 +1151,30 @@ function getScopeItemsForBrand(brandId) {
   return items;
 }
 
-function createNotionProject(name, brandName, ownerName, scopeItemIds, key) {
+// Service Type DB (relation จาก Projects.Service Type) — "Content / Graphic
+// Design Production" คือ default ของ Project ที่สร้างผ่านบอร์ดนี้ เพราะเป็น
+// บอร์ดของทีม Graphic โดยเฉพาะ ใช้ fallback นี้เมื่อไม่ได้ระบุ serviceTypeId
+// มา (เช่น flow สร้าง Project จากรูปปฏิทินที่ยังไม่มี UI ให้เลือก)
+const SERVICE_TYPE_CONTENT_GRAPHIC_ID = '2e89dccd181d80f59747e0c36a461402';
+
+function getServiceTypeOptions() {
+  const key = PropertiesService.getScriptProperties().getProperty('NOTION_API_KEY');
+  const dbId = '2e89dccd181d8024a6edf9ead857546c'; // Service Type DB (database page id, not data source id)
+  const res = notionFetch(`databases/${dbId}/query`, 'POST', { page_size: 100 }, key);
+  if (!res || !res.results) return [];
+  return res.results
+    .map(function(p) { return { id: p.id, name: p.properties['Name']?.title?.[0]?.plain_text || '' }; })
+    .filter(function(s) { return s.name && s.id !== SERVICE_TYPE_BRAND_MANAGEMENT_ID; })
+    .sort(function(a, b) { return a.name.localeCompare(b, 'th'); });
+}
+
+function createNotionProject(name, brandName, ownerName, scopeItemIds, serviceTypeId, contactIds, key) {
   const payload = {
     parent: { type: 'data_source_id', data_source_id: '2e69dccd-181d-81d0-83af-000b1fd9260b' },
     template: { type: 'default' },
     properties: {
-      'Project Name': { title: [{ text: { content: name } }] }
+      'Project Name': { title: [{ text: { content: name } }] },
+      'Service Type': { relation: [{ id: serviceTypeId || SERVICE_TYPE_CONTENT_GRAPHIC_ID }] }
     }
   };
   if (ownerName) payload.properties['Owner'] = { multi_select: [{ name: ownerName }] };
@@ -1096,11 +1187,14 @@ function createNotionProject(name, brandName, ownerName, scopeItemIds, key) {
       const match = brands.brands.find(b => b.name === brandName);
       if (match) {
         payload.properties['Brand'] = { relation: [{ id: match.id }] };
-        // ดึง Contacts ของ Brand มาใส่ Project ให้อัตโนมัติ — "Company" ของ Project เป็น
-        // rollup ที่คำนวณจาก Contacts (ไม่ใช่จาก Brand โดยตรง) เลยต้องมี Contacts ก่อน
-        // ถึงจะคำนวณ Company ให้เองได้ ไม่ต้องให้ PM มาเลือกเองทุกครั้ง
-        if (match.contactIds && match.contactIds.length) {
-          payload.properties['Contacts'] = { relation: match.contactIds.map(id => ({ id })) };
+        // "Company" ของ Project เป็น rollup ที่คำนวณจาก Contacts (ไม่ใช่จาก Brand
+        // โดยตรง) เลยต้องมี Contacts ก่อนถึงจะคำนวณ Company ให้เองได้ — ใช้ contactIds
+        // ที่ PM เลือกมาจากฟอร์ม (ถ้ามี) แทนการ copy ทุกคนของ Brand มาอัตโนมัติ
+        // (ของเดิม) ซึ่งรกถ้า Brand มี Contact หลายคน; ถ้าไม่ได้ส่ง contactIds มาเลย
+        // (เช่น flow Calendar Import ที่ยังไม่มี UI ให้เลือก) ใช้ของเดิมคือเอาทุกคน
+        const finalContactIds = (contactIds !== undefined && contactIds !== null) ? contactIds : (match.contactIds || []);
+        if (finalContactIds.length) {
+          payload.properties['Contacts'] = { relation: finalContactIds.map(id => ({ id })) };
         }
       }
     }
@@ -1109,6 +1203,41 @@ function createNotionProject(name, brandName, ownerName, scopeItemIds, key) {
   const res = notionFetch('pages', 'POST', payload, key, '2025-09-03');
   if (!res || res.object === 'error') return { ok: false, error: (res && res.message) || 'Notion API error' };
   return { ok: true, id: res.id };
+}
+
+// Work Type → {Work By, Task Type, Financial Risk} ค่าเริ่มต้นอัตโนมัติ —
+// ใช้ชื่อ option ตรงตาม schema จริงของ Tasks DB (มีเว้นวรรครอบ "/" เช่น
+// "Graphic / Artwork") ถ้า Work Type ไม่อยู่ใน list นี้ (เช่นของเก่าที่ custom
+// ไว้) จะไม่เดาให้ ปล่อยว่างให้คนกรอกเอง workBy: 'project' แปลว่าใช้ Owner
+// ของ Project ที่ Task นี้ผูกอยู่ (ดึงสดจาก Notion ไม่ hardcode ชื่อ PM)
+const WORK_TYPE_DEFAULTS_ = {
+  'Content':             { workBy: ['Graphic Team'], taskType: 'Internal', financialRisk: 'No' },
+  'Graphic / Artwork':   { workBy: ['Graphic Team'], taskType: 'Internal', financialRisk: 'No' },
+  'Video':               { workBy: ['Graphic Team & VDO Editor'], taskType: 'Internal', financialRisk: 'No' },
+  'Ads / Performance':   { workBy: ['Ads Specialist'], taskType: 'Internal', financialRisk: 'No' },
+  'Project Management':  { workBy: 'project', taskType: 'External / Vendor', financialRisk: 'Yes' },
+  'Affiliate':           { workBy: 'project', taskType: 'External / Vendor', financialRisk: 'No' },
+  'Influencer / KOL':    { workBy: 'project', taskType: 'External / Vendor', financialRisk: 'Yes' },
+  'Operation':           { workBy: 'project', taskType: 'Internal', financialRisk: 'No' },
+  'General':             { workBy: 'project', taskType: 'Internal', financialRisk: 'No' },
+};
+
+function applyWorkTypeDefaults_(properties, workType, projectId, key) {
+  const rule = WORK_TYPE_DEFAULTS_[workType];
+  if (!rule) return;
+
+  let workByNames = rule.workBy;
+  if (workByNames === 'project') {
+    workByNames = [];
+    if (projectId) {
+      const proj = notionFetch(`pages/${projectId}`, 'GET', null, key);
+      const owners = proj?.properties?.['Owner']?.multi_select || [];
+      workByNames = owners.map(function(o) { return o.name; });
+    }
+  }
+  if (workByNames.length) properties['Work By'] = { multi_select: workByNames.map(function(n) { return { name: n }; }) };
+  properties['Task Type'] = { multi_select: [{ name: rule.taskType }] };
+  properties['Financial Risk'] = { select: { name: rule.financialRisk } };
 }
 
 function handleCreateTask(body) {
@@ -1120,14 +1249,18 @@ function handleCreateTask(body) {
   // 1) หา / สร้าง Project
   let projectId = body.projectId || '';
   if (!projectId && body.newProjectName) {
-    const created = createNotionProject(body.newProjectName, body.newProjectBrand, body.newProjectOwner, body.newProjectScopeItemIds, key);
+    const created = createNotionProject(body.newProjectName, body.newProjectBrand, body.newProjectOwner, body.newProjectScopeItemIds, body.newProjectServiceTypeId, body.newProjectContactIds, key);
     if (!created.ok) return { ok: false, error: 'สร้าง Project ไม่สำเร็จ: ' + created.error };
     projectId = created.id;
   }
   // ไม่ระบุ Project เลย → จัดเข้า Bot Inbox ของ PM ที่เลือก (Project เดิมที่มีอยู่แล้ว
   // ต่อ PM แต่ละคน) แทนการปล่อยว่างไว้ ให้ Owner ถูกต้องตั้งแต่แรก
-  if (!projectId && !body.newProjectName && body.pmOwner && PM_INBOX_PROJECT_ID[body.pmOwner]) {
-    projectId = PM_INBOX_PROJECT_ID[body.pmOwner];
+  // ถ้าเลือก PM ที่ไม่พบใน GEM Team Member หรือ Active=false ต้องเตือน
+  // ไม่ใช่ปล่อยให้ Task สร้างแบบไม่มี Project ลอยเงียบๆ
+  if (!projectId && !body.newProjectName && body.pmOwner) {
+    const botInbox = getOrCreateBotInboxProjectId_(body.pmOwner, key);
+    if (!botInbox.ok) return { ok: false, error: botInbox.error };
+    projectId = botInbox.id;
   }
 
   // 2) สร้างหน้า Task ใน Notion
@@ -1140,6 +1273,7 @@ function handleCreateTask(body) {
   if (workTypes.length) properties['Work Type'] = { multi_select: workTypes.map(name => ({ name: name })) };
   if (body.dueDate) properties['Due Date'] = { date: { start: body.dueDate } };
   if (body.assignee) properties['Graphic Assignee'] = { select: { name: body.assignee } };
+  if (workTypes.length) applyWorkTypeDefaults_(properties, workTypes[0], projectId, key);
 
   const res = notionFetch('pages', 'POST', {
     parent: { database_id: '2e69dccd181d81df8919fbacf921c7d5' },
@@ -1467,7 +1601,7 @@ function handleBulkCreateCalendarPlan(body) {
     let projectId = existing ? existing.id : '';
     let projectCreated = false;
     if (!projectId) {
-      const projectResult = createNotionProject(projectName, brandName, ownerName, [], key);
+      const projectResult = createNotionProject(projectName, brandName, ownerName, [], null, null, key);
       if (!projectResult.ok) return { ok: false, error: 'สร้าง Project ไม่สำเร็จ: ' + projectResult.error };
       projectId = projectResult.id;
       projectCreated = true;
@@ -1790,6 +1924,8 @@ header{background:#fff;border-bottom:1px solid #e5e3dd;padding:10px 20px;display
 .modal-form-group{margin-bottom:12px}
 .modal-form-group label{display:block;font-size:12px;color:#888;margin-bottom:4px;text-transform:uppercase;font-weight:500}
 .modal-form-group input{width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:6px;font-size:14px;background:#fff;color:#1a1a18}
+input[type="date"]{position:relative;padding-right:32px;background-repeat:no-repeat;background-position:right 10px center;background-size:15px 15px;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%23666' stroke-width='1.5'><rect x='1' y='2.5' width='14' height='12' rx='1.5'/><line x1='1' y1='6' x2='15' y2='6'/><line x1='4.5' y1='1' x2='4.5' y2='3.5'/><line x1='11.5' y1='1' x2='11.5' y2='3.5'/></svg>")}
+input[type="date"]::-webkit-calendar-picker-indicator{position:absolute;left:0;top:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer}
 .modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:16px}
 .modal-btn{padding:8px 16px;font-size:13px;font-weight:500;border:1px solid #ddd;border-radius:6px;background:#fff;color:#555;cursor:pointer}
 .modal-btn-save{border-color:#378ADD;background:#EBF4FD;color:#185FA5}
@@ -1889,9 +2025,12 @@ header{background:#fff;border-bottom:1px solid #e5e3dd;padding:10px 20px;display
 <div class="toast" id="toast"></div>
 
 <!-- Create Task Modal -->
-<div class="modal-backdrop" id="create-modal">
+<div class="modal-backdrop" id="create-modal" onclick="if(event.target===this)closeCreateModal()">
   <div class="modal-box">
-    <div class="modal-title"><i class="ti ti-plus" style="color:#22A06B"></i> สร้าง Task ใหม่</div>
+    <div class="modal-title" style="display:flex; justify-content:space-between; align-items:center;">
+      <div><i class="ti ti-plus" style="color:#22A06B"></i> สร้าง Task ใหม่</div>
+      <button onclick="closeCreateModal()" style="background:none; border:none; font-size:20px; line-height:1; color:#888; cursor:pointer; padding:4px 6px;" title="ปิด">✕</button>
+    </div>
 
     <div class="modal-form-group">
       <label for="ct-project">Project</label>
@@ -1906,12 +2045,18 @@ header{background:#fff;border-bottom:1px solid #e5e3dd;padding:10px 20px;display
       <input type="text" id="ct-new-project-name" placeholder="ชื่อโปรเจกต์" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;">
       <label for="ct-new-project-brand" style="display:block; font-size:13px; font-weight:500; color:#555; margin:8px 0 5px;">แบรนด์ / ลูกค้า (ถ้ามีในระบบ)</label>
       <select id="ct-new-project-brand" onchange="onCtNewProjectBrandChange()" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;"><option value="">— ไม่ระบุ —</option></select>
+      <div id="ct-contact-box" style="display:none; margin-top:10px;">
+        <label style="display:block; font-size:13px; font-weight:500; color:#555; margin-bottom:5px;">Contact ของแบรนด์นี้ <span style="color:#888;font-weight:normal;">(เลือกได้หลายคน — ถ้ามีคนเดียวเลือกให้อัตโนมัติ)</span></label>
+        <div id="ct-contact-list" class="scope-item-list"></div>
+      </div>
       <div id="ct-scope-item-box" style="display:none; margin-top:10px;">
         <label style="display:block; font-size:13px; font-weight:500; color:#555; margin-bottom:5px;">ผูก Scope Item (จากใบเสนอราคา) <span style="color:#888;font-weight:normal;">(เลือกได้หลายรายการ ไม่บังคับ)</span></label>
         <div id="ct-scope-item-list" class="scope-item-list"></div>
       </div>
       <label for="ct-new-project-owner" style="display:block; font-size:13px; font-weight:500; color:#555; margin:8px 0 5px;">Project Owner</label>
       <select id="ct-new-project-owner" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;"><option value="">— เลือก PM —</option></select>
+      <label for="ct-new-project-service-type" style="display:block; font-size:13px; font-weight:500; color:#555; margin:8px 0 5px;">ประเภทงาน (Service Type)</label>
+      <select id="ct-new-project-service-type" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;"></select>
     </div>
 
     <div class="modal-form-group">
@@ -1924,7 +2069,7 @@ header{background:#fff;border-bottom:1px solid #e5e3dd;padding:10px 20px;display
     </div>
     <div class="modal-form-group">
       <label for="ct-due-date">Due Date (วันส่งงาน)</label>
-      <input type="date" id="ct-due-date">
+      <input type="date" id="ct-due-date" onclick="try{this.showPicker()}catch(e){}">
     </div>
     <div class="modal-form-group">
       <label for="ct-assignee">Graphic Assignee <span style="color:#888;font-weight:normal;">(ไม่บังคับ — เว้นว่าง = เข้าคิวงานรอ assign)</span></label>
@@ -1943,9 +2088,12 @@ header{background:#fff;border-bottom:1px solid #e5e3dd;padding:10px 20px;display
 </div>
 
 <!-- Calendar Image Import Modal -->
-<div class="modal-backdrop" id="calendar-import-modal">
+<div class="modal-backdrop" id="calendar-import-modal" onclick="if(event.target===this)closeCalendarImportModal()">
   <div class="modal-box calendar-modal-box">
-    <div class="modal-title"><i class="ti ti-calendar-up" style="color:#378ADD"></i> สร้าง Project และ Task จากรูปปฏิทิน</div>
+    <div class="modal-title" style="display:flex; justify-content:space-between; align-items:center;">
+      <div><i class="ti ti-calendar-up" style="color:#378ADD"></i> สร้าง Project และ Task จากรูปปฏิทิน</div>
+      <button onclick="closeCalendarImportModal()" style="background:none; border:none; font-size:20px; line-height:1; color:#888; cursor:pointer; padding:4px 6px;" title="ปิด">✕</button>
+    </div>
     <div id="calendar-dropzone" class="calendar-dropzone" onclick="document.getElementById('calendar-file-input').click()">
       <input type="file" id="calendar-file-input" accept="image/jpeg,image/png,image/webp" style="display:none" onchange="handleCalendarFileInput(this.files)">
       <img id="calendar-preview-image" class="calendar-preview-image" alt="รูปปฏิทินที่เลือก">
@@ -2419,6 +2567,29 @@ function fillProjectOwnerSelect_(selectId) {
   }
 }
 
+function ensureServiceTypesLoaded_(callback) {
+  if (state.serviceTypes) { callback(); return; }
+  google.script.run
+    .withSuccessHandler(function(list) { state.serviceTypes = list || []; callback(); })
+    .withFailureHandler(function() { state.serviceTypes = []; callback(); })
+    .getServiceTypeOptions();
+}
+
+function fillServiceTypeSelect_(selectId) {
+  const select = document.getElementById(selectId);
+  if (!select) return;
+  const types = (state.serviceTypes || []).slice();
+  select.innerHTML = '';
+  types.forEach(function(t) {
+    const option = document.createElement('option');
+    option.value = t.id;
+    option.textContent = t.name;
+    select.appendChild(option);
+  });
+  const defaultType = types.find(function(t) { return t.name === 'Content / Graphic Design Production'; });
+  if (defaultType) select.value = defaultType.id;
+}
+
 function syncPmFilterOptions_() {
   const select = document.getElementById('pm-filter');
   if (!select) return;
@@ -2693,6 +2864,9 @@ function openCreateModal() {
     fillProjectOwnerSelect_('ct-new-project-owner');
     fillProjectOwnerSelect_('ct-pm-owner');
   });
+  ensureServiceTypesLoaded_(function() {
+    fillServiceTypeSelect_('ct-new-project-service-type');
+  });
   // reset
   document.getElementById('ct-task-name').value = '';
   document.getElementById('ct-due-date').value = '';
@@ -2701,8 +2875,11 @@ function openCreateModal() {
   document.getElementById('ct-newproject-box').style.display = 'none';
   document.getElementById('ct-pminbox-box').style.display = 'block';
   document.getElementById('ct-scope-item-box').style.display = 'none';
+  document.getElementById('ct-contact-box').style.display = 'none';
   state.scopeItems = null;
   state.selectedScopeItemIds = [];
+  state.contacts = null;
+  state.selectedContactIds = [];
   // Project (lazy load)
   var pj = document.getElementById('ct-project');
   if (!state.projects) {
@@ -2784,26 +2961,79 @@ function toggleScopeItem(el) {
   state.selectedScopeItemIds = selected;
   renderScopeItemList_();
 }
+function renderContactEmpty_(message) {
+  document.getElementById('ct-contact-list').innerHTML = '<div class="scope-item-empty">' + esc(message) + '</div>';
+}
+function renderContactList_() {
+  var el = document.getElementById('ct-contact-list');
+  if (!state.contacts || !state.contacts.length) {
+    renderContactEmpty_('ยังไม่มี Contact ของแบรนด์นี้ในระบบ');
+    return;
+  }
+  var selected = state.selectedContactIds || [];
+  var html = '';
+  state.contacts.forEach(function(c) {
+    var isSel = selected.indexOf(c.id) >= 0;
+    html += '<div class="scope-item-row' + (isSel ? ' selected' : '') + '" data-contact-id="' + esc(c.id) + '" onclick="toggleContact(this)">'
+      + '<div class="scope-item-check">' + (isSel ? '✓' : '') + '</div>'
+      + '<div style="flex:1;min-width:0;">'
+      + '<div class="scope-item-title">' + esc(c.name) + '</div>'
+      + (c.email ? '<div class="scope-item-sub">' + esc(c.email) + '</div>' : '')
+      + '</div></div>';
+  });
+  el.innerHTML = html;
+}
+function toggleContact(el) {
+  var id = el.getAttribute('data-contact-id');
+  var selected = state.selectedContactIds || [];
+  var idx = selected.indexOf(id);
+  if (idx >= 0) { selected.splice(idx, 1); } else { selected.push(id); }
+  state.selectedContactIds = selected;
+  renderContactList_();
+}
 function onCtNewProjectBrandChange() {
   var brandName = document.getElementById('ct-new-project-brand').value;
   var box = document.getElementById('ct-scope-item-box');
+  var contactBox = document.getElementById('ct-contact-box');
   state.scopeItems = null;
   state.selectedScopeItemIds = [];
-  if (!brandName) { box.style.display = 'none'; return; }
+  state.contacts = null;
+  state.selectedContactIds = [];
+  if (!brandName) { box.style.display = 'none'; contactBox.style.display = 'none'; return; }
   box.style.display = 'block';
+  contactBox.style.display = 'block';
   renderScopeItemEmpty_('กำลังโหลด...');
+  renderContactEmpty_('กำลังโหลด...');
   ensureBrandsLoaded_(function() {
     var brand = (state.brandsList || []).find(function(b) { return b.name === brandName; });
-    if (!brand) { renderScopeItemEmpty_('ยังไม่มี Scope จากใบเสนอราคาของแบรนด์นี้'); return; }
+    if (!brand) {
+      renderScopeItemEmpty_('ยังไม่มี Scope จากใบเสนอราคาของแบรนด์นี้');
+      renderContactEmpty_('ยังไม่มี Contact ของแบรนด์นี้ในระบบ');
+      return;
+    }
     google.script.run
       .withSuccessHandler(function(items) { state.scopeItems = items || []; renderScopeItemList_(); })
       .withFailureHandler(function() { renderScopeItemEmpty_('โหลด Scope Item ไม่สำเร็จ'); })
       .getScopeItemsForBrand(brand.id);
+    google.script.run
+      .withSuccessHandler(function(contacts) {
+        state.contacts = contacts || [];
+        // แบรนด์มี Contact คนเดียว ไม่ต้องให้เลือก เลือกให้เลย
+        state.selectedContactIds = (state.contacts.length === 1) ? [state.contacts[0].id] : [];
+        renderContactList_();
+      })
+      .withFailureHandler(function() { renderContactEmpty_('โหลด Contact ไม่สำเร็จ'); })
+      .getContactsForBrand(brand.id);
   });
 }
 function closeCreateModal() {
   document.getElementById('create-modal').classList.remove('show');
 }
+document.addEventListener('keydown', function(event) {
+  if (event.key !== 'Escape') return;
+  if (document.getElementById('create-modal').classList.contains('show')) closeCreateModal();
+  if (document.getElementById('calendar-import-modal').classList.contains('show')) closeCalendarImportModal();
+});
 function submitCreateTask() {
   var name = document.getElementById('ct-task-name').value.trim();
   if (!name) { showToast('กรุณาใส่ชื่อชิ้นงาน'); return; }
@@ -2828,6 +3058,8 @@ function submitCreateTask() {
     if (!pn) { showToast('กรุณาใส่ชื่อ Project ใหม่'); return; }
     var projectOwner = document.getElementById('ct-new-project-owner').value;
     if (!projectOwner) { showToast('กรุณาเลือก Project Owner'); return; }
+    var serviceTypeId = document.getElementById('ct-new-project-service-type').value;
+    if (!serviceTypeId) { showToast('กรุณาเลือกประเภทงาน (Service Type)'); return; }
     var selectedScopeIds = (state.selectedScopeItemIds || []).filter(function(id) { return id !== '__none__'; });
     var pickedNone = (state.selectedScopeItemIds || []).indexOf('__none__') >= 0;
     if (!selectedScopeIds.length && !pickedNone) {
@@ -2836,7 +3068,9 @@ function submitCreateTask() {
     payload.newProjectName = pn;
     payload.newProjectBrand = document.getElementById('ct-new-project-brand').value;
     payload.newProjectOwner = projectOwner;
+    payload.newProjectServiceTypeId = serviceTypeId;
     payload.newProjectScopeItemIds = selectedScopeIds;
+    payload.newProjectContactIds = state.selectedContactIds || [];
   } else if (projectSel) {
     payload.projectId = projectSel;
   } else {
