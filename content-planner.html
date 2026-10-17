@@ -303,15 +303,13 @@ body[data-client-theme] .day-num.today-badge {
 
   <!-- ============ CALENDAR VIEW ============ -->
   <div id="view-calendar" class="hidden">
-    <div class="flex items-center justify-between mb-1">
+    <div class="flex items-center flex-wrap gap-2 mb-1">
       <button onclick="shiftMonth(-1)" class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-sm"><i class="fa-solid fa-chevron-left"></i></button>
-      <div class="font-semibold" id="cal-title"></div>
-      <div class="flex items-center gap-2">
-        <button onclick="openImportImage()" class="px-3 py-1.5 rounded-lg border border-purple-200 bg-purple-50 text-sm text-purple-700 hover:bg-purple-100 font-medium">
-          <i class="fa-solid fa-wand-magic-sparkles"></i> นำเข้าจากรูปปฏิทิน
-        </button>
-        <button onclick="shiftMonth(1)" class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-sm"><i class="fa-solid fa-chevron-right"></i></button>
-      </div>
+      <div class="font-semibold min-w-[9rem] text-center" id="cal-title"></div>
+      <button onclick="shiftMonth(1)" class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-sm"><i class="fa-solid fa-chevron-right"></i></button>
+      <button onclick="openImportImage()" class="px-3 py-1.5 rounded-lg border border-purple-200 bg-purple-50 text-sm text-purple-700 hover:bg-purple-100 font-medium ml-1">
+        <i class="fa-solid fa-wand-magic-sparkles"></i> นำเข้าจากรูปปฏิทิน
+      </button>
     </div>
     <div id="cal-hint" class="text-xs text-slate-400 mb-3"><i class="fa-solid fa-hand"></i> ลากการ์ดไปวางวันที่ต้องการเพื่อเลื่อนกำหนดโพสต์ — บนมือถือแตะที่จุดสีเพื่อดูรายละเอียด</div>
     <div class="grid grid-cols-7">
