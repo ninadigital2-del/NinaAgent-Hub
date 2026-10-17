@@ -1931,6 +1931,23 @@ input[type="date"]::-webkit-calendar-picker-indicator{position:absolute;left:0;t
 .modal-btn-save{border-color:#378ADD;background:#EBF4FD;color:#185FA5}
 .modal-btn-save:hover{background:#378ADD;color:#fff}
 .modal-btn-cancel:hover{background:#f5f4f0}
+.modal-btn-save:disabled,.modal-btn-save:disabled:hover{border-color:#ddd;background:#f5f4f0;color:#aaa;cursor:not-allowed}
+.as-meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.as-chip{font-size:11px;font-weight:500;padding:2px 8px;border-radius:5px;background:#f0efea;color:#666}
+.as-chip.late{background:#FCEBEB;color:#A32D2D}
+.as-pick{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}
+.as-pick button{border:1px solid #ddd;background:#fff;border-radius:8px;padding:8px 10px;text-align:left;cursor:pointer;font-family:inherit;display:flex;flex-direction:column;gap:2px}
+.as-pick button:hover{border-color:#999}
+.as-pick button.on{border-color:#22A06B;background:#e9f7f0}
+.as-pick .as-nm{font-size:13px;font-weight:600;color:#1a1a18;display:flex;align-items:center;gap:6px}
+.as-pick .as-dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0}
+.as-pick .as-ld{font-size:11px;color:#888}
+.as-quick{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.as-quick:empty{display:none}
+.as-quick button{border:1px solid #ddd;background:#fafaf8;border-radius:999px;padding:3px 10px;font-size:12px;cursor:pointer;font-family:inherit;color:#555}
+.as-quick button.on{border-color:#22A06B;background:#e9f7f0;color:#0F6E56}
+.as-help{font-size:12px;color:#888;margin-top:6px}
+.as-help.warn{color:#854F0B;background:#FAEEDA;padding:6px 10px;border-radius:6px}
 .task-item{border:1px solid #e5e3dd;border-radius:8px;padding:12px 14px;margin-bottom:10px;cursor:pointer;background:#fff;transition:border-color .15s;display:flex;align-items:center;justify-content:space-between;gap:10px}
 .task-item:hover{border-color:#bbb}
 .task-item.selected{border-color:#378ADD;background:#EBF4FD}
@@ -1941,15 +1958,7 @@ input[type="date"]::-webkit-calendar-picker-indicator{position:absolute;left:0;t
 .tag{font-size:12px;padding:2px 8px;border-radius:4px;background:#f5f4f0;border:1px solid #e5e3dd;color:#777}
 .tag-due{color:#854F0B}
 .tag-late{color:#A32D2D}
-.abar{padding:12px 16px;border-top:1px solid #e5e3dd;background:#fafaf8;display:flex;flex-wrap:wrap;gap:10px;align-items:center;flex-shrink:0}
-.abar select{flex:1;font-size:14px;padding:8px 12px;border:1px solid #ddd;border-radius:7px;background:#fff;color:#1a1a18}
-.abtn{padding:8px 18px;font-size:14px;font-weight:500;border:1px solid #378ADD;border-radius:7px;background:#EBF4FD;color:#185FA5;cursor:pointer;white-space:nowrap}
-.abtn:not(:disabled):hover{background:#378ADD;color:#fff}
-.abtn:disabled{opacity:.4;cursor:default}
 @media(max-width:700px){
-  .abar{padding:10px 12px;position:sticky;bottom:0}
-  .abar select{font-size:16px;padding:10px 12px}
-  .abtn{padding:10px 20px;font-size:16px}
   .ph{padding:10px 14px}
   .pb{padding:10px}
   .person-card,.task-item{padding:10px 12px;margin-bottom:8px}
@@ -2013,13 +2022,6 @@ input[type="date"]::-webkit-calendar-picker-indicator{position:absolute;left:0;t
       <div class="cond">Status = Not started · ยังไม่มี Graphic Assignee</div>
     </div>
     <div class="pb" id="task-panel"><div class="empty">กำลังดึงข้อมูล...</div></div>
-    <div class="abar">
-      <span style="font-size:12px; font-weight:500; color:#555; margin-right:4px;">วันทำงาน</span>
-      <input type="date" id="sel-assign-date" title="วันที่ให้ช่างทำงาน (เว้นว่างไว้จะใช้วัน Due Date เดิมของงาน)" style="padding:4px 8px; border:1px solid #ddd; border-radius:4px; font-size:12px;">
-      <input type="url" id="sel-assign-link" placeholder="ลิงก์บรีฟ / ตัวอย่าง" title="ลิงก์จะถูกเขียนลงคอลัมน์ N ของ Sheet Graphic" style="flex:1;min-width:180px;padding:8px 10px;border:1px solid #ddd;border-radius:7px;font-size:12px;">
-      <select id="sel-assignee"><option value="">เลือก graphic...</option></select>
-      <button class="abtn" id="btn-assign" disabled>Assign</button>
-    </div>
   </div>
 </div>
 <div class="toast" id="toast"></div>
@@ -2186,23 +2188,35 @@ input[type="date"]::-webkit-calendar-picker-indicator{position:absolute;left:0;t
 </div>
 
 <!-- Drag Assign Modal -->
-<div class="modal-backdrop" id="drag-assign-modal">
+<div class="modal-backdrop" id="assign-modal" onclick="if(event.target===this)closeAssignModal()">
   <div class="modal-box">
-    <div class="modal-header">
-      <h3 id="drag-assign-title">ยืนยันการมอบหมายงาน</h3>
-      <div class="modal-close" onclick="closeDragAssignModal()"><i class="ti ti-x"></i></div>
-    </div>
-    <div class="modal-body">
-      <p id="drag-assign-text" style="margin-bottom: 12px; font-size: 14px; line-height: 1.5; color: #333;"></p>
-      <label style="display:block; margin-bottom: 5px; font-weight: 500; font-size: 13px; color: #555;">เลือกวันทำงาน <span style="color:#888;font-weight:normal;">(เว้นว่างเพื่อใช้วัน Due Date)</span></label>
-      <input type="date" id="drag-assign-date" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; margin-bottom: 15px; font-family: inherit;">
-      <label style="display:block; margin-bottom:5px; font-weight:500; font-size:13px; color:#555;">ลิงก์บรีฟ / ตัวอย่าง</label>
-      <input type="url" id="drag-assign-link" placeholder="https://..." style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;box-sizing:border-box;margin-bottom:15px;font-family:inherit;">
-      
-      <div style="text-align:right;">
-        <button class="abtn" style="background:#f1f5f9; color:#333; border:1px solid #cbd5e1; margin-right:8px;" onclick="closeDragAssignModal()">ยกเลิก</button>
-        <button class="abtn" id="drag-assign-confirm-btn" onclick="confirmDragAssign()">ยืนยัน Assign</button>
+    <div class="modal-title" style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px;">
+      <div style="min-width:0;">
+        <div style="font-size:11px; font-weight:500; color:#888; letter-spacing:.06em; text-transform:uppercase;">มอบหมายงาน</div>
+        <div id="as-title" style="font-size:15px; font-weight:600; line-height:1.4; overflow-wrap:anywhere;"></div>
+        <div id="as-meta" class="as-meta"></div>
       </div>
+      <button onclick="closeAssignModal()" style="background:none; border:none; font-size:20px; line-height:1; color:#888; cursor:pointer; padding:4px 6px;" title="ปิด">✕</button>
+    </div>
+
+    <div class="modal-form-group">
+      <label>มอบหมายให้ <span style="text-transform:none; font-weight:normal; color:#aaa;">เรียงจากงานค้างน้อยสุด</span></label>
+      <div id="as-pick" class="as-pick"></div>
+    </div>
+    <div class="modal-form-group">
+      <label for="as-date">วันที่ลงตาราง Graphic</label>
+      <input type="date" id="as-date" oninput="onAssignDateInput()">
+      <div id="as-quick" class="as-quick"></div>
+      <div id="as-date-help" class="as-help"></div>
+    </div>
+    <div class="modal-form-group">
+      <label for="as-link">ลิงก์บรีฟ / ตัวอย่าง <span style="text-transform:none; font-weight:normal; color:#aaa;">ไม่บังคับ</span></label>
+      <input type="url" id="as-link" placeholder="https://...">
+    </div>
+
+    <div class="modal-actions">
+      <button class="modal-btn modal-btn-cancel" onclick="closeAssignModal()">ยกเลิก</button>
+      <button class="modal-btn modal-btn-save" id="as-confirm" onclick="confirmAssign()" disabled>เลือก Graphic ก่อน</button>
     </div>
   </div>
 </div>
@@ -2217,7 +2231,7 @@ const COLORS = {
   'ท้อป': {bg:'#E1F5EE',fg:'#085041'},
   'โอม':  {bg:'#FBEAF0',fg:'#72243E'},
 };
-let state = {people:[], tasks:[], selectedTask:null, pmFilter:'', calendarImport:{image:null,tasks:[]}};
+let state = {people:[], tasks:[], pmFilter:'', calendarImport:{image:null,tasks:[]}};
 
 function esc(str) {
   return String(str || '')
@@ -2372,13 +2386,6 @@ function init() {
         state.settings = res.settings;
         renderDropdownSettings();
       }
-      const sel = document.getElementById('sel-assignee');
-      state.people.slice().sort(function(a,b){return a.open-b.open;}).forEach(function(p) {
-        const o = document.createElement('option');
-        o.value = p.name;
-        o.textContent = p.name + ' (' + p.open + ' งานค้าง)';
-        sel.appendChild(o);
-      });
       document.getElementById('week-badge').textContent = (cap.windowRange || '');
       renderPeople();
       renderTasks();
@@ -2397,19 +2404,7 @@ function autoRefresh() {
       if (cap.ok && tasks.ok) {
         state.people = cap.people || [];
         state.tasks = tasks.tasks || [];
-        
-        // Update assignee dropdown without resetting selection
-        const sel = document.getElementById('sel-assignee');
-        const currentVal = sel.value;
-        sel.innerHTML = '<option value="">-- เลือกผู้รับผิดชอบ --</option>';
-        state.people.slice().sort(function(a,b){return a.open-b.open;}).forEach(function(p) {
-          const o = document.createElement('option');
-          o.value = p.name;
-          o.textContent = p.name + ' (' + p.open + ' งานค้าง)';
-          sel.appendChild(o);
-        });
-        sel.value = currentVal;
-        
+
         const ms = res.timings ? res.timings.total : 0;
         document.getElementById('sync-info').textContent = 'อัปเดต ' + new Date(cap.updatedAt).toLocaleTimeString('th-TH') + ' (' + ms + 'ms) (Auto)';
         
@@ -2512,15 +2507,8 @@ function renderPeople() {
       const source = event.dataTransfer.getData('source');
       if (source === 'unassigned') {
         const taskId = event.dataTransfer.getData('taskId');
-        assignTaskViaDrag(taskId, p.name);
+        openAssignModal(taskId, p.name);
       }
-    };
-
-    card.onclick = function() {
-      document.getElementById('sel-assignee').value = p.name;
-      updateBtn();
-      document.querySelectorAll('.person-card').forEach(function(c){c.classList.remove('selected');});
-      card.classList.add('selected');
     };
     el.appendChild(card);
   });
@@ -2627,9 +2615,7 @@ function syncPmFilterOptions_() {
 
 function setPmFilter(value) {
   state.pmFilter = value || '';
-  state.selectedTask = null;
   renderTasks();
-  updateBtn();
 }
 
 function renderTasks() {
@@ -2699,7 +2685,7 @@ function renderTasks() {
 
     tasks.forEach(function(t) {
       const item = document.createElement('div');
-      item.className = 'task-item'+(state.selectedTask===t.id?' selected':'');
+      item.className = 'task-item';
       item.style.borderLeft = '3px solid '+c.dot;
       
       // Make draggable
@@ -2743,19 +2729,10 @@ function renderTasks() {
         + '<div class="task-item-actions" onclick="event.stopPropagation()">'
         + '<button class="btn-edit" onclick="openUnassignedEditModal(\\''+escId+'\\', \\''+escName+'\\', \\''+escBrand+'\\', \\''+escWorkType+'\\', \\''+escDate+'\\', \\''+escStatus+'\\')" title="แก้ไข">✎</button>'
         + '</div>';
-      item.onclick = function() {
-        state.selectedTask = state.selectedTask===t.id?null:t.id;
-        renderTasks();
-        updateBtn();
-      };
+      item.onclick = function() { openAssignModal(t.id); };
       el.appendChild(item);
     });
   });
-}
-
-function updateBtn() {
-  const sel = document.getElementById('sel-assignee').value;
-  document.getElementById('btn-assign').disabled = !(state.selectedTask && sel);
 }
 
 function readBriefLinkInput_(inputId) {
@@ -2768,77 +2745,6 @@ function readBriefLinkInput_(inputId) {
   }
   return { ok: true, value: value };
 }
-
-document.getElementById('sel-assignee').addEventListener('change', updateBtn);
-
-document.getElementById('btn-assign').addEventListener('click', function() {
-  const assignee = document.getElementById('sel-assignee').value;
-  const customDate = document.getElementById('sel-assign-date').value;
-  const linkResult = readBriefLinkInput_('sel-assign-link');
-  if (!linkResult.ok) return;
-  const task = state.tasks.find(function(t){return t.id===state.selectedTask;});
-  if (!task||!assignee) return;
-  
-  const finalDueDate = customDate ? customDate : task.dueDate;
-  const btn = document.getElementById('btn-assign');
-  btn.disabled = true;
-  btn.textContent = 'กำลัง assign...';
-  
-  // OPTIMISTIC UI UPDATE
-  state.tasks = state.tasks.filter(function(t){return t.id!==task.id;});
-  const person = state.people.find(function(p){return p.name===assignee;});
-  if (person) {
-    person.open = Math.max(0,person.open+1);
-    if(!person.todayTasks) person.todayTasks = [];
-    person.todayTasks.push({
-      rowIndex: 9999, // Fake index
-      rawDate: finalDueDate || '',
-      dateStr: finalDueDate ? new Date(finalDueDate).toLocaleDateString('th-TH',{day:'numeric',month:'short'}) : '',
-      name: task.name,
-      brand: task.brandCode,
-      workType: task.workType,
-      jobNumber: task.jobNumber,
-      status: 'Not started'
-    });
-  }
-  state.selectedTask = null;
-  document.getElementById('sel-assignee').value = '';
-  document.querySelectorAll('.person-card').forEach(function(c){c.classList.remove('selected');});
-  renderPeople(); renderTasks(); updateBtn();
-  
-  google.script.run
-    .withSuccessHandler(function(res) {
-      btn.textContent = 'Assign';
-      if (res.ok) {
-        showToast('Assign "'+task.name+'" \u2192 '+assignee+' เสร็จแล้ว');
-        document.getElementById('sel-assign-link').value = '';
-        google.script.run
-          .withSuccessHandler(function(allData) {
-            if (allData.ok) {
-              state.people = allData.capacity.people;
-              renderPeople();
-            }
-          })
-          .getAllData();
-      } else {
-        showToast('Error: '+(res.errors||[]).join(', '));
-        btn.disabled = false;
-        // Revert UI on failure
-        fetchData();
-      }
-    })
-    .withFailureHandler(function(err) {
-      btn.textContent = 'Assign';
-      showToast('Error: '+err.message);
-      btn.disabled = false;
-    })
-    .handleAssign({
-      action: 'assign', taskId: task.id, taskName: task.name, taskUrl: task.url,
-      assignee: assignee, dueDate: finalDueDate, brand: task.brandCode,
-      workType: task.workType, owner: task.workBy, jobNumber: task.jobNumber, briefLink: linkResult.value,
-      originalDueDate: task.dueDate // Send this if needed later
-    });
-});
 
 // ---------- Create Task Modal ----------
 function openCreateModal() {
@@ -3033,6 +2939,7 @@ document.addEventListener('keydown', function(event) {
   if (event.key !== 'Escape') return;
   if (document.getElementById('create-modal').classList.contains('show')) closeCreateModal();
   if (document.getElementById('calendar-import-modal').classList.contains('show')) closeCalendarImportModal();
+  if (document.getElementById('assign-modal').classList.contains('show')) closeAssignModal();
 });
 function submitCreateTask() {
   var name = document.getElementById('ct-task-name').value.trim();
@@ -3444,58 +3351,141 @@ function handleAssignedDragStart(event, fromAssignee, rowIndex) {
   event.dataTransfer.setData('rowIndex', rowIndex);
 }
 
-let pendingDragAssign = null;
+// ---------- Assign Modal (คลิกการ์ดงาน หรือลากไปวางบนชื่อ Graphic) ----------
+// "วันที่ลงตาราง Graphic" = วันที่เขียนลงคอลัมน์ E ของ Sheet Graphic เท่านั้น
+// ไม่ไปแก้ Due Date ใน Notion (handleAssign อัปเดตแค่ Graphic Assignee)
+var assignCtx = null;
 
-function assignTaskViaDrag(taskId, targetAssignee) {
-  const task = state.tasks.find(function(t){return t.id===taskId;});
-  if (!task || !targetAssignee) return;
-  
-  pendingDragAssign = { taskId: taskId, targetAssignee: targetAssignee, dueDate: task.dueDate };
-  
-  const dp = document.getElementById('drag-assign-date');
-  if (task.dueDate) {
-    const d = new Date(task.dueDate);
-    dp.value = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+function isoFromParts_(y, m, d) {
+  var dt = new Date(y, m, d);
+  return dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0');
+}
+function todayIso_() {
+  var d = new Date();
+  return isoFromParts_(d.getFullYear(), d.getMonth(), d.getDate());
+}
+function isoAddDays_(iso, n) {
+  var p = iso.split('-');
+  return isoFromParts_(Number(p[0]), Number(p[1]) - 1, Number(p[2]) + n);
+}
+function thaiShortDate_(iso) {
+  if (!iso) return '';
+  var p = iso.split('-');
+  return new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2])).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
+}
+
+function openAssignModal(taskId, presetAssignee) {
+  var task = state.tasks.find(function(t) { return t.id === taskId; });
+  if (!task) return;
+  var due = String(task.dueDate || '').slice(0, 10);
+  var today = todayIso_();
+  var late = !!due && due < today;
+  assignCtx = { task: task, due: due, who: presetAssignee || '', date: (!due || late) ? today : due };
+
+  document.getElementById('as-title').textContent = task.name;
+  var meta = '';
+  if (task.brandCode) meta += '<span class="as-chip">' + esc(task.brandCode) + '</span>';
+  if (task.workType) meta += '<span class="as-chip">' + esc(task.workType) + '</span>';
+  meta += due
+    ? '<span class="as-chip' + (late ? ' late' : '') + '">Due ลูกค้า ' + esc(thaiShortDate_(due)) + (late ? ' · เลยแล้ว' : '') + '</span>'
+    : '<span class="as-chip">ไม่มี Due Date</span>';
+  document.getElementById('as-meta').innerHTML = meta;
+  document.getElementById('as-date').value = assignCtx.date;
+  document.getElementById('as-link').value = '';
+  renderAssignPick_();
+  renderAssignQuick_();
+  renderAssignSummary_();
+  document.getElementById('assign-modal').classList.add('show');
+}
+
+function closeAssignModal() {
+  document.getElementById('assign-modal').classList.remove('show');
+  assignCtx = null;
+}
+
+function renderAssignPick_() {
+  var el = document.getElementById('as-pick');
+  el.innerHTML = '';
+  state.people.slice().sort(function(a, b) { return a.open - b.open; }).forEach(function(p) {
+    var dot = p.flag === 'green' ? '#639922' : p.flag === 'amber' ? '#EF9F27' : '#E24B4A';
+    var lbl = p.flag === 'green' ? 'ว่าง' : p.flag === 'amber' ? 'ปานกลาง' : 'ยุ่ง';
+    var b = document.createElement('button');
+    b.type = 'button';
+    if (assignCtx.who === p.name) b.className = 'on';
+    b.innerHTML = '<span class="as-nm"><span class="as-dot" style="background:' + dot + '"></span>' + esc(p.name) + '</span>'
+      + '<span class="as-ld">ค้าง ' + p.open + ' งาน · ' + lbl + '</span>';
+    b.onclick = function() { assignCtx.who = p.name; renderAssignPick_(); renderAssignSummary_(); };
+    el.appendChild(b);
+  });
+}
+
+function renderAssignQuick_() {
+  var el = document.getElementById('as-quick');
+  el.innerHTML = '';
+  var due = assignCtx.due, today = todayIso_();
+  if (!due || due < today) return;
+  [['ตรง Due', 0], ['ก่อน 1 วัน', -1], ['ก่อน 2 วัน', -2]].forEach(function(q) {
+    var v = isoAddDays_(due, q[1]);
+    if (v < today) return;
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = q[0];
+    if (assignCtx.date === v) b.className = 'on';
+    b.onclick = function() {
+      assignCtx.date = v;
+      document.getElementById('as-date').value = v;
+      renderAssignQuick_();
+      renderAssignSummary_();
+    };
+    el.appendChild(b);
+  });
+}
+
+function onAssignDateInput() {
+  if (!assignCtx) return;
+  assignCtx.date = document.getElementById('as-date').value;
+  renderAssignQuick_();
+  renderAssignSummary_();
+}
+
+function renderAssignSummary_() {
+  var help = document.getElementById('as-date-help');
+  var due = assignCtx.due, today = todayIso_();
+  if (assignCtx.date && due && due >= today && assignCtx.date > due) {
+    help.className = 'as-help warn';
+    help.textContent = 'ลงตารางหลัง Due ลูกค้า (' + thaiShortDate_(due) + ') งานจะส่งไม่ทัน';
   } else {
-    dp.value = '';
+    help.className = 'as-help';
+    help.textContent = due
+      ? 'ไม่เปลี่ยน Due Date ใน Notion — ลูกค้ายังเป็น ' + thaiShortDate_(due)
+      : 'ไม่เปลี่ยน Due Date ใน Notion';
   }
-  document.getElementById('drag-assign-link').value = '';
-  
-  document.getElementById('drag-assign-text').innerHTML = 'คุณต้องการมอบหมายงาน <b>' + esc(task.name) + '</b><br>ให้ <b>' + esc(targetAssignee) + '</b> ใช่หรือไม่?';
-  document.getElementById('drag-assign-modal').classList.add('show');
+  var btn = document.getElementById('as-confirm');
+  if (!assignCtx.who) { btn.disabled = true; btn.textContent = 'เลือก Graphic ก่อน'; }
+  else if (!assignCtx.date) { btn.disabled = true; btn.textContent = 'เลือกวันที่ลงตารางก่อน'; }
+  else { btn.disabled = false; btn.textContent = 'Assign ให้ ' + assignCtx.who + ' · ลงตาราง ' + thaiShortDate_(assignCtx.date); }
 }
 
-function closeDragAssignModal() {
-  document.getElementById('drag-assign-modal').classList.remove('show');
-  pendingDragAssign = null;
-}
-
-function confirmDragAssign() {
-  if (!pendingDragAssign) return;
-  const taskId = pendingDragAssign.taskId;
-  const targetAssignee = pendingDragAssign.targetAssignee;
-  const task = state.tasks.find(function(t){return t.id===taskId;});
-  const customDate = document.getElementById('drag-assign-date').value;
-  const linkResult = readBriefLinkInput_('drag-assign-link');
+function confirmAssign() {
+  if (!assignCtx || !assignCtx.who || !assignCtx.date) return;
+  var linkResult = readBriefLinkInput_('as-link');
   if (!linkResult.ok) return;
-  
-  closeDragAssignModal();
-  
-  if (!task || !targetAssignee) return;
+  var task = assignCtx.task;
+  var assignee = assignCtx.who;
+  var finalDueDate = assignCtx.date;
+  closeAssignModal();
   showToast('กำลังมอบหมายงาน...');
-  
-  const finalDueDate = customDate ? customDate : task.dueDate;
-  
+
   // OPTIMISTIC UI UPDATE
-  state.tasks = state.tasks.filter(function(t){return t.id!==task.id;});
-  const person = state.people.find(function(p){return p.name===targetAssignee;});
+  state.tasks = state.tasks.filter(function(t) { return t.id !== task.id; });
+  var person = state.people.find(function(p) { return p.name === assignee; });
   if (person) {
     person.open = Math.max(0, person.open + 1);
-    if(!person.todayTasks) person.todayTasks = [];
+    if (!person.todayTasks) person.todayTasks = [];
     person.todayTasks.push({
       rowIndex: 9999, // Fake index
-      rawDate: finalDueDate || '',
-      dateStr: finalDueDate ? new Date(finalDueDate).toLocaleDateString('th-TH',{day:'numeric',month:'short'}) : '',
+      rawDate: finalDueDate,
+      dateStr: thaiShortDate_(finalDueDate),
       name: task.name,
       brand: task.brandCode,
       workType: task.workType,
@@ -3503,15 +3493,13 @@ function confirmDragAssign() {
       status: 'Not started'
     });
   }
-  state.selectedTask = null;
   renderTasks();
-  updateBtn();
   renderPeople();
 
   google.script.run
     .withSuccessHandler(function(res) {
       if (res.ok) {
-        showToast('Assign "' + task.name + '" \u2192 ' + targetAssignee + ' เสร็จแล้ว');
+        showToast('Assign "' + task.name + '" → ' + assignee + ' เสร็จแล้ว');
         google.script.run
           .withSuccessHandler(function(allData) {
             if (allData.ok) {
@@ -3527,10 +3515,11 @@ function confirmDragAssign() {
     })
     .withFailureHandler(function(err) {
       showToast('Error: ' + err.message);
+      fetchData();
     })
     .handleAssign({
       action: 'assign', taskId: task.id, taskName: task.name, taskUrl: task.url,
-      assignee: targetAssignee, dueDate: finalDueDate, brand: task.brandCode,
+      assignee: assignee, dueDate: finalDueDate, brand: task.brandCode,
       workType: task.workType, owner: task.workBy, jobNumber: task.jobNumber, briefLink: linkResult.value,
       originalDueDate: task.dueDate
     });
