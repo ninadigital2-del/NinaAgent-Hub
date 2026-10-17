@@ -83,19 +83,30 @@ function getTasksForStatusBoard() {
   const key   = props.getProperty('NOTION_API_KEY');
   const dbId  = '2e69dccd181d81df8919fbacf921c7d5';
 
-  const payload = {
-    filter: {
-      property: 'Status',
-      status: { does_not_equal: 'Done' }
-    },
-    sorts: [{ property: 'Due Date', direction: 'ascending' }],
-    page_size: 100
+  const filter = {
+    property: 'Status',
+    status: { does_not_equal: 'Done' }
   };
 
-  const res = notionFetch(`databases/${dbId}/query`, 'POST', payload, key);
-  if (!res || !res.results) return { ok: false, tasks: [] };
+  let allResults = [];
+  let cursor = null;
+  let failed = false;
+  do {
+    const payload = {
+      filter: filter,
+      sorts: [{ property: 'Due Date', direction: 'ascending' }],
+      page_size: 100
+    };
+    if (cursor) payload.start_cursor = cursor;
+    const res = notionFetch(`databases/${dbId}/query`, 'POST', payload, key);
+    if (!res || !res.results) { failed = true; break; }
+    allResults = allResults.concat(res.results);
+    cursor = res.has_more ? res.next_cursor : null;
+  } while (cursor);
 
-  const tasks = res.results.map(p => {
+  if (failed) return { ok: false, tasks: [] };
+
+  const tasks = allResults.map(p => {
     const props = p.properties;
     const ownerRollup = props['Owner']?.rollup?.array?.[0]?.multi_select || [];
     const brandRollup = props['Brand Name']?.rollup?.array?.[0];
