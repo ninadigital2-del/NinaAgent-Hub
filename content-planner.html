@@ -1554,6 +1554,11 @@ function closeForm(){
   window.__editCaptions = null;
   window.__editPublished = null;
 }
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && !document.getElementById('form-modal').classList.contains('hidden')) {
+    closeForm();
+  }
+});
 function selectedPlatforms(){
   return [...document.querySelectorAll('#fld-platforms input:checked')].map(cb=>cb.value);
 }
