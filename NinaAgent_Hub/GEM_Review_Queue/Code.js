@@ -474,7 +474,7 @@ function ensureJobNo(masterRow, masterRowNum, masterSheet) {
     return "";
   }
 
-  const brandSlug = brand.toUpperCase().replace(/\s+/g, '');
+  const brandSlug = brand.toUpperCase().replace(/[^A-Z0-9]+/g, '');
   const newJobNo = `AUTO-${brandSlug}-${Utilities.getUuid().slice(0, 8).toUpperCase()}`;
   const taskDateVal = masterRow[5];
   const targetDateStr = parseTaskDateString(taskDateVal);
