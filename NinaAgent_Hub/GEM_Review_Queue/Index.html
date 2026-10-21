@@ -1251,9 +1251,16 @@ html>body{padding:0}</style>
 
           let actionButtons = '';
           if (currentTab === 'waiting') {
+            // task.id is a Job No. like "AUTO-NEIL'S-xxxxx" -- brand names
+            // such as "Neil's" carry a literal apostrophe, which closes the
+            // single-quoted JS string early when dropped straight into this
+            // onclick="..." attribute. The resulting HTML parses as broken
+            // JS, so the button does nothing on click -- no error, no
+            // server call, nothing in the Executions log either. Escape it.
+            const safeTaskId = String(task.id).replace(/'/g, "\\'");
             actionButtons = `
-              <button class="btn action-revise" type="button" onclick="handleAction('${task.id}', 'มีปรับแก้')"><i data-lucide="undo-2" aria-hidden="true"></i> ส่งกลับแก้</button>
-              <button class="btn btn-primary action-approve" type="button" onclick="handleAction('${task.id}', 'อนุมัติแล้ว')"><i data-lucide="check" aria-hidden="true"></i> อนุมัติ</button>
+              <button class="btn action-revise" type="button" onclick="handleAction('${safeTaskId}', 'มีปรับแก้')"><i data-lucide="undo-2" aria-hidden="true"></i> ส่งกลับแก้</button>
+              <button class="btn btn-primary action-approve" type="button" onclick="handleAction('${safeTaskId}', 'อนุมัติแล้ว')"><i data-lucide="check" aria-hidden="true"></i> อนุมัติ</button>
             `;
           }
 
@@ -1381,7 +1388,11 @@ html>body{padding:0}</style>
                const res = JSON.parse(resStr);
                if (res.success) {
                  if (newStatus === "อนุมัติแล้ว") {
-                   announce(`✅ อนุมัติงาน "${res.taskName}" แล้ว <button class="btn" style="margin-left:8px;padding:2px 6px;" onclick="undoAction('${taskId}', '${prevStatus}')">Undo (ยกเลิก)</button>`, 6000);
+                   // Same apostrophe-in-Job-No. issue as the action buttons
+                   // above -- escape before dropping into onclick="...".
+                   const safeTaskId = String(taskId).replace(/'/g, "\\'");
+                   const safePrevStatus = String(prevStatus).replace(/'/g, "\\'");
+                   announce(`✅ อนุมัติงาน "${res.taskName}" แล้ว <button class="btn" style="margin-left:8px;padding:2px 6px;" onclick="undoAction('${safeTaskId}', '${safePrevStatus}')">Undo (ยกเลิก)</button>`, 6000);
                  } else {
                    announce(`📝 เปลี่ยนสถานะงาน "${res.taskName}" เป็นมีปรับแก้แล้ว`);
                  }
