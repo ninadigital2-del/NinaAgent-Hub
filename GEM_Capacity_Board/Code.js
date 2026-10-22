@@ -1128,7 +1128,7 @@ function getScopeItemsForBrand(brandId) {
       platformTarget: (props['Platform Target'] && props['Platform Target'].rich_text && props['Platform Target'].rich_text[0] && props['Platform Target'].rich_text[0].plain_text) || ''
     };
   }).filter(function(it) {
-    if (it.itemType === 'Service') return false;
+    if (it.itemType === 'Service' || it.itemType === 'Ads') return false;
     if (it.status === 'ส่งมอบแล้ว' || it.status === 'ปิด') return false;
     if (it.itemType === 'Retainer' && (it.periodStart || it.periodEnd)) {
       const end = it.periodEnd ? new Date(it.periodEnd) : null;
