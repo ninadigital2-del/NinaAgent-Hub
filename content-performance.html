@@ -165,6 +165,14 @@
   .chip i{ font-size:11px; }
   .chip.live{ color:var(--good); border-color:transparent; background:var(--good-soft); }
   .chip.mock{ color:var(--warn); border-color:transparent; background:var(--warn-soft); }
+  .refresh-btn{
+    font-family:inherit; font-size:12.5px; font-weight:600; color:var(--brand);
+    background:var(--brand-soft); border:1px solid transparent; border-radius:9px;
+    padding:7px 12px; cursor:pointer; display:inline-flex; align-items:center; gap:7px;
+  }
+  .refresh-btn:hover{ border-color:var(--brand); }
+  .refresh-btn:disabled{ cursor:wait; opacity:.65; }
+  .refresh-status{ font-size:11.5px; color:var(--ink-soft); max-width:260px; }
 
   .beta-banner{
     display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600;
@@ -408,6 +416,10 @@
         <option value="30" selected>30 วันล่าสุด</option>
         <option value="90">90 วันล่าสุด</option>
       </select>
+      <button id="refreshThumbBtn" class="refresh-btn" type="button" title="ดึงลิงก์รูปใหม่เฉพาะลูกค้าและช่วงวันที่ที่เลือก">
+        <i class="fa-solid fa-arrows-rotate"></i> อัปเดตรูป
+      </button>
+      <span id="refreshThumbStatus" class="refresh-status" aria-live="polite"></span>
       <div class="segctl" id="viewSwitch">
         <button data-view="ceo" class="active"><i class="fa-solid fa-chart-line"></i> CEO / COO</button>
         <button data-view="team"><i class="fa-solid fa-layer-group"></i> ทีมคอนเทนต์</button>
@@ -755,10 +767,10 @@
     }
   }
 
-  async function loadData(){
+  async function loadData(forceLive){
     if (API_URL) {
       try {
-        const res = await fetch(API_URL + '?action=data' + currentClientQS_() + '&days=' + encodeURIComponent(CURRENT_RANGE_DAYS));
+        const res = await fetch(API_URL + '?action=data' + currentClientQS_() + '&days=' + encodeURIComponent(CURRENT_RANGE_DAYS) + (forceLive ? '&refresh=1' : ''));
         const json = await res.json();
         if (json.success) {
           CONTENT = json.content || [];
@@ -840,6 +852,55 @@
     }
   });
   document.getElementById('pmLogoutBtn').addEventListener('click', clearPmSession_);
+
+  // ---------- Manual thumbnail refresh ----------
+  // The browser never receives the Make webhook URL. It asks the GAS
+  // backend, which verifies the PM session and selected live client before
+  // forwarding the request. This is intentionally manual so opening the
+  // dashboard does not consume Make operations.
+  document.getElementById('refreshThumbBtn').addEventListener('click', async () => {
+    const button = document.getElementById('refreshThumbBtn');
+    const statusEl = document.getElementById('refreshThumbStatus');
+    if (!usingLiveData) { statusEl.textContent = 'ใช้ได้เมื่อเชื่อมต่อ Live API แล้ว'; return; }
+    if (!pmToken_()) {
+      statusEl.textContent = 'เข้าสู่ระบบ PM ที่แท็บ PM Review ก่อน';
+      const pmTab = document.querySelector('#viewSwitch button[data-view="pm"]');
+      if (pmTab) pmTab.click();
+      return;
+    }
+    if (!CURRENT_CLIENT_ID) { statusEl.textContent = 'กรุณาเลือกลูกค้าก่อน'; return; }
+
+    button.disabled = true;
+    button.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> กำลังอัปเดต...';
+    statusEl.textContent = `ดึงลิงก์ใหม่สำหรับ ${CURRENT_RANGE_DAYS} วันล่าสุด`;
+    try {
+      const previousFetchedAt = Math.max(0, ...CONTENT.map(item => Date.parse(item.fetchedAt || '') || 0));
+      await postAction_({
+        action: 'refreshThumbnails',
+        token: pmToken_(),
+        clientId: CURRENT_CLIENT_ID,
+        days: Number(CURRENT_RANGE_DAYS),
+      });
+      statusEl.textContent = 'Make รับคำขอแล้ว · กำลังรอผล';
+      let completed = false;
+      for (let attempt = 0; attempt < 18; attempt++) {
+        await new Promise(resolve => setTimeout(resolve, 10000));
+        usingLiveData = false;
+        await loadData(true);
+        const latestFetchedAt = Math.max(0, ...CONTENT.map(item => Date.parse(item.fetchedAt || '') || 0));
+        if (latestFetchedAt > previousFetchedAt) { completed = true; break; }
+        statusEl.textContent = `กำลังรอ Make... ${Math.round((attempt + 1) * 10 / 60 * 10) / 10} นาที`;
+      }
+      statusEl.textContent = completed
+        ? 'อัปเดตรูปแล้ว · ' + new Date().toLocaleString('th-TH')
+        : 'รับคำขอแล้ว แต่ใช้เวลานานกว่าปกติ กรุณากดโหลดหน้าใหม่ภายหลัง';
+    } catch (err) {
+      statusEl.textContent = 'อัปเดตไม่สำเร็จ: ' + err.message;
+    } finally {
+      button.disabled = false;
+      button.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i> อัปเดตรูป';
+    }
+  });
 
   async function loadDrafts(){
     DRAFTS_LOADED = true;

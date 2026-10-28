@@ -23,6 +23,8 @@ function getConfig_() {
     revisionsDataSourceId: props.getProperty('NOTION_REVISIONS_DATASOURCE_ID'), // "Weekly Draft Revisions" (immutable, append-only)
     teamDataSourceId: props.getProperty('NOTION_TEAM_DATASOURCE_ID'), // "GEM Team Member" -- PM roster + Web Approval Code
     clientConfigDataSourceId: props.getProperty('NOTION_CLIENT_CONFIG_DATASOURCE_ID'), // "Client Connection Config" -- holds PM LINE Recipient ID per brand
+    thumbnailRefreshWebhookUrl: props.getProperty('MAKE_THUMBNAIL_REFRESH_WEBHOOK_URL'), // private Make custom webhook; never sent to the browser
+    thumbnailRefreshApiKey: props.getProperty('MAKE_THUMBNAIL_REFRESH_API_KEY'), // optional x-make-apikey value
     clientId: props.getProperty('NOTION_CLIENT_ID'), // optional — omit to return all clients
     clientName: props.getProperty('NOTION_CLIENT_NAME'), // display label only, e.g. "STAEDTLER"
   };
@@ -53,11 +55,14 @@ function doGet(e) {
       const cfg = getConfig_();
       const clientId = e.parameter.client || cfg.clientId || '';
       const windowDays = resolveWindowDays_(e.parameter.days);
+      const forceRefresh = e.parameter.refresh === '1';
       const cacheKey = 'data_' + (clientId || 'all') + '_' + windowDays;
-      try {
-        const cached = CacheService.getScriptCache().get(cacheKey);
-        if (cached) return jsonResponse(JSON.parse(cached));
-      } catch (e) { /* cache miss/unavailable is never fatal -- fall through to a live fetch */ }
+      if (!forceRefresh) {
+        try {
+          const cached = CacheService.getScriptCache().get(cacheKey);
+          if (cached) return jsonResponse(JSON.parse(cached));
+        } catch (e) { /* cache miss/unavailable is never fatal -- fall through to a live fetch */ }
+      }
 
       const payload = {
         success: true,
@@ -66,9 +71,11 @@ function doGet(e) {
         content: listContentPerformance(clientId, windowDays),
         ads: listMetaAds(clientId, windowDays),
       };
-      try {
-        CacheService.getScriptCache().put(cacheKey, JSON.stringify(payload), DATA_CACHE_TTL_SECONDS);
-      } catch (e) { /* payload too large for the 100KB cache value limit -- fine, just skip caching this round */ }
+      if (!forceRefresh) {
+        try {
+          CacheService.getScriptCache().put(cacheKey, JSON.stringify(payload), DATA_CACHE_TTL_SECONDS);
+        } catch (e) { /* payload too large for the 100KB cache value limit -- fine, just skip caching this round */ }
+      }
       return jsonResponse(payload);
     }
     if (action === 'drafts') {
@@ -96,6 +103,7 @@ function doPost(e) {
     if (body.action === 'saveDraft') return jsonResponse(saveDraft_(body));
     if (body.action === 'previewDraft') return jsonResponse(previewDraft_(body));
     if (body.action === 'approveDraft') return jsonResponse(approveDraft_(body));
+    if (body.action === 'refreshThumbnails') return jsonResponse(refreshThumbnails_(body));
     return jsonResponse({ success: false, error: 'Unknown action: ' + body.action });
   } catch (err) {
     return jsonResponse({ success: false, error: String(err) });
@@ -441,6 +449,67 @@ function requireSession_(body) {
     throw new Error('PM access has been revoked');
   }
   return { teamMemberId: session.teamMemberId, name: session.name };
+}
+
+// Requests a fresh set of short-lived Meta image URLs from Make. The
+// webhook URL and optional API key stay in Script Properties so neither is
+// exposed by the public dashboard. This action deliberately requires the
+// same PM session as draft approval: the web app itself is public, while a
+// refresh consumes Make operations and Meta API quota.
+function refreshThumbnails_(body) {
+  const session = requireSession_(body);
+  const cfg = getConfig_();
+  const clientId = String(body.clientId || cfg.clientId || '').trim();
+  const windowDays = resolveWindowDays_(body.days);
+  if (!clientId) throw new Error('Missing clientId');
+  if (!cfg.thumbnailRefreshWebhookUrl) throw new Error('Thumbnail refresh is not configured');
+
+  // Only allow brands that are live in Client Connection Config. This also
+  // prevents a caller from using the endpoint as a generic Make relay.
+  const configs = notionRequest_('post', '/data_sources/' + cfg.clientConfigDataSourceId + '/query', {
+    page_size: 2,
+    filter: {
+      and: [
+        { property: 'Client', relation: { contains: clientId } },
+        { property: 'Weekly Report Enabled', checkbox: { equals: true } },
+        { property: 'Connection Status', select: { equals: 'Ready' } },
+      ],
+    },
+  });
+  if (!(configs.results || []).length) throw new Error('Selected client is not ready for thumbnail refresh');
+
+  const headers = {};
+  if (cfg.thumbnailRefreshApiKey) headers['x-make-apikey'] = cfg.thumbnailRefreshApiKey;
+  const res = UrlFetchApp.fetch(cfg.thumbnailRefreshWebhookUrl, {
+    method: 'post',
+    contentType: 'application/json',
+    headers: headers,
+    payload: JSON.stringify({
+      clientId: clientId,
+      days: windowDays,
+      requestedBy: session.name,
+      requestedAt: new Date().toISOString(),
+    }),
+    muteHttpExceptions: true,
+  });
+  const status = res.getResponseCode();
+  if (status < 200 || status >= 300) {
+    throw new Error('Make thumbnail refresh failed (HTTP ' + status + ')');
+  }
+
+  // Make has just refreshed the Notion rows, so discard this exact cached
+  // client/range payload before the browser reloads it.
+  try {
+    CacheService.getScriptCache().remove('data_' + clientId + '_' + windowDays);
+  } catch (e) { /* cache cleanup is best-effort */ }
+  return {
+    success: true,
+    clientId: clientId,
+    days: windowDays,
+    requestedBy: session.name,
+    requestedAt: new Date().toISOString(),
+    queued: true,
+  };
 }
 
 function saveDraft_(body) {
