@@ -49,6 +49,8 @@ Project Settings → Script Properties → add:
 | `NOTION_REVISIONS_DATASOURCE_ID` | `87ace625-3e0b-4af2-8e97-086269db9e09` (the "Weekly Draft Revisions" data source) — immutable, append-only log of every approved draft revision. The web app is the only writer; nothing else should ever write to it |
 | `NOTION_TEAM_DATASOURCE_ID` | `f3f7a62c-966d-4391-9af2-237611d711db` (the "GEM Team Member" data source) — PM roster used to verify the "Web Approval Code" a PM enters before they can Save/Approve a draft |
 | `NOTION_CLIENT_CONFIG_DATASOURCE_ID` | `a93926c2-4d18-415e-b622-cddfbc1b7c1b` (the "Client Connection Config" data source) — holds `PM LINE Recipient ID` per brand, used only at Approve time to snapshot the recipient onto the new revision row. Leave unset to fall back to an empty snapshot (Make's send gate will keep blocking, not misfire) |
+| `MAKE_THUMBNAIL_REFRESH_WEBHOOK_URL` | Private URL of the Make custom webhook used by the manual **อัปเดตรูป** button. Keep this in Script Properties; never paste it into `content-performance.html` |
+| `MAKE_THUMBNAIL_REFRESH_API_KEY` | Optional API key configured on the Make custom webhook. The backend sends it as `x-make-apikey` |
 
 ## 4. Deploy as Web App
 
@@ -137,6 +139,13 @@ keep using local mock data only.
   pages (300 rows) for ads — plenty for a few months of weekly data. Raise
   the `maxPages` argument in `Code.gs` if the dashboard ever needs a longer
   history and requests start coming back truncated.
+- **Manual thumbnail refresh:** the topbar button is available only with
+  live data and requires an active PM session. The browser posts only the
+  selected `clientId` and 7/30/90-day window to GAS; GAS validates that the
+  client is `Ready` with `Weekly Report Enabled`, then forwards the request
+  to the private Make webhook. A successful refresh evicts the matching
+  cached payload and reloads the dashboard. Opening or reloading the page
+  never triggers Make by itself.
 - A brand only appears in the client switcher once its "Client Connection
   Config" row has `Weekly Report Enabled` ticked — a client mid-pilot with
   that flag still off (or no config row at all) stays invisible here even
