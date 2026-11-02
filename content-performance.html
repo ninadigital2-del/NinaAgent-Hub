@@ -885,7 +885,12 @@
       let completed = false;
       for (let attempt = 0; attempt < 18; attempt++) {
         await new Promise(resolve => setTimeout(resolve, 10000));
-        usingLiveData = false;
+        // Never force usingLiveData back to false here -- loadData already
+        // sets it true on a successful fetch and otherwise leaves it (and
+        // CONTENT/ADS) untouched. Forcing it false before every poll meant
+        // a single transient network/API hiccup during this ~3-minute wait
+        // flipped the dashboard to fabricated mock data for anyone viewing
+        // it, not just the PM who clicked refresh.
         await loadData(true);
         const latestFetchedAt = Math.max(0, ...CONTENT.map(item => Date.parse(item.fetchedAt || '') || 0));
         if (latestFetchedAt > previousFetchedAt) { completed = true; break; }
