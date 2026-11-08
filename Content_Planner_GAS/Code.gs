@@ -622,6 +622,14 @@ function syncBrandsFromNotion() {
  * nickname itself means a new PM works as soon as they're marked PM +
  * Active, and deactivating someone stops their invites on the next sync.
  *
+ * A PM can opt out of being a guest on their own events (e.g. because they
+ * already subscribe to the shared calendar directly, and being both a
+ * subscriber and a guest shows the same event twice) via the optional
+ * Script Property GUEST_INVITE_EXCLUDE_OWNERS -- a comma-separated list of
+ * Owner tags exactly as stored on content items, e.g. "PM - Dummy,PM - ยู้".
+ * They still appear normally in the Owner/Reviewer dropdowns either way --
+ * this only skips adding them as a calendar guest.
+ *
  * Requires Script Property: NOTION_TEAM_DATABASE_ID. Reuses NOTION_TOKEN —
  * same integration must be connected to this database too.
  */
@@ -630,6 +638,8 @@ function syncOwnerEmailsFromNotion() {
   const token = props.getProperty('NOTION_TOKEN');
   const dbId = props.getProperty('NOTION_TEAM_DATABASE_ID');
   if (!token || !dbId) throw new Error('Set NOTION_TOKEN and NOTION_TEAM_DATABASE_ID in Script Properties first.');
+  const excludedOwners = (props.getProperty('GUEST_INVITE_EXCLUDE_OWNERS') || '')
+    .split(',').map(s => s.trim()).filter(Boolean);
 
   const filter = {
     and: [
@@ -641,7 +651,8 @@ function syncOwnerEmailsFromNotion() {
   queryNotionDatabase(dbId, token, filter).forEach(page => {
     const nickname = extractNotionText(page.properties['ชื่อเล่น']);
     const email = extractNotionText(page.properties['Email']);
-    if (nickname && email) rows.push(['PM - ' + nickname, email]);
+    const ownerTag = 'PM - ' + nickname;
+    if (nickname && email && excludedOwners.indexOf(ownerTag) === -1) rows.push([ownerTag, email]);
   });
   writeOwnerEmails(rows);
 }

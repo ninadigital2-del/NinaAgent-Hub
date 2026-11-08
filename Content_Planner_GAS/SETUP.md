@@ -35,6 +35,7 @@ Project Settings → Script Properties → add:
 | `GEMINI_API_KEY` | For the "import from calendar image" feature — can reuse the same key as `Social_Media_Assistant_GAS` if you already have one |
 | `CLIENT_LINK_SECRET` | A long random string (e.g. generate one with a password manager). Signs every client link — see "Client links" below. Set once; never needs to change when onboarding a new brand. |
 | `CLIENT_THEMES` | Optional. JSON object `{brand: {title, subtitle, dashboardUrl, fonts, light, dark, status}}` — see "Client brand theming" below. Omit entirely, or omit a given brand's key, to leave that brand on the page's default unthemed look. |
+| `GUEST_INVITE_EXCLUDE_OWNERS` | Optional. Comma-separated Owner tags (exactly as stored on content items, e.g. `PM - Dummy,PM - ยู้`) to skip when `syncOwnerEmailsFromNotion` builds the OwnerEmails tab — for a PM who already subscribes to the shared calendar directly and doesn't want to also be added as a guest on their own events (being both shows the same event twice). They still appear normally in the Owner/Reviewer dropdowns either way. Omit to invite every active PM as usual. |
 
 **`LINE_TARGET_ID` accepts one ID or several, comma-separated** — each one
 gets its own individual push (e.g. `userIdA,userIdB` sends the same
