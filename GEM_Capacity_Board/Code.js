@@ -1576,12 +1576,15 @@ function handleBulkCreateCalendarPlan(body) {
     body = body || {};
     const key = PropertiesService.getScriptProperties().getProperty('NOTION_API_KEY');
     if (!key) return { ok: false, error: 'ยังไม่ได้ตั้งค่า NOTION_API_KEY' };
+    const pickedProjectId = String(body.projectId || '').trim();
     const projectName = String(body.projectName || '').trim().slice(0, 200);
     const brandName = String(body.brandName || '').trim().slice(0, 100);
     const ownerName = String(body.ownerName || '').trim().slice(0, 100);
     const workType = String(body.workType || 'Content').trim().slice(0, 100) || 'Content';
-    if (!projectName) return { ok: false, error: 'กรุณาระบุชื่อ Project' };
-    if (!ownerName) return { ok: false, error: 'กรุณาระบุ Project Owner' };
+    if (!pickedProjectId) {
+      if (!projectName) return { ok: false, error: 'กรุณาระบุชื่อ Project' };
+      if (!ownerName) return { ok: false, error: 'กรุณาระบุ Project Owner' };
+    }
 
     const tasks = (Array.isArray(body.tasks) ? body.tasks : []).slice(0, CALENDAR_IMPORT_MAX_TASKS)
       .map(function(task) {
@@ -1595,13 +1598,21 @@ function handleBulkCreateCalendarPlan(body) {
       });
     if (!tasks.length) return { ok: false, error: 'ไม่มี Task ที่พร้อมสร้าง' };
 
-    const existing = getNotionProjects().find(function(project) {
-      return String(project.name || '').trim().toLowerCase() === projectName.toLowerCase();
-    });
-    let projectId = existing ? existing.id : '';
+    // เลือก Project เดิมมา → ใช้เลย; สร้างใหม่ → กันซ้ำด้วยชื่อตรงกันก่อน แล้วสร้างพร้อม
+    // Scope Item / Service Type / Contact แบบเดียวกับปุ่มสร้างงาน
+    let projectId = pickedProjectId;
     let projectCreated = false;
     if (!projectId) {
-      const projectResult = createNotionProject(projectName, brandName, ownerName, [], null, null, key);
+      const existing = getNotionProjects().find(function(project) {
+        return String(project.name || '').trim().toLowerCase() === projectName.toLowerCase();
+      });
+      if (existing) projectId = existing.id;
+    }
+    if (!projectId) {
+      const scopeItemIds = Array.isArray(body.scopeItemIds) ? body.scopeItemIds : [];
+      const serviceTypeId = body.serviceTypeId || null;
+      const contactIds = Array.isArray(body.contactIds) ? body.contactIds : null;
+      const projectResult = createNotionProject(projectName, brandName, ownerName, scopeItemIds, serviceTypeId, contactIds, key);
       if (!projectResult.ok) return { ok: false, error: 'สร้าง Project ไม่สำเร็จ: ' + projectResult.error };
       projectId = projectResult.id;
       projectCreated = true;
@@ -1975,7 +1986,7 @@ input[type="date"]::-webkit-calendar-picker-indicator{position:absolute;left:0;t
 .calendar-dropzone.has-image{padding:10px}
 .calendar-preview-image{display:none;max-width:100%;max-height:240px;margin:0 auto;border-radius:7px;object-fit:contain}
 .calendar-import-status{font-size:12px;color:#777;margin-top:8px;min-height:18px}
-.calendar-import-grid{display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr;gap:10px;margin-top:14px}
+.calendar-import-grid{display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-top:14px}
 .calendar-import-table-wrap{margin-top:14px;border:1px solid #e5e3dd;border-radius:8px;overflow:auto;max-height:300px}
 .calendar-import-table{width:100%;border-collapse:collapse;font-size:12px}
 .calendar-import-table th{position:sticky;top:0;background:#f5f4f0;color:#666;text-align:left;padding:8px;border-bottom:1px solid #ddd;z-index:1}
@@ -2046,7 +2057,7 @@ input[type="date"]::-webkit-calendar-picker-indicator{position:absolute;left:0;t
       <label for="ct-new-project-name" style="display:block; font-size:13px; font-weight:500; color:#555; margin-bottom:5px;">ชื่อ Project ใหม่</label>
       <input type="text" id="ct-new-project-name" placeholder="ชื่อโปรเจกต์" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;">
       <label for="ct-new-project-brand" style="display:block; font-size:13px; font-weight:500; color:#555; margin:8px 0 5px;">แบรนด์ / ลูกค้า (ถ้ามีในระบบ)</label>
-      <select id="ct-new-project-brand" onchange="onCtNewProjectBrandChange()" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;"><option value="">— ไม่ระบุ —</option></select>
+      <select id="ct-new-project-brand" onchange="onNewProjectBrandChange('ct')" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;"><option value="">— ไม่ระบุ —</option></select>
       <div id="ct-contact-box" style="display:none; margin-top:10px;">
         <label style="display:block; font-size:13px; font-weight:500; color:#555; margin-bottom:5px;">Contact ของแบรนด์นี้ <span style="color:#888;font-weight:normal;">(เลือกได้หลายคน — ถ้ามีคนเดียวเลือกให้อัตโนมัติ)</span></label>
         <div id="ct-contact-list" class="scope-item-list"></div>
@@ -2109,21 +2120,32 @@ input[type="date"]::-webkit-calendar-picker-indicator{position:absolute;left:0;t
     <div id="calendar-review-section" style="display:none">
       <div class="calendar-import-grid">
         <div class="modal-form-group" style="margin:0">
-          <label for="calendar-project-name">ชื่อ Project</label>
-          <input type="text" id="calendar-project-name" placeholder="ชื่อ Project">
-        </div>
-        <div class="modal-form-group" style="margin:0">
-          <label for="calendar-brand-name">แบรนด์</label>
-          <select id="calendar-brand-name" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;background:#fff"></select>
+          <label for="cal-project">Project</label>
+          <select id="cal-project" onchange="onCalProjectChange()" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;background:#fff"><option value="">— เลือก Project —</option></select>
+          <div id="cal-project-hint" style="font-size:12px;color:#888;margin-top:4px"></div>
         </div>
         <div class="modal-form-group" style="margin:0">
           <label for="calendar-work-type">ประเภทงาน</label>
           <select id="calendar-work-type" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;background:#fff"></select>
         </div>
-        <div class="modal-form-group" style="margin:0">
-          <label for="calendar-project-owner">Project Owner</label>
-          <select id="calendar-project-owner" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;background:#fff"></select>
+      </div>
+      <div id="cal-newproject-box" style="display:none; padding:10px 12px; margin-top:12px; border-left:3px solid #22A06B; background:#f6fdf9;">
+        <label for="cal-new-project-name" style="display:block; font-size:13px; font-weight:500; color:#555; margin-bottom:5px;">ชื่อ Project ใหม่</label>
+        <input type="text" id="cal-new-project-name" placeholder="ชื่อโปรเจกต์" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;">
+        <label for="cal-new-project-brand" style="display:block; font-size:13px; font-weight:500; color:#555; margin:8px 0 5px;">แบรนด์ / ลูกค้า (ถ้ามีในระบบ)</label>
+        <select id="cal-new-project-brand" onchange="onNewProjectBrandChange('cal')" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;"><option value="">— ไม่ระบุ —</option></select>
+        <div id="cal-contact-box" style="display:none; margin-top:10px;">
+          <label style="display:block; font-size:13px; font-weight:500; color:#555; margin-bottom:5px;">Contact ของแบรนด์นี้ <span style="color:#888;font-weight:normal;">(เลือกได้หลายคน — ถ้ามีคนเดียวเลือกให้อัตโนมัติ)</span></label>
+          <div id="cal-contact-list" class="scope-item-list"></div>
         </div>
+        <div id="cal-scope-item-box" style="display:none; margin-top:10px;">
+          <label style="display:block; font-size:13px; font-weight:500; color:#555; margin-bottom:5px;">ผูก Scope Item (จากใบเสนอราคา) <span style="color:#888;font-weight:normal;">(เลือกได้หลายรายการ ไม่บังคับ)</span></label>
+          <div id="cal-scope-item-list" class="scope-item-list"></div>
+        </div>
+        <label for="cal-new-project-owner" style="display:block; font-size:13px; font-weight:500; color:#555; margin:8px 0 5px;">Project Owner</label>
+        <select id="cal-new-project-owner" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;"><option value="">— เลือก PM —</option></select>
+        <label for="cal-new-project-service-type" style="display:block; font-size:13px; font-weight:500; color:#555; margin:8px 0 5px;">ประเภทงาน (Service Type)</label>
+        <select id="cal-new-project-service-type" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;"></select>
       </div>
       <div style="font-size:12px;color:#666;margin-top:14px;display:flex;justify-content:space-between;align-items:center">
         <span>ตรวจชื่อและ Due Date ก่อนสร้างจริง</span>
@@ -2782,25 +2804,22 @@ function openCreateModal() {
   document.getElementById('ct-pminbox-box').style.display = 'block';
   document.getElementById('ct-scope-item-box').style.display = 'none';
   document.getElementById('ct-contact-box').style.display = 'none';
-  state.scopeItems = null;
-  state.selectedScopeItemIds = [];
-  state.contacts = null;
-  state.selectedContactIds = [];
-  // Project (lazy load)
-  var pj = document.getElementById('ct-project');
-  if (!state.projects) {
-    pj.innerHTML = '<option value="">กำลังโหลด Project...</option>';
-    google.script.run
-      .withSuccessHandler(function(list) { state.projects = list || []; fillProjectSelect(); })
-      .withFailureHandler(function() { pj.innerHTML = '<option value="">(โหลด Project ไม่ได้)</option>'; })
-      .getNotionProjects();
-  } else {
-    fillProjectSelect();
-  }
+  resetNewProjectState_('ct');
+  ensureProjectsLoaded_('ct-project', function() { fillProjectSelect('ct-project'); });
   document.getElementById('create-modal').classList.add('show');
 }
-function fillProjectSelect() {
-  var pj = document.getElementById('ct-project');
+// โหลดรายชื่อ Project ครั้งเดียว ใช้ร่วมกันทั้งหน้าสร้างงานและหน้านำเข้าจากปฏิทิน
+function ensureProjectsLoaded_(selectId, callback) {
+  if (state.projects) { callback(); return; }
+  var pj = document.getElementById(selectId);
+  pj.innerHTML = '<option value="">กำลังโหลด Project...</option>';
+  google.script.run
+    .withSuccessHandler(function(list) { state.projects = list || []; callback(); })
+    .withFailureHandler(function() { pj.innerHTML = '<option value="">(โหลด Project ไม่ได้)</option>'; })
+    .getNotionProjects();
+}
+function fillProjectSelect(selectId) {
+  var pj = document.getElementById(selectId);
   pj.innerHTML = '<option value="">— เลือก Project —</option>';
   var nw = document.createElement('option'); nw.value = '__new__'; nw.textContent = '+ สร้าง Project ใหม่'; pj.appendChild(nw);
   (state.projects || []).forEach(function(p) {
@@ -2819,23 +2838,34 @@ function ensureBrandsLoaded_(callback) {
     .withFailureHandler(function() { state.brandsList = []; callback(); })
     .getNotionBrands();
 }
-function renderScopeItemEmpty_(message) {
-  document.getElementById('ct-scope-item-list').innerHTML = '<div class="scope-item-empty">' + esc(message) + '</div>';
+// สถานะส่วน "สร้าง Project ใหม่" แยกตาม prefix: 'ct' = หน้าสร้างงาน, 'cal' = หน้านำเข้าจากปฏิทิน
+function npState_(p) {
+  state.newProject = state.newProject || {};
+  if (!state.newProject[p]) resetNewProjectState_(p);
+  return state.newProject[p];
 }
-function renderScopeItemList_() {
-  var el = document.getElementById('ct-scope-item-list');
-  if (!state.scopeItems || !state.scopeItems.length) {
-    renderScopeItemEmpty_('ยังไม่มี Scope จากใบเสนอราคาของแบรนด์นี้');
+function resetNewProjectState_(p) {
+  state.newProject = state.newProject || {};
+  state.newProject[p] = { scopeItems: null, selectedScopeItemIds: [], contacts: null, selectedContactIds: [] };
+}
+function renderScopeItemEmpty_(p, message) {
+  document.getElementById(p + '-scope-item-list').innerHTML = '<div class="scope-item-empty">' + esc(message) + '</div>';
+}
+function renderScopeItemList_(p) {
+  var st = npState_(p);
+  var el = document.getElementById(p + '-scope-item-list');
+  if (!st.scopeItems || !st.scopeItems.length) {
+    renderScopeItemEmpty_(p, 'ยังไม่มี Scope จากใบเสนอราคาของแบรนด์นี้');
     return;
   }
-  var selected = state.selectedScopeItemIds || [];
+  var selected = st.selectedScopeItemIds || [];
   var html = '';
-  state.scopeItems.forEach(function(it) {
+  st.scopeItems.forEach(function(it) {
     var label = (it.item || '').replace(/^[^|]+\\|\\s*/, '');
     var periodText = it.periodStart ? (it.periodStart + (it.periodEnd ? ' – ' + it.periodEnd : '')) : (it.targetMonth || '');
     var sub = [it.itemType, it.qtNo, periodText].filter(Boolean).join(' · ');
     var isSel = selected.indexOf(it.id) >= 0;
-    html += '<div class="scope-item-row' + (isSel ? ' selected' : '') + '" data-scope-id="' + esc(it.id) + '" onclick="toggleScopeItem(this)">'
+    html += '<div class="scope-item-row' + (isSel ? ' selected' : '') + '" data-scope-id="' + esc(it.id) + '" data-np="' + p + '" onclick="toggleScopeItem(this)">'
       + '<div class="scope-item-check">' + (isSel ? '✓' : '') + '</div>'
       + '<div style="flex:1;min-width:0;">'
       + '<div class="scope-item-title">' + esc(label) + '</div>'
@@ -2844,14 +2874,16 @@ function renderScopeItemList_() {
       + '</div></div>';
   });
   var noneSel = selected.indexOf('__none__') >= 0;
-  html += '<div class="scope-item-row' + (noneSel ? ' selected' : '') + '" data-scope-id="__none__" onclick="toggleScopeItem(this)">'
+  html += '<div class="scope-item-row' + (noneSel ? ' selected' : '') + '" data-scope-id="__none__" data-np="' + p + '" onclick="toggleScopeItem(this)">'
     + '<div class="scope-item-check">' + (noneSel ? '✓' : '') + '</div>'
     + '<div class="scope-item-title">ไม่อยู่ในใบเสนอราคา / ยังไม่มี QT</div></div>';
   el.innerHTML = html;
 }
 function toggleScopeItem(el) {
+  var p = el.getAttribute('data-np');
+  var st = npState_(p);
   var id = el.getAttribute('data-scope-id');
-  var selected = state.selectedScopeItemIds || [];
+  var selected = st.selectedScopeItemIds || [];
   if (id === '__none__') {
     selected = (selected.indexOf('__none__') >= 0) ? [] : ['__none__'];
   } else {
@@ -2864,23 +2896,24 @@ function toggleScopeItem(el) {
       selected.push(id);
     }
   }
-  state.selectedScopeItemIds = selected;
-  renderScopeItemList_();
+  st.selectedScopeItemIds = selected;
+  renderScopeItemList_(p);
 }
-function renderContactEmpty_(message) {
-  document.getElementById('ct-contact-list').innerHTML = '<div class="scope-item-empty">' + esc(message) + '</div>';
+function renderContactEmpty_(p, message) {
+  document.getElementById(p + '-contact-list').innerHTML = '<div class="scope-item-empty">' + esc(message) + '</div>';
 }
-function renderContactList_() {
-  var el = document.getElementById('ct-contact-list');
-  if (!state.contacts || !state.contacts.length) {
-    renderContactEmpty_('ยังไม่มี Contact ของแบรนด์นี้ในระบบ');
+function renderContactList_(p) {
+  var st = npState_(p);
+  var el = document.getElementById(p + '-contact-list');
+  if (!st.contacts || !st.contacts.length) {
+    renderContactEmpty_(p, 'ยังไม่มี Contact ของแบรนด์นี้ในระบบ');
     return;
   }
-  var selected = state.selectedContactIds || [];
+  var selected = st.selectedContactIds || [];
   var html = '';
-  state.contacts.forEach(function(c) {
+  st.contacts.forEach(function(c) {
     var isSel = selected.indexOf(c.id) >= 0;
-    html += '<div class="scope-item-row' + (isSel ? ' selected' : '') + '" data-contact-id="' + esc(c.id) + '" onclick="toggleContact(this)">'
+    html += '<div class="scope-item-row' + (isSel ? ' selected' : '') + '" data-contact-id="' + esc(c.id) + '" data-np="' + p + '" onclick="toggleContact(this)">'
       + '<div class="scope-item-check">' + (isSel ? '✓' : '') + '</div>'
       + '<div style="flex:1;min-width:0;">'
       + '<div class="scope-item-title">' + esc(c.name) + '</div>'
@@ -2890,47 +2923,71 @@ function renderContactList_() {
   el.innerHTML = html;
 }
 function toggleContact(el) {
+  var p = el.getAttribute('data-np');
+  var st = npState_(p);
   var id = el.getAttribute('data-contact-id');
-  var selected = state.selectedContactIds || [];
+  var selected = st.selectedContactIds || [];
   var idx = selected.indexOf(id);
   if (idx >= 0) { selected.splice(idx, 1); } else { selected.push(id); }
-  state.selectedContactIds = selected;
-  renderContactList_();
+  st.selectedContactIds = selected;
+  renderContactList_(p);
 }
-function onCtNewProjectBrandChange() {
-  var brandName = document.getElementById('ct-new-project-brand').value;
-  var box = document.getElementById('ct-scope-item-box');
-  var contactBox = document.getElementById('ct-contact-box');
-  state.scopeItems = null;
-  state.selectedScopeItemIds = [];
-  state.contacts = null;
-  state.selectedContactIds = [];
+function onNewProjectBrandChange(p) {
+  var brandName = document.getElementById(p + '-new-project-brand').value;
+  var box = document.getElementById(p + '-scope-item-box');
+  var contactBox = document.getElementById(p + '-contact-box');
+  resetNewProjectState_(p);
+  var st = npState_(p);
   if (!brandName) { box.style.display = 'none'; contactBox.style.display = 'none'; return; }
   box.style.display = 'block';
   contactBox.style.display = 'block';
-  renderScopeItemEmpty_('กำลังโหลด...');
-  renderContactEmpty_('กำลังโหลด...');
+  renderScopeItemEmpty_(p, 'กำลังโหลด...');
+  renderContactEmpty_(p, 'กำลังโหลด...');
   ensureBrandsLoaded_(function() {
     var brand = (state.brandsList || []).find(function(b) { return b.name === brandName; });
     if (!brand) {
-      renderScopeItemEmpty_('ยังไม่มี Scope จากใบเสนอราคาของแบรนด์นี้');
-      renderContactEmpty_('ยังไม่มี Contact ของแบรนด์นี้ในระบบ');
+      renderScopeItemEmpty_(p, 'ยังไม่มี Scope จากใบเสนอราคาของแบรนด์นี้');
+      renderContactEmpty_(p, 'ยังไม่มี Contact ของแบรนด์นี้ในระบบ');
       return;
     }
     google.script.run
-      .withSuccessHandler(function(items) { state.scopeItems = items || []; renderScopeItemList_(); })
-      .withFailureHandler(function() { renderScopeItemEmpty_('โหลด Scope Item ไม่สำเร็จ'); })
+      .withSuccessHandler(function(items) { st.scopeItems = items || []; renderScopeItemList_(p); })
+      .withFailureHandler(function() { renderScopeItemEmpty_(p, 'โหลด Scope Item ไม่สำเร็จ'); })
       .getScopeItemsForBrand(brand.id);
     google.script.run
       .withSuccessHandler(function(contacts) {
-        state.contacts = contacts || [];
+        st.contacts = contacts || [];
         // แบรนด์มี Contact คนเดียว ไม่ต้องให้เลือก เลือกให้เลย
-        state.selectedContactIds = (state.contacts.length === 1) ? [state.contacts[0].id] : [];
-        renderContactList_();
+        st.selectedContactIds = (st.contacts.length === 1) ? [st.contacts[0].id] : [];
+        renderContactList_(p);
       })
-      .withFailureHandler(function() { renderContactEmpty_('โหลด Contact ไม่สำเร็จ'); })
+      .withFailureHandler(function() { renderContactEmpty_(p, 'โหลด Contact ไม่สำเร็จ'); })
       .getContactsForBrand(brand.id);
   });
+}
+// อ่านค่าส่วน "สร้าง Project ใหม่" + ตรวจความครบ ใช้ร่วมกันทั้ง 2 หน้า
+// คืน null ถ้าไม่ผ่าน (แจ้ง toast แล้ว)
+function readNewProjectForm_(p) {
+  var st = npState_(p);
+  var pn = document.getElementById(p + '-new-project-name').value.trim();
+  if (!pn) { showToast('กรุณาใส่ชื่อ Project ใหม่'); return null; }
+  var projectOwner = document.getElementById(p + '-new-project-owner').value;
+  if (!projectOwner) { showToast('กรุณาเลือก Project Owner'); return null; }
+  var serviceTypeId = document.getElementById(p + '-new-project-service-type').value;
+  if (!serviceTypeId) { showToast('กรุณาเลือกประเภทงาน (Service Type)'); return null; }
+  var selectedScopeIds = (st.selectedScopeItemIds || []).filter(function(id) { return id !== '__none__'; });
+  var pickedNone = (st.selectedScopeItemIds || []).indexOf('__none__') >= 0;
+  if (!selectedScopeIds.length && !pickedNone) {
+    if (!confirm('Project นี้ยังไม่ผูก Scope — งานจะไม่ถูกนับเข้าเป้าลูกค้า\\n\\nยืนยันสร้างต่อไหม?')) return null;
+  }
+  return {
+    name: pn,
+    brand: document.getElementById(p + '-new-project-brand').value,
+    owner: projectOwner,
+    serviceTypeId: serviceTypeId,
+    scopeItemIds: selectedScopeIds,
+    contactIds: st.selectedContactIds || []
+  };
 }
 function closeCreateModal() {
   document.getElementById('create-modal').classList.remove('show');
@@ -2961,23 +3018,14 @@ function submitCreateTask() {
     briefLink: linkResult.value
   };
   if (projectSel === '__new__') {
-    var pn = document.getElementById('ct-new-project-name').value.trim();
-    if (!pn) { showToast('กรุณาใส่ชื่อ Project ใหม่'); return; }
-    var projectOwner = document.getElementById('ct-new-project-owner').value;
-    if (!projectOwner) { showToast('กรุณาเลือก Project Owner'); return; }
-    var serviceTypeId = document.getElementById('ct-new-project-service-type').value;
-    if (!serviceTypeId) { showToast('กรุณาเลือกประเภทงาน (Service Type)'); return; }
-    var selectedScopeIds = (state.selectedScopeItemIds || []).filter(function(id) { return id !== '__none__'; });
-    var pickedNone = (state.selectedScopeItemIds || []).indexOf('__none__') >= 0;
-    if (!selectedScopeIds.length && !pickedNone) {
-      if (!confirm('Project นี้ยังไม่ผูก Scope — งานจะไม่ถูกนับเข้าเป้าลูกค้า\\n\\nยืนยันสร้างต่อไหม?')) return;
-    }
-    payload.newProjectName = pn;
-    payload.newProjectBrand = document.getElementById('ct-new-project-brand').value;
-    payload.newProjectOwner = projectOwner;
-    payload.newProjectServiceTypeId = serviceTypeId;
-    payload.newProjectScopeItemIds = selectedScopeIds;
-    payload.newProjectContactIds = state.selectedContactIds || [];
+    var np = readNewProjectForm_('ct');
+    if (!np) return;
+    payload.newProjectName = np.name;
+    payload.newProjectBrand = np.brand;
+    payload.newProjectOwner = np.owner;
+    payload.newProjectServiceTypeId = np.serviceTypeId;
+    payload.newProjectScopeItemIds = np.scopeItemIds;
+    payload.newProjectContactIds = np.contactIds;
   } else if (projectSel) {
     payload.projectId = projectSel;
   } else {
@@ -3034,7 +3082,12 @@ function resetCalendarImport() {
   document.getElementById('calendar-drop-hint').style.display = 'block';
   document.getElementById('calendar-dropzone').classList.remove('has-image');
   document.getElementById('calendar-review-section').style.display = 'none';
-  document.getElementById('calendar-project-name').value = '';
+  document.getElementById('cal-new-project-name').value = '';
+  document.getElementById('cal-newproject-box').style.display = 'none';
+  document.getElementById('cal-scope-item-box').style.display = 'none';
+  document.getElementById('cal-contact-box').style.display = 'none';
+  document.getElementById('cal-project-hint').textContent = '';
+  resetNewProjectState_('cal');
   document.getElementById('calendar-task-rows').innerHTML = '';
   document.getElementById('calendar-task-summary').textContent = '';
   document.getElementById('calendar-import-status').textContent = 'รองรับ JPG, PNG และ WebP ขนาดไม่เกิน 8 MB';
@@ -3043,7 +3096,7 @@ function resetCalendarImport() {
 }
 
 function fillCalendarImportSelects() {
-  var brandSelect = document.getElementById('calendar-brand-name');
+  var brandSelect = document.getElementById('cal-new-project-brand');
   brandSelect.innerHTML = '<option value="">— ไม่ระบุ —</option>';
   ((state.settings && state.settings.brands) || []).forEach(function(brand) {
     var option = document.createElement('option');
@@ -3060,7 +3113,43 @@ function fillCalendarImportSelects() {
     contentOption.value = 'Content'; contentOption.textContent = 'Content'; workTypeSelect.appendChild(contentOption);
   }
   workTypeSelect.value = 'Content';
-  ensureProjectOwnersLoaded_(function() { fillProjectOwnerSelect_('calendar-project-owner'); });
+  ensureProjectOwnersLoaded_(function() { fillProjectOwnerSelect_('cal-new-project-owner'); });
+  ensureServiceTypesLoaded_(function() { fillServiceTypeSelect_('cal-new-project-service-type'); });
+  ensureProjectsLoaded_('cal-project', function() { fillProjectSelect('cal-project'); });
+}
+
+function onCalProjectChange() {
+  document.getElementById('cal-project-hint').textContent = '';
+  onCalProjectChangeKeepHint_();
+}
+
+// AI อ่านชื่อ Project/แบรนด์จากรูปได้ → ถ้าตรงกับ Project ที่มีอยู่ เลือกให้เลย
+// ถ้าไม่ตรง เปิดส่วนสร้าง Project ใหม่ พร้อมเติมชื่อ + แบรนด์ที่อ่านได้ (แก้ได้)
+function applyCalendarProjectGuess_(projectName, brandName) {
+  ensureProjectsLoaded_('cal-project', function() {
+    fillProjectSelect('cal-project');
+    var name = String(projectName || '').trim();
+    var match = name && (state.projects || []).find(function(project) {
+      return String(project.name || '').trim().toLowerCase() === name.toLowerCase();
+    });
+    var hint = document.getElementById('cal-project-hint');
+    if (match) {
+      document.getElementById('cal-project').value = match.id;
+      hint.textContent = 'พบ Project ชื่อนี้อยู่แล้ว — Task จะเข้า Project เดิม';
+    } else {
+      document.getElementById('cal-project').value = '__new__';
+      document.getElementById('cal-new-project-name').value = name;
+      ensureSelectValue('cal-new-project-brand', brandName || '');
+      onNewProjectBrandChange('cal');
+      hint.textContent = name ? 'ยังไม่มี Project ชื่อนี้ — จะสร้างใหม่' : '';
+    }
+    onCalProjectChangeKeepHint_();
+  });
+}
+function onCalProjectChangeKeepHint_() {
+  var val = document.getElementById('cal-project').value;
+  document.getElementById('cal-newproject-box').style.display = (val === '__new__') ? 'block' : 'none';
+  validateCalendarImport();
 }
 
 function handleCalendarFileInput(files) {
@@ -3159,8 +3248,7 @@ function applyCalendarAnalysis(result) {
       confidence: Number(task.confidence || 0)
     };
   });
-  document.getElementById('calendar-project-name').value = result.projectName || '';
-  ensureSelectValue('calendar-brand-name', result.brandName || '');
+  applyCalendarProjectGuess_(result.projectName, result.brandName);
   ensureSelectValue('calendar-work-type', result.workType || 'Content');
   document.getElementById('calendar-review-section').style.display = 'block';
   var modelNote = result.usedFallback ? (result.model + ' (โมเดลสำรอง)') : (result.model || 'Gemini');
@@ -3210,16 +3298,14 @@ function validateCalendarImport() {
   var validTasks = state.calendarImport.tasks.filter(function(task) {
     return String(task.taskName || '').trim() && /^\\d{4}-\\d{2}-\\d{2}$/.test(task.dueDate || '');
   });
+  // ส่วน Project ตรวจละเอียดตอนกดสร้าง (readNewProjectForm_) ที่นี่เช็คแค่ว่าเลือกแล้ว
   var allValid = validTasks.length > 0 && validTasks.length === state.calendarImport.tasks.length
-    && !!document.getElementById('calendar-project-name').value.trim()
-    && !!document.getElementById('calendar-project-owner').value;
+    && !!document.getElementById('cal-project').value;
   document.getElementById('calendar-task-summary').textContent = validTasks.length + ' Task';
   document.getElementById('calendar-create-btn').disabled = !allValid;
   return allValid;
 }
 
-document.getElementById('calendar-project-name').addEventListener('input', validateCalendarImport);
-document.getElementById('calendar-project-owner').addEventListener('change', validateCalendarImport);
 
 var calendarDropzone = document.getElementById('calendar-dropzone');
 calendarDropzone.addEventListener('dragover', function(event) {
@@ -3245,19 +3331,33 @@ document.addEventListener('paste', function(event) {
 
 function submitCalendarImport() {
   if (!validateCalendarImport()) {
-    showToast('กรุณาตรวจชื่อ Project, Project Owner, Task และ Due Date ให้ครบ');
+    showToast('กรุณาเลือก Project และตรวจ Task กับ Due Date ให้ครบ');
     return;
   }
   var payload = {
-    projectName: document.getElementById('calendar-project-name').value.trim(),
-    brandName: document.getElementById('calendar-brand-name').value,
-    ownerName: document.getElementById('calendar-project-owner').value,
     workType: document.getElementById('calendar-work-type').value || 'Content',
     tasks: state.calendarImport.tasks.map(function(task) {
       return { taskName: task.taskName.trim(), dueDate: task.dueDate };
     })
   };
-  if (!confirm('สร้าง Project "' + payload.projectName + '" และ ' + payload.tasks.length + ' Task ใน Notion ใช่หรือไม่?')) return;
+  var projectSel = document.getElementById('cal-project').value;
+  var confirmText;
+  if (projectSel === '__new__') {
+    var np = readNewProjectForm_('cal');
+    if (!np) return;
+    payload.projectName = np.name;
+    payload.brandName = np.brand;
+    payload.ownerName = np.owner;
+    payload.serviceTypeId = np.serviceTypeId;
+    payload.scopeItemIds = np.scopeItemIds;
+    payload.contactIds = np.contactIds;
+    confirmText = 'สร้าง Project ใหม่ "' + np.name + '" และ ' + payload.tasks.length + ' Task ใน Notion ใช่หรือไม่?';
+  } else {
+    payload.projectId = projectSel;
+    var picked = (state.projects || []).find(function(project) { return project.id === projectSel; });
+    confirmText = 'สร้าง ' + payload.tasks.length + ' Task เข้า Project "' + (picked ? picked.name : '') + '" ใช่หรือไม่?';
+  }
+  if (!confirm(confirmText)) return;
 
   var button = document.getElementById('calendar-create-btn');
   button.disabled = true; button.textContent = 'กำลังสร้าง...';
@@ -3271,7 +3371,7 @@ function submitCalendarImport() {
         return;
       }
       if (result.ok) {
-        showToast('สร้าง Project และ ' + result.createdCount + ' Task เรียบร้อย');
+        showToast((result.projectCreated ? 'สร้าง Project และ ' : 'เพิ่มเข้า Project เดิม ') + result.createdCount + ' Task เรียบร้อย');
         closeCalendarImportModal();
         state.projects = null;
         refreshAfterCalendarImport();
