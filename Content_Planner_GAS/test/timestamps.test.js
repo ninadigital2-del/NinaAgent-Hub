@@ -158,7 +158,9 @@ test('ApprovedAt/PostedAt columns are appended after Sent_DayOf, not inserted mi
   const idx = context.COLUMNS.indexOf('Sent_DayOf');
   assert.strictEqual(context.COLUMNS[idx + 1], 'ApprovedAt');
   assert.strictEqual(context.COLUMNS[idx + 2], 'PostedAt');
-  assert.strictEqual(context.COLUMNS.length, idx + 3, 'ApprovedAt/PostedAt must be the last two columns');
+  // Columns added later go after these, never before (existing rows line up by index).
+  assert.strictEqual(context.COLUMNS[idx + 3], 'NotionTaskId');
+  assert.strictEqual(context.COLUMNS.length, idx + 4, 'NotionTaskId must be the last column');
 });
 
 console.log('');

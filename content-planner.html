@@ -494,6 +494,9 @@ body[data-client-theme] .day-num.today-badge {
       <button onclick="closeImportImage()" class="text-slate-400 hover:text-slate-700"><i class="fa-solid fa-xmark text-lg"></i></button>
     </div>
     <div class="p-5">
+      <div class="mb-4 text-sm bg-sky-50 border border-sky-200 text-sky-800 rounded-lg p-3">
+        <i class="fa-solid fa-circle-info"></i> ถ้าปฏิทินนี้มีงานที่ต้อง Assign Graphic ให้นำเข้าจาก <b>GEM Capacity Board</b> แทน ระบบจะสร้างทั้ง Task และโพสต์ในหน้านี้ให้พร้อมกัน — นำเข้าที่นี่เฉพาะแผนที่ไม่มีงาน Graphic เพื่อไม่ให้รายการซ้ำ
+      </div>
       <div class="mb-4">
         <label class="form-label">แบรนด์ของปฏิทินนี้</label>
         <select id="import-brand" class="form-input" onchange="onBrandSelectChange('import-brand')"></select>

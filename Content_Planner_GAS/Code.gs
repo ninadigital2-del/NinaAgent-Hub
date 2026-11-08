@@ -39,6 +39,11 @@ const COLUMNS = [
   // dashboards (e.g. AIS Retail Connect "Posting Execution").
   'ApprovedAt',  // first time Status became Approved/Ready/Scheduled/Posted
   'PostedAt',    // first time Status became Posted
+  // Notion Task page id when this item was created together with a GEM
+  // Capacity Board task (calendar-image import there). Blank for items made
+  // here. Lets the two systems find each other later (e.g. showing approval
+  // status on the Capacity Board task card).
+  'NotionTaskId',
 ];
 
 // Statuses that mean "the client has approved this item".
@@ -603,29 +608,19 @@ function syncBrandsFromNotion() {
   writeSyncedNames(SHEET_BRANDS, names);
 }
 
-// "Owner for Grouping" values (e.g. "PM - ยู้") are literal, human-typed
-// tags from the Tasks database's "Work By" field — they are NOT derived
-// from any person record, so there's no data-driven way to detect who a
-// brand-new tag refers to. This tiny table is the one thing a human must
-// still set by hand (once per new tag, essentially never); everything that
-// actually needs to stay fresh — email address, whether they're still
-// active — is pulled live from Notion by nickname via syncOwnerEmailsFromNotion.
-const OWNER_TAG_TO_NICKNAME = {
-  'PM - ยู้': 'You',
-  // 'PM - อ้อ': 'Aor', // currently inactive in GEM Team Member — left
-  //                     commented out so she's never added as a guest;
-  //                     uncomment if she becomes active again.
-};
-
 /**
- * Looks up each nickname in OWNER_TAG_TO_NICKNAME against the Notion "GEM
- * Team Member" database and writes the still-active ones' emails into the
- * OwnerEmails tab, keyed by their Owner tag. syncCalendarEvent reads this
- * to decide who to add as a guest on a content item's calendar event — run
- * this whenever a mapped person's email changes or they go active/inactive
- * (or on a daily trigger, same as syncOwnersFromNotion) so that part stays
- * current without editing code. Adding a person tagged with a brand-new
- * "Work By" text still needs one line added to OWNER_TAG_TO_NICKNAME above.
+ * Writes every active PM's email from the Notion "GEM Team Member" database
+ * (Role contains "PM", Active = true) into the OwnerEmails tab, keyed by
+ * "PM - " + nickname -- the same Owner format syncOwnersFromNotion writes
+ * and GEM Capacity Board uses. syncCalendarEvent reads this to decide who to
+ * add as a guest on a content item's calendar event.
+ *
+ * This used to go through a hand-written OWNER_TAG_TO_NICKNAME table
+ * ('PM - ยู้' -> 'You'). That table drifted from the real nickname ('ยู้'),
+ * so the lookup silently found nobody, the tab was wiped to just its
+ * header on every run, and no PM got invited. Deriving the key from the
+ * nickname itself means a new PM works as soon as they're marked PM +
+ * Active, and deactivating someone stops their invites on the next sync.
  *
  * Requires Script Property: NOTION_TEAM_DATABASE_ID. Reuses NOTION_TOKEN —
  * same integration must be connected to this database too.
@@ -642,17 +637,11 @@ function syncOwnerEmailsFromNotion() {
       { property: 'Active', checkbox: { equals: true } },
     ],
   };
-  const emailByNickname = {};
+  const rows = [];
   queryNotionDatabase(dbId, token, filter).forEach(page => {
     const nickname = extractNotionText(page.properties['ชื่อเล่น']);
     const email = extractNotionText(page.properties['Email']);
-    if (nickname && email) emailByNickname[nickname] = email;
-  });
-
-  const rows = [];
-  Object.keys(OWNER_TAG_TO_NICKNAME).forEach(tag => {
-    const email = emailByNickname[OWNER_TAG_TO_NICKNAME[tag]];
-    if (email) rows.push([tag, email]); // silently skipped if inactive/not found — no guest added for that tag
+    if (nickname && email) rows.push(['PM - ' + nickname, email]);
   });
   writeOwnerEmails(rows);
 }
@@ -667,12 +656,10 @@ function writeOwnerEmails(rows) {
 }
 
 /**
- * Owner tags are typed by humans in Notion and copied by hand into
- * OWNER_TAG_TO_NICKNAME, so exact-string matching is fragile against
- * invisible differences (e.g. the underlying "Work By" tag is literally
- * "PM-ยู้" with no spaces, while "Owner for Grouping" formats it with
- * spaces as "PM - ยู้") — collapsing whitespace around the dash and
- * trimming makes the match survive that instead of silently failing.
+ * Older items may carry an Owner typed by hand (e.g. "PM-ยู้" with no
+ * spaces, from the Tasks database's "Work By" tag) while OwnerEmails keys
+ * are "PM - ยู้" — collapsing whitespace around the dash and trimming makes
+ * the match survive that instead of silently failing.
  */
 function normalizeOwnerTag(s) {
   return (s || '').trim().replace(/\s*-\s*/g, ' - ').replace(/\s+/g, ' ');

@@ -112,21 +112,16 @@ item's calendar event can add its Owner as a real guest, so Google Calendar
 sends them an actual invite + reminder email, no subscribing needed. This
 has two parts:
 
-1. `OWNER_TAG_TO_NICKNAME` in `Code.gs` maps an Owner value (exactly as it
-   appears from Notion's **"Owner for Grouping"** formula in the Tasks
-   database, e.g. `"PM - ยู้"`) to that person's **ชื่อเล่น (nickname)** in
-   the "GEM Team Member" database. This correspondence is human-authored —
-   "Owner for Grouping" values are freely typed tags, not linked to a
-   person record — so a brand-new tag needs one line added here. Existing
-   entries essentially never need to change.
+1. The Owner value is always `"PM - " + ชื่อเล่น` from the "GEM Team
+   Member" database (same format GEM Capacity Board writes, e.g.
+   `"PM - ยู้"`), so there is no hand-written mapping to maintain.
 2. Run **`syncOwnerEmailsFromNotion`** (same caching pattern as
    `syncOwnersFromNotion`/`syncBrandsFromNotion`, writing to the
-   `OwnerEmails` tab) to pull each mapped nickname's current email from
-   "GEM Team Member" — only nicknames whose Role includes PM and who are
-   Active come through, so deactivating someone there automatically stops
-   them being invited on the next sync, with no code change. Add this to
-   the same daily trigger as step 4's other syncs if the team changes
-   often.
+   `OwnerEmails` tab) to pull every PM's current email from "GEM Team
+   Member" — only people whose Role includes PM and who are Active come
+   through, so a new PM is invited as soon as they're marked PM + Active,
+   and deactivating someone stops their invites on the next sync, with no
+   code change. It's part of the daily trigger from step 4.
 
 `syncCalendarEvent` reads the `OwnerEmails` tab on every create/update,
 adding the matching guest if there is one and removing a previously-added
@@ -150,9 +145,8 @@ whoever makes the change. The real correct fix — turning "Work By" from a
 free-typed multi-select into an actual relation to GEM Team Member — is a
 schema migration across a shared, heavily-used database and deserves its
 own careful, dedicated project (audit every dependent view/automation
-first), not a quick edit made in passing. `OWNER_TAG_TO_NICKNAME` above is
-deliberately read-only against Notion's current setup so it can't break
-any of that.
+first), not a quick edit made in passing. The OwnerEmails sync above only
+reads GEM Team Member, so it can't break any of that.
 
 ## 8. Client links (brand-scoped, read-mostly access)
 
