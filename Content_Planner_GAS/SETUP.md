@@ -27,7 +27,7 @@ Project Settings → Script Properties → add:
 | Key | Value |
 |---|---|
 | `NOTION_TOKEN` | Notion internal integration token (share the Owner database with this integration) |
-| `NOTION_DATABASE_ID` | `2e69dccd-181d-81df-8919-fbacf921c7d5` (the "Tasks" database, confirmed to have "Owner for Grouping") |
+| `NOTION_DATABASE_ID` | No longer used by this backend (the old `syncOwnersFromNotion` read it; it now reads `NOTION_TEAM_DATABASE_ID` instead — see below). Safe to leave set or remove. |
 | `NOTION_BRAND_DATABASE_ID` | `2eb9dccd-181d-808f-b888-cdf883503df6` (the "Brand" database — same integration needs Connections access here too) |
 | `NOTION_TEAM_DATABASE_ID` | `092e35e9-9742-4e4a-9b20-d7df03c31dc6` (the "GEM Team Member" database — same integration needs Connections access here too; used for PM guest-invite emails, see step 7) |
 | `LINE_CHANNEL_TOKEN` | Channel access token from the LINE Official Account (Messaging API) |
@@ -53,7 +53,10 @@ the LINE Official Account Manager's group chat details) — copy that ID here.
 ## 4. Sync owners, brands, and PM emails once
 
 Run `syncOwnersFromNotion` and `syncBrandsFromNotion` manually the first
-time to confirm each pulls the right names (`syncBrandsFromNotion` only
+time to confirm each pulls the right names (`syncOwnersFromNotion` pulls
+every active PM from the "GEM Team Member" database — Role contains "PM"
+and Active is checked — same source and format ("PM - " + nickname) GEM
+Capacity Board uses for its own PM dropdown; `syncBrandsFromNotion` only
 pulls brands where "Active = Yes" is checked). Also run
 `syncOwnerEmailsFromNotion` (see step 7 for what it does). Not required to
 work — but if the Notion data changes often enough that manually re-running
@@ -134,8 +137,10 @@ shared calendar above — being both a guest on an event and a subscriber to
 the calendar it lives on can show that event twice on their calendar.
 
 **Do NOT try to fix this at the source by editing the "Owner for Grouping"
-formula (or "Work By") in Notion** — this looks tempting ("just make it
-pull from GEM Team Member directly") but it's genuinely risky: at least 10
+formula (`format(Owner)`, where "Owner" is a rollup off each Task's Project)
+or the underlying "Work By"/"Owner" fields in Notion** — this looks tempting
+("just make it pull from GEM Team Member directly") but it's genuinely
+risky: at least 10
 saved views in the Tasks database filter on an exact string match against
 "Owner for Grouping" (e.g. "🔔 ต้องเริ่มเตรียมงาน (อ้อ)", "💰 งานที่ยังไม่วางบิล
 (ยู้)", "📥 Inbox — งานไม่มี Due Date (อ้อ)") — changing the formula's output

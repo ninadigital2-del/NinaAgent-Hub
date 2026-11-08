@@ -536,27 +536,42 @@ function writeSyncedNames(sheetName, names) {
 }
 
 /**
- * Pulls the "Owner for Grouping" property from the Notion Tasks database
- * and writes the distinct names into the Owners tab. Run manually or on a
- * daily time-driven trigger — this is a cache, not a live call, so the
- * Content Planner form stays fast and works even if Notion is down.
+ * Pulls active PM names from the Notion "GEM Team Member" database (Role
+ * contains "PM" and Active = true) and writes them into the Owners tab, as
+ * "PM - " + nickname -- same source and format GEM Capacity Board uses for
+ * its PM dropdown. Run manually or on a daily time-driven trigger — this is
+ * a cache, not a live call, so the Content Planner form stays fast and
+ * works even if Notion is down.
  *
- * Requires Script Properties: NOTION_TOKEN, NOTION_DATABASE_ID
- * Adjust PROPERTY_NAME below if the Notion property is renamed.
+ * This used to read the "Owner for Grouping" formula off the Tasks
+ * database instead. That was wrong on two counts: (1) a PM only ever
+ * showed up once they had a task/project, so a brand-new PM with no work
+ * assigned yet was invisible; (2) "Owner for Grouping" is format(Owner),
+ * and Owner is a rollup that can hold more than one person per project —
+ * format() joins them with a comma, so a project with two PM co-owners
+ * produced one garbled combined name instead of two clean ones (and a PM
+ * who never had a solo project could never get a standalone entry at all).
+ * Reading GEM Team Member directly sidesteps both: every active PM shows
+ * up regardless of whether they have any task/project yet.
+ *
+ * Requires Script Properties: NOTION_TOKEN, NOTION_TEAM_DATABASE_ID
  */
 function syncOwnersFromNotion() {
   const props = PropertiesService.getScriptProperties();
   const token = props.getProperty('NOTION_TOKEN');
-  const dbId = props.getProperty('NOTION_DATABASE_ID');
-  const PROPERTY_NAME = 'Owner for Grouping';
-  if (!token || !dbId) throw new Error('Set NOTION_TOKEN and NOTION_DATABASE_ID in Script Properties first.');
+  const dbId = props.getProperty('NOTION_TEAM_DATABASE_ID');
+  if (!token || !dbId) throw new Error('Set NOTION_TOKEN and NOTION_TEAM_DATABASE_ID in Script Properties first.');
 
+  const filter = {
+    and: [
+      { property: 'Role', multi_select: { contains: 'PM' } },
+      { property: 'Active', checkbox: { equals: true } },
+    ],
+  };
   const names = new Set();
-  queryNotionDatabase(dbId, token).forEach(page => {
-    const prop = page.properties[PROPERTY_NAME];
-    if (!prop) return;
-    const value = extractNotionText(prop);
-    if (value) names.add(value);
+  queryNotionDatabase(dbId, token, filter).forEach(page => {
+    const nickname = extractNotionText(page.properties['ชื่อเล่น']);
+    if (nickname) names.add('PM - ' + nickname);
   });
   writeSyncedNames(SHEET_OWNERS, names);
 }
