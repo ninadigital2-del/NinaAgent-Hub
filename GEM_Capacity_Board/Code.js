@@ -1311,6 +1311,13 @@ const CALENDAR_IMPORT_FALLBACK_MODEL = 'gemini-2.5-flash-lite';
 const CALENDAR_IMPORT_MAX_RETRIES = 3;
 const CALENDAR_IMPORT_MAX_BYTES = 8 * 1024 * 1024;
 const CALENDAR_IMPORT_MAX_TASKS = 50;
+// แพลตฟอร์มชุดเดียวกับ Content Planner
+const CALENDAR_PLATFORMS = ['Facebook', 'Instagram', 'TikTok', 'LINE', 'YouTube'];
+
+function normalizePlatforms_(list) {
+  return (Array.isArray(list) ? list : []).map(function(p) { return String(p || '').trim(); })
+    .filter(function(p, i, arr) { return CALENDAR_PLATFORMS.indexOf(p) >= 0 && arr.indexOf(p) === i; });
+}
 
 function analyzeCalendarImage(input) {
   try {
@@ -1360,7 +1367,14 @@ function analyzeCalendarImage(input) {
               postLabel: { type: 'STRING', description: 'ป้ายกำกับ เช่น Post 1' },
               taskName: { type: 'STRING', description: 'ชื่อชิ้นงาน รวมป้าย Post และข้อความทั้งหมดในช่อง' },
               dueDate: { type: 'STRING', description: 'วันที่ของช่องปฏิทิน รูปแบบ YYYY-MM-DD' },
-              confidence: { type: 'NUMBER', description: 'ความมั่นใจ 0 ถึง 1' }
+              confidence: { type: 'NUMBER', description: 'ความมั่นใจ 0 ถึง 1' },
+              platforms: {
+                type: 'ARRAY',
+                items: { type: 'STRING', enum: CALENDAR_PLATFORMS },
+                description: 'แพลตฟอร์มที่ระบุหรือเห็นไอคอนในช่องนี้ ถ้าไม่มีให้เป็น array ว่าง'
+              },
+              isVideo: { type: 'BOOLEAN', description: 'true ถ้าเป็นคลิป/วิดีโอ เช่น Reel, TikTok, คลิป, VDO' },
+              note: { type: 'STRING', description: 'รายละเอียดเพิ่มเติมในช่องนี้ เช่น แคมเปญ ถ้าไม่มีให้ว่าง' }
             },
             required: ['postLabel', 'taskName', 'dueDate', 'confidence']
           }
@@ -1379,6 +1393,9 @@ function analyzeCalendarImage(input) {
       'taskName ต้องรวม postLabel เช่น (Post 1) ตามด้วยข้อความชื่อเนื้อหา โดยรักษาภาษาเดิม',
       'dueDate ต้องเป็นวันที่ ค.ศ. รูปแบบ YYYY-MM-DD และต้องสอดคล้องกับเดือน/ปีในหัวเรื่อง',
       'ถ้าอ่านข้อความบางส่วนไม่ชัด ให้ถอดเท่าที่เห็นและลด confidence ห้ามเดาข้อมูลที่ไม่มีในภาพ',
+      'platforms ใส่เฉพาะแพลตฟอร์มที่เขียนหรือมีไอคอนในช่องนั้นจริง ถ้าไม่มีให้เป็น array ว่าง ห้ามเดา',
+      'isVideo เป็น true เมื่อเนื้อหาเป็นคลิป/วิดีโอ (เช่น คลิป, VDO, Reel, TikTok, Live) นอกนั้นเป็น false',
+      'note ใส่รายละเอียดเสริมที่อยู่ในช่องแต่ไม่ใช่ชื่อเนื้อหา ถ้าไม่มีให้เป็นข้อความว่าง',
       'เรียง tasks ตาม dueDate และลำดับ Post ตั้ง workType เป็น Content'
     ].join('\n');
 
@@ -1554,7 +1571,15 @@ function normalizeCalendarImport_(data) {
     let confidence = Number(task && task.confidence);
     if (!isFinite(confidence)) confidence = 0;
     confidence = Math.max(0, Math.min(1, confidence));
-    tasks.push({ postLabel: postLabel, taskName: taskName, dueDate: dueDate, confidence: confidence });
+    tasks.push({
+      postLabel: postLabel,
+      taskName: taskName,
+      dueDate: dueDate,
+      confidence: confidence,
+      platforms: normalizePlatforms_(task && task.platforms),
+      isVideo: !!(task && task.isVideo),
+      note: String(task && task.note || '').replace(/\s+/g, ' ').trim().slice(0, 300)
+    });
   });
   tasks.sort(function(a, b) {
     return a.dueDate.localeCompare(b.dueDate) || a.postLabel.localeCompare(b.postLabel);
@@ -1586,17 +1611,30 @@ function handleBulkCreateCalendarPlan(body) {
       if (!ownerName) return { ok: false, error: 'กรุณาระบุ Project Owner' };
     }
 
-    const tasks = (Array.isArray(body.tasks) ? body.tasks : []).slice(0, CALENDAR_IMPORT_MAX_TASKS)
+    // แต่ละแถว = 1 โพสต์ในปฏิทิน; needTask=false แปลว่าไม่ต้อง Assign Graphic
+    // (ลงแค่ Content Planner ไม่สร้าง Task)
+    const rows = (Array.isArray(body.tasks) ? body.tasks : []).slice(0, CALENDAR_IMPORT_MAX_TASKS)
       .map(function(task) {
         return {
           taskName: String(task && task.taskName || '').replace(/\s+/g, ' ').trim().slice(0, 300),
-          dueDate: String(task && task.dueDate || '').trim()
+          dueDate: String(task && task.dueDate || '').trim(),
+          needTask: !(task && task.needTask === false),
+          workType: String(task && task.workType || workType).trim().slice(0, 100) || workType,
+          platforms: normalizePlatforms_(task && task.platforms),
+          note: String(task && task.note || '').trim().slice(0, 300)
         };
       })
       .filter(function(task) {
         return task.taskName && /^\d{4}-\d{2}-\d{2}$/.test(task.dueDate);
       });
-    if (!tasks.length) return { ok: false, error: 'ไม่มี Task ที่พร้อมสร้าง' };
+    if (!rows.length) return { ok: false, error: 'ไม่มีรายการที่พร้อมสร้าง' };
+    const cp = body.contentPlanner || {};
+    const cpEnabled = !!cp.enabled;
+    const tasks = rows.filter(function(row) { return row.needTask; });
+    if (!tasks.length && !cpEnabled) return { ok: false, error: 'ไม่มี Task ที่พร้อมสร้าง' };
+    if (cpEnabled && rows.some(function(row) { return !row.platforms.length; })) {
+      return { ok: false, error: 'มีรายการที่ยังไม่ได้เลือกแพลตฟอร์ม' };
+    }
 
     // เลือก Project เดิมมา → ใช้เลย; สร้างใหม่ → กันซ้ำด้วยชื่อตรงกันก่อน แล้วสร้างพร้อม
     // Scope Item / Service Type / Contact แบบเดียวกับปุ่มสร้างงาน
@@ -1624,10 +1662,11 @@ function handleBulkCreateCalendarPlan(body) {
       const result = handleCreateTask({
         taskName: task.taskName,
         dueDate: task.dueDate,
-        workType: workType,
+        workType: task.workType,
         projectId: projectId,
         assignee: ''
       });
+      task.taskId = result.taskId || '';
       return {
         taskName: task.taskName,
         dueDate: task.dueDate,
@@ -1637,18 +1676,122 @@ function handleBulkCreateCalendarPlan(body) {
       };
     });
     const createdCount = results.filter(function(result) { return result.ok; }).length;
+    const tasksOk = createdCount === results.length;
+
+    // ลง Content Planner ทุกแถว ยกเว้นแถวที่สร้าง Task ไม่สำเร็จ — แถวพวกนั้นหน้าเว็บ
+    // จะเก็บไว้ให้กดสร้างใหม่ (Task + โพสต์ไปพร้อมกัน) จึงไม่เกิดโพสต์ซ้ำ
+    // ถ้าส่งไม่ผ่าน ส่งคำขอกลับไปให้หน้าเว็บกด "ส่งอีกครั้ง" ได้โดยไม่สร้าง Task ซ้ำ
+    const cpRows = rows.filter(function(row) { return !row.needTask || row.taskId; });
+    let contentPlanner = null;
+    if (cpEnabled && cpRows.length) {
+      const info = projectCreated
+        ? { brand: brandName, owner: ownerName }
+        : getProjectBrandAndOwner_(projectId, key);
+      const posts = cpRows.map(function(row) {
+        return {
+          title: row.taskName,
+          date: row.dueDate,
+          platforms: row.platforms,
+          note: row.note,
+          notionTaskId: row.taskId || ''
+        };
+      });
+      const cpRequest = {
+        brand: info.brand,
+        owner: info.owner,
+        reviewer: String(cp.reviewer || '').trim(),
+        time: String(cp.time || ''),
+        posts: posts
+      };
+      contentPlanner = pushPostsToContentPlanner(cpRequest);
+      if (!contentPlanner.ok) contentPlanner.retry = cpRequest;
+    }
     return {
-      ok: createdCount === results.length,
+      ok: tasksOk && (!contentPlanner || contentPlanner.ok),
       partial: createdCount > 0 && createdCount < results.length,
       projectId: projectId,
       projectCreated: projectCreated,
       createdCount: createdCount,
       failedCount: results.length - createdCount,
-      results: results
+      results: results,
+      contentPlanner: contentPlanner
     };
   } catch (error) {
     console.error('handleBulkCreateCalendarPlan: ' + error.message);
     return { ok: false, error: 'สร้าง Project/Task ไม่สำเร็จ: ' + error.message };
+  }
+}
+
+// แบรนด์ + Owner ของ Project เดิม (ใช้ตอนนำเข้าปฏิทินเข้า Project ที่มีอยู่)
+// เพื่อส่งไป Content Planner ให้ตรงกับ Project
+function getProjectBrandAndOwner_(projectId, key) {
+  const out = { brand: '', owner: '' };
+  try {
+    const page = notionFetch('pages/' + String(projectId).replace(/-/g, ''), 'GET', null, key);
+    const props = (page && page.properties) || {};
+    const owners = (props['Owner'] && props['Owner'].multi_select) || [];
+    if (owners.length) out.owner = owners[0].name;
+    const brandRel = (props['Brand'] && props['Brand'].relation) || [];
+    if (brandRel.length) {
+      const brandPage = notionFetch('pages/' + brandRel[0].id.replace(/-/g, ''), 'GET', null, key);
+      const bp = (brandPage && brandPage.properties) || {};
+      Object.keys(bp).some(function(name) {
+        if (bp[name].type !== 'title') return false;
+        out.brand = (bp[name].title || []).map(function(t) { return t.plain_text; }).join('').trim();
+        return true;
+      });
+    }
+  } catch (e) {
+    console.error('getProjectBrandAndOwner_: ' + e.message);
+  }
+  return out;
+}
+
+// ส่งโพสต์เข้า Content Planner (Apps Script อีกตัว) ผ่าน bulkCreate ที่มีอยู่แล้ว
+// ต้องตั้ง Script Property CONTENT_PLANNER_API_URL = URL /exec ของ Content Planner
+// เรียกจากหน้าเว็บตรงได้ด้วย (ปุ่ม "ส่งเข้า Content Planner อีกครั้ง")
+function pushPostsToContentPlanner(body) {
+  try {
+    body = body || {};
+    const url = PropertiesService.getScriptProperties().getProperty('CONTENT_PLANNER_API_URL');
+    if (!url) return { ok: false, error: 'ยังไม่ได้ตั้งค่า CONTENT_PLANNER_API_URL ใน Script Properties' };
+    const brand = String(body.brand || '').trim();
+    if (!brand) return { ok: false, error: 'ไม่พบแบรนด์ของ Project — Content Planner ต้องมีแบรนด์' };
+    const time = /^\d{2}:\d{2}$/.test(String(body.time || '')) ? body.time : '10:00';
+    const posts = (Array.isArray(body.posts) ? body.posts : []).slice(0, CALENDAR_IMPORT_MAX_TASKS);
+    const items = posts.map(function(post) {
+      return {
+        Brand: brand,
+        Campaign: '',
+        Title: String(post.title || '').slice(0, 300),
+        Note: String(post.note || '').slice(0, 300),
+        Platforms: normalizePlatforms_(post.platforms),
+        ScheduledAt: new Date(post.date + 'T' + time + ':00+07:00').toISOString(),
+        Owner: String(body.owner || ''),
+        Reviewer: String(body.reviewer || ''),
+        Status: 'Draft',
+        NotionTaskId: String(post.notionTaskId || '')
+      };
+    }).filter(function(item) { return item.Title && item.Platforms.length && !isNaN(new Date(item.ScheduledAt).getTime()); });
+    if (!items.length) return { ok: false, error: 'ไม่มีโพสต์ที่พร้อมส่ง' };
+
+    const res = UrlFetchApp.fetch(url, {
+      method: 'post',
+      contentType: 'text/plain;charset=utf-8',
+      payload: JSON.stringify({ action: 'bulkCreate', items: items }),
+      muteHttpExceptions: true,
+      followRedirects: true
+    });
+    let json = null;
+    try { json = JSON.parse(res.getContentText()); } catch (e) { json = null; }
+    if (!json || !json.success) {
+      const why = (json && json.error) || ('HTTP ' + res.getResponseCode());
+      return { ok: false, error: 'ส่งเข้า Content Planner ไม่สำเร็จ: ' + why };
+    }
+    return { ok: true, createdCount: (json.items || []).length };
+  } catch (error) {
+    console.error('pushPostsToContentPlanner: ' + error.message);
+    return { ok: false, error: 'ส่งเข้า Content Planner ไม่สำเร็จ: ' + error.message };
   }
 }
 
@@ -1987,16 +2130,42 @@ input[type="date"]::-webkit-calendar-picker-indicator{position:absolute;left:0;t
 .calendar-preview-image{display:none;max-width:100%;max-height:240px;margin:0 auto;border-radius:7px;object-fit:contain}
 .calendar-import-status{font-size:12px;color:#777;margin-top:8px;min-height:18px}
 .calendar-import-grid{display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-top:14px}
-.calendar-import-table-wrap{margin-top:14px;border:1px solid #e5e3dd;border-radius:8px;overflow:auto;max-height:300px}
-.calendar-import-table{width:100%;border-collapse:collapse;font-size:12px}
+.calendar-import-table-wrap{border:1px solid #e5e3dd;border-radius:8px;overflow:auto;max-height:360px}
+.calendar-import-table{width:100%;border-collapse:collapse;font-size:12px;min-width:900px}
 .calendar-import-table th{position:sticky;top:0;background:#f5f4f0;color:#666;text-align:left;padding:8px;border-bottom:1px solid #ddd;z-index:1}
 .calendar-import-table td{padding:6px 8px;border-bottom:1px solid #eee;vertical-align:middle}
 .calendar-import-table input{width:100%;padding:6px 7px;border:1px solid #ddd;border-radius:5px;font-family:inherit;font-size:12px}
 .calendar-confidence{display:inline-block;min-width:46px;text-align:center;padding:2px 6px;border-radius:10px;background:#EAF3DE;color:#3B6D11}
 .calendar-confidence.low{background:#FAEEDA;color:#854F0B}
 .calendar-remove{border:0;background:transparent;color:#A32D2D;cursor:pointer;font-size:16px;padding:3px}
+.cal-sec{margin-top:16px}
+.cal-sec-t{font-size:11px;font-weight:600;color:#888;letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px}
+.cal-sticky-top{position:sticky;top:-24px;background:#fff;z-index:3;padding:24px 0 10px;margin-top:-24px}
+.cal-sticky-bottom{position:sticky;bottom:-24px;background:#fff;z-index:3;padding:10px 0 24px;margin-bottom:-24px;border-top:1px solid #eee;flex-wrap:wrap}
+.cal-cp-panel{border-left:3px solid #378ADD;background:#f3f8fd;padding:10px 12px;border-radius:0 6px 6px 0}
+.cal-switch{display:flex;align-items:center;gap:8px;font-weight:600;font-size:13px;cursor:pointer}
+.cal-switch input{width:16px;height:16px;accent-color:#378ADD}
+#cal-cp-box{margin-top:10px}
+.cal-cp-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.cal-readonly{padding:8px;border:1px solid #e5e3dd;border-radius:6px;background:#f5f4f0;color:#777;font-size:13px}
+.cal-chips{display:flex;flex-wrap:wrap;gap:6px}
+.cal-chip{border:1px solid #ddd;background:#fff;border-radius:999px;padding:4px 12px;font-family:inherit;font-size:12px;cursor:pointer;color:#444}
+.cal-chip.on{background:#378ADD;border-color:#378ADD;color:#fff}
+.cal-hint{font-size:12px;color:#888;margin-top:6px}
+.cal-pf{display:flex;flex-wrap:wrap;gap:3px}
+.cal-pf button{font-size:11px;border:1px solid #ddd;background:#fff;border-radius:4px;padding:1px 5px;cursor:pointer;font-family:inherit;color:#666}
+.cal-pf button.on{background:#EBF4FD;border-color:#378ADD;color:#185FA5}
+.calendar-import-table tr.cal-low td{background:#FFF7E8}
+.calendar-import-table tr.cal-off td{opacity:.45}
+.calendar-import-table select{width:100%;padding:5px 6px;border:1px solid #ddd;border-radius:5px;font-family:inherit;font-size:12px;background:#fff}
+.calendar-import-table input[type=checkbox]{width:auto}
+.cal-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:#888;margin-top:6px}
+.cal-legend i{display:inline-block;width:10px;height:10px;background:#FFF7E8;border:1px solid #E0A84A;border-radius:2px;margin-right:4px;vertical-align:-1px}
+.cal-retry{margin-top:8px;padding:8px 10px;border:1px solid #F0C36D;background:#FFF8EA;border-radius:6px;font-size:12px;color:#854F0B;display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.calendar-modal-box.cal-cp-off .cal-cp-col{display:none}
 @media(max-width:700px){
   .calendar-import-grid{grid-template-columns:1fr}
+  .cal-cp-grid{grid-template-columns:1fr}
   .calendar-modal-box{max-height:none}
 }
 </style>
@@ -2103,31 +2272,17 @@ input[type="date"]::-webkit-calendar-picker-indicator{position:absolute;left:0;t
 <!-- Calendar Image Import Modal -->
 <div class="modal-backdrop" id="calendar-import-modal" onclick="if(event.target===this)closeCalendarImportModal()">
   <div class="modal-box calendar-modal-box">
-    <div class="modal-title" style="display:flex; justify-content:space-between; align-items:center;">
-      <div><i class="ti ti-calendar-up" style="color:#378ADD"></i> สร้าง Project และ Task จากรูปปฏิทิน</div>
+    <div class="modal-title cal-sticky-top" style="display:flex; justify-content:space-between; align-items:center;">
+      <div><i class="ti ti-calendar-up" style="color:#378ADD"></i> นำเข้าจากรูปปฏิทิน</div>
       <button onclick="closeCalendarImportModal()" style="background:none; border:none; font-size:20px; line-height:1; color:#888; cursor:pointer; padding:4px 6px;" title="ปิด">✕</button>
     </div>
-    <div id="calendar-dropzone" class="calendar-dropzone" onclick="document.getElementById('calendar-file-input').click()">
-      <input type="file" id="calendar-file-input" accept="image/jpeg,image/png,image/webp" style="display:none" onchange="handleCalendarFileInput(this.files)">
-      <img id="calendar-preview-image" class="calendar-preview-image" alt="รูปปฏิทินที่เลือก">
-      <div id="calendar-drop-hint"><i class="ti ti-clipboard" style="font-size:26px;display:block;margin-bottom:5px"></i>วางรูปจาก Clipboard, ลากรูปมาวาง หรือคลิกเพื่อเลือกไฟล์</div>
-    </div>
-    <div id="calendar-import-status" class="calendar-import-status">รองรับ JPG, PNG และ WebP ขนาดไม่เกิน 8 MB</div>
-    <div style="display:flex;justify-content:flex-end;margin-top:8px">
-      <button class="modal-btn modal-btn-save" id="calendar-analyze-btn" onclick="analyzeSelectedCalendarImage()" disabled><i class="ti ti-sparkles"></i> วิเคราะห์รูป</button>
-    </div>
 
-    <div id="calendar-review-section" style="display:none">
-      <div class="calendar-import-grid">
-        <div class="modal-form-group" style="margin:0">
-          <label for="cal-project">Project</label>
-          <select id="cal-project" onchange="onCalProjectChange()" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;background:#fff"><option value="">— เลือก Project —</option></select>
-          <div id="cal-project-hint" style="font-size:12px;color:#888;margin-top:4px"></div>
-        </div>
-        <div class="modal-form-group" style="margin:0">
-          <label for="calendar-work-type">ประเภทงาน</label>
-          <select id="calendar-work-type" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;background:#fff"></select>
-        </div>
+    <div class="cal-sec">
+      <div class="cal-sec-t">1 · Project</div>
+      <div class="modal-form-group" style="margin:0">
+        <label for="cal-project">Project</label>
+        <select id="cal-project" onchange="onCalProjectChange()" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;background:#fff"><option value="">— เลือก Project —</option></select>
+        <div id="cal-project-hint" style="font-size:12px;color:#888;margin-top:4px"></div>
       </div>
       <div id="cal-newproject-box" style="display:none; padding:10px 12px; margin-top:12px; border-left:3px solid #22A06B; background:#f6fdf9;">
         <label for="cal-new-project-name" style="display:block; font-size:13px; font-weight:500; color:#555; margin-bottom:5px;">ชื่อ Project ใหม่</label>
@@ -2147,21 +2302,81 @@ input[type="date"]::-webkit-calendar-picker-indicator{position:absolute;left:0;t
         <label for="cal-new-project-service-type" style="display:block; font-size:13px; font-weight:500; color:#555; margin:8px 0 5px;">ประเภทงาน (Service Type)</label>
         <select id="cal-new-project-service-type" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;"></select>
       </div>
-      <div style="font-size:12px;color:#666;margin-top:14px;display:flex;justify-content:space-between;align-items:center">
-        <span>ตรวจชื่อและ Due Date ก่อนสร้างจริง</span>
-        <span id="calendar-task-summary"></span>
-      </div>
-      <div class="calendar-import-table-wrap">
-        <table class="calendar-import-table">
-          <thead><tr><th style="width:60%">ชื่อ Task</th><th style="width:150px">Due Date</th><th style="width:80px">ความมั่นใจ</th><th style="width:40px"></th></tr></thead>
-          <tbody id="calendar-task-rows"></tbody>
-        </table>
+    </div>
+
+    <div class="cal-sec">
+      <div class="cal-sec-t">2 · Content Planner</div>
+      <div class="cal-cp-panel">
+        <label class="cal-switch"><input type="checkbox" id="cal-cp-enabled" checked onchange="onCalCpToggle()"> <span>ลง Content Planner ด้วย</span></label>
+        <div id="cal-cp-box">
+          <div class="cal-cp-grid">
+            <div class="modal-form-group" style="margin:0">
+              <label>ผู้รับผิดชอบ</label>
+              <div id="cal-cp-owner-note" class="cal-readonly">ตาม PM ของ Project</div>
+            </div>
+            <div class="modal-form-group" style="margin:0">
+              <label for="cal-cp-reviewer">ผู้ตรวจ / ผู้อนุมัติ</label>
+              <select id="cal-cp-reviewer" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;background:#fff"></select>
+            </div>
+            <div class="modal-form-group" style="margin:0">
+              <label for="cal-cp-time">เวลาโพสต์เริ่มต้น</label>
+              <input type="time" id="cal-cp-time" value="10:00">
+            </div>
+          </div>
+          <div class="modal-form-group" style="margin:10px 0 0">
+            <label>แพลตฟอร์มเริ่มต้น</label>
+            <div id="cal-cp-platforms" class="cal-chips"></div>
+            <div class="cal-hint">ใช้กับแถวที่ AI อ่านแพลตฟอร์มจากรูปไม่ได้ แก้รายแถวได้ในตาราง โพสต์จะเข้า Content Planner เป็นสถานะ Draft ให้ PM ใส่แคปชันก่อนส่งลูกค้า</div>
+          </div>
+        </div>
       </div>
     </div>
 
-    <div class="modal-actions">
+    <div class="cal-sec">
+      <div class="cal-sec-t">3 · รูปปฏิทิน</div>
+      <div id="calendar-dropzone" class="calendar-dropzone" onclick="document.getElementById('calendar-file-input').click()">
+        <input type="file" id="calendar-file-input" accept="image/jpeg,image/png,image/webp" style="display:none" onchange="handleCalendarFileInput(this.files)">
+        <img id="calendar-preview-image" class="calendar-preview-image" alt="รูปปฏิทินที่เลือก">
+        <div id="calendar-drop-hint"><i class="ti ti-clipboard" style="font-size:26px;display:block;margin-bottom:5px"></i>วางรูปจาก Clipboard, ลากรูปมาวาง หรือคลิกเพื่อเลือกไฟล์</div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-top:8px;flex-wrap:wrap">
+        <div id="calendar-import-status" class="calendar-import-status" style="margin:0;flex:1;min-width:200px">รองรับ JPG, PNG และ WebP ขนาดไม่เกิน 8 MB</div>
+        <button class="modal-btn modal-btn-save" id="calendar-analyze-btn" onclick="analyzeSelectedCalendarImage()" disabled><i class="ti ti-sparkles"></i> วิเคราะห์รูปด้วย AI</button>
+      </div>
+      <div id="calendar-cp-retry" class="cal-retry" style="display:none">
+        <span id="calendar-cp-retry-msg"></span>
+        <button class="modal-btn modal-btn-save" id="calendar-cp-retry-btn" onclick="retryCalendarContentPlanner()">ส่งเข้า Content Planner อีกครั้ง</button>
+      </div>
+    </div>
+
+    <div id="calendar-review-section" class="cal-sec" style="display:none">
+      <div class="cal-sec-t">4 · ตรวจรายการก่อนสร้าง</div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+        <label for="calendar-work-type" style="font-size:13px;font-weight:500;color:#555">ประเภทงานทุกแถว</label>
+        <select id="calendar-work-type" onchange="applyCalendarBulkWorkType()" style="padding:6px 8px;border:1px solid #ddd;border-radius:6px;background:#fff"></select>
+        <span class="cal-hint" style="margin:0">ตั้งทีเดียวทุกแถว แล้วแก้รายแถวในตารางได้</span>
+      </div>
+      <div class="calendar-import-table-wrap">
+        <table class="calendar-import-table">
+          <thead><tr>
+            <th style="width:28px"><input type="checkbox" id="calendar-select-all" checked onchange="toggleCalendarSelectAll(this.checked)" title="เลือกทั้งหมด"></th>
+            <th style="min-width:200px">หัวข้อ</th>
+            <th style="width:140px">วันโพสต์</th>
+            <th class="cal-cp-col" style="width:150px">แพลตฟอร์ม</th>
+            <th style="width:96px">ต้อง Assign Graphic?</th>
+            <th style="width:160px">ประเภทงาน (Task)</th>
+            <th style="min-width:120px">หมายเหตุ</th>
+          </tr></thead>
+          <tbody id="calendar-task-rows"></tbody>
+        </table>
+      </div>
+      <div class="cal-legend"><span><i></i>AI ไม่แน่ใจ ควรตรวจ</span><span>Assign Graphic “ไม่” = ลงแค่ Content Planner ไม่สร้าง Task</span></div>
+    </div>
+
+    <div class="modal-actions cal-sticky-bottom">
+      <span id="calendar-task-summary" style="margin-right:auto;font-size:12px;color:#666;align-self:center"></span>
       <button class="modal-btn modal-btn-cancel" onclick="closeCalendarImportModal()">ยกเลิก</button>
-      <button class="modal-btn modal-btn-save" id="calendar-create-btn" onclick="submitCalendarImport()" disabled>สร้าง Project และ Task</button>
+      <button class="modal-btn modal-btn-save" id="calendar-create-btn" onclick="submitCalendarImport()" disabled>สร้าง</button>
     </div>
   </div>
 </div>
@@ -3075,24 +3290,30 @@ function closeCalendarImportModal() {
 }
 
 function resetCalendarImport() {
-  state.calendarImport = { image: null, tasks: [] };
+  state.calendarImport = { image: null, tasks: [], cpPlatforms: ['Facebook'], cpRetry: null };
   document.getElementById('calendar-file-input').value = '';
   document.getElementById('calendar-preview-image').removeAttribute('src');
   document.getElementById('calendar-preview-image').style.display = 'none';
   document.getElementById('calendar-drop-hint').style.display = 'block';
   document.getElementById('calendar-dropzone').classList.remove('has-image');
   document.getElementById('calendar-review-section').style.display = 'none';
+  document.getElementById('cal-project').value = '';
   document.getElementById('cal-new-project-name').value = '';
   document.getElementById('cal-newproject-box').style.display = 'none';
   document.getElementById('cal-scope-item-box').style.display = 'none';
   document.getElementById('cal-contact-box').style.display = 'none';
   document.getElementById('cal-project-hint').textContent = '';
   resetNewProjectState_('cal');
+  document.getElementById('cal-cp-enabled').checked = true;
+  document.getElementById('cal-cp-time').value = '10:00';
+  document.getElementById('calendar-cp-retry').style.display = 'none';
   document.getElementById('calendar-task-rows').innerHTML = '';
   document.getElementById('calendar-task-summary').textContent = '';
   document.getElementById('calendar-import-status').textContent = 'รองรับ JPG, PNG และ WebP ขนาดไม่เกิน 8 MB';
   document.getElementById('calendar-analyze-btn').disabled = true;
   document.getElementById('calendar-create-btn').disabled = true;
+  document.getElementById('calendar-create-btn').textContent = 'สร้าง';
+  onCalCpToggle();
 }
 
 function fillCalendarImportSelects() {
@@ -3113,9 +3334,72 @@ function fillCalendarImportSelects() {
     contentOption.value = 'Content'; contentOption.textContent = 'Content'; workTypeSelect.appendChild(contentOption);
   }
   workTypeSelect.value = 'Content';
-  ensureProjectOwnersLoaded_(function() { fillProjectOwnerSelect_('cal-new-project-owner'); });
+  ensureProjectOwnersLoaded_(function() {
+    fillProjectOwnerSelect_('cal-new-project-owner');
+    // ผู้ตรวจ / ผู้อนุมัติ ใช้รายชื่อ PM ชุดเดียวกัน
+    fillProjectOwnerSelect_('cal-cp-reviewer');
+    document.getElementById('cal-cp-reviewer').options[0].textContent = '— ไม่ระบุ —';
+    updateCalCpOwnerNote_();
+  });
   ensureServiceTypesLoaded_(function() { fillServiceTypeSelect_('cal-new-project-service-type'); });
   ensureProjectsLoaded_('cal-project', function() { fillProjectSelect('cal-project'); });
+  renderCalCpPlatforms_();
+}
+
+var CAL_PLATFORMS = ['Facebook', 'Instagram', 'TikTok', 'LINE', 'YouTube'];
+var CAL_PLATFORM_SHORT = { Facebook: 'FB', Instagram: 'IG', TikTok: 'TikTok', LINE: 'LINE', YouTube: 'YT' };
+
+function calCpEnabled_() {
+  return document.getElementById('cal-cp-enabled').checked;
+}
+function onCalCpToggle() {
+  var on = calCpEnabled_();
+  document.getElementById('cal-cp-box').style.display = on ? 'block' : 'none';
+  document.querySelector('#calendar-import-modal .calendar-modal-box').classList.toggle('cal-cp-off', !on);
+  validateCalendarImport();
+}
+function renderCalCpPlatforms_() {
+  var el = document.getElementById('cal-cp-platforms');
+  el.innerHTML = '';
+  var picked = state.calendarImport.cpPlatforms;
+  CAL_PLATFORMS.forEach(function(p) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'cal-chip' + (picked.indexOf(p) >= 0 ? ' on' : '');
+    b.textContent = p;
+    b.onclick = function() {
+      var i = picked.indexOf(p);
+      if (i >= 0) picked.splice(i, 1); else picked.push(p);
+      renderCalCpPlatforms_();
+      if (state.calendarImport.tasks.length) renderCalendarTaskRows();
+    };
+    el.appendChild(b);
+  });
+}
+// ผู้รับผิดชอบใน Content Planner = PM ของ Project
+function updateCalCpOwnerNote_() {
+  var val = document.getElementById('cal-project').value;
+  var note = document.getElementById('cal-cp-owner-note');
+  if (val === '__new__') {
+    var owner = document.getElementById('cal-new-project-owner').value;
+    note.textContent = owner ? owner + ' (ตาม Project)' : 'ตาม Project Owner ที่เลือก';
+  } else if (val) {
+    note.textContent = 'ตาม Owner ของ Project ที่เลือก';
+  } else {
+    note.textContent = 'ตาม PM ของ Project';
+  }
+}
+function rowPlatforms_(task) {
+  return (task.platforms && task.platforms.length) ? task.platforms : state.calendarImport.cpPlatforms;
+}
+function applyCalendarBulkWorkType() {
+  var v = document.getElementById('calendar-work-type').value;
+  state.calendarImport.tasks.forEach(function(task) { task.workType = v; });
+  renderCalendarTaskRows();
+}
+function toggleCalendarSelectAll(checked) {
+  state.calendarImport.tasks.forEach(function(task) { task.selected = checked; });
+  renderCalendarTaskRows();
 }
 
 function onCalProjectChange() {
@@ -3149,8 +3433,10 @@ function applyCalendarProjectGuess_(projectName, brandName) {
 function onCalProjectChangeKeepHint_() {
   var val = document.getElementById('cal-project').value;
   document.getElementById('cal-newproject-box').style.display = (val === '__new__') ? 'block' : 'none';
+  updateCalCpOwnerNote_();
   validateCalendarImport();
 }
+document.getElementById('cal-new-project-owner').addEventListener('change', updateCalCpOwnerNote_);
 
 function handleCalendarFileInput(files) {
   if (files && files[0]) prepareCalendarImage(files[0]);
@@ -3241,68 +3527,144 @@ function ensureSelectValue(selectId, value) {
 }
 
 function applyCalendarAnalysis(result) {
+  var workTypes = (state.settings && state.settings.workTypes) || [];
+  var bulk = document.getElementById('calendar-work-type').value || 'Content';
+  var videoType = workTypes.indexOf('Video') >= 0 ? 'Video' : bulk;
   state.calendarImport.tasks = (result.tasks || []).map(function(task) {
     return {
       taskName: task.taskName || '',
       dueDate: task.dueDate || '',
-      confidence: Number(task.confidence || 0)
+      confidence: Number(task.confidence || 0),
+      selected: true,
+      needTask: true,
+      workType: task.isVideo ? videoType : bulk,
+      platforms: (task.platforms || []).slice(),
+      note: task.note || ''
     };
   });
-  applyCalendarProjectGuess_(result.projectName, result.brandName);
-  ensureSelectValue('calendar-work-type', result.workType || 'Content');
+  state.calendarImport.cpRetry = null;
+  document.getElementById('calendar-cp-retry').style.display = 'none';
+  // เลือก Project ไว้แล้วก่อนวิเคราะห์ → ไม่ทับ; ยังไม่เลือก → ให้ AI เดาจากหัวปฏิทิน
+  if (!document.getElementById('cal-project').value) {
+    applyCalendarProjectGuess_(result.projectName, result.brandName);
+  }
   document.getElementById('calendar-review-section').style.display = 'block';
   var modelNote = result.usedFallback ? (result.model + ' (โมเดลสำรอง)') : (result.model || 'Gemini');
   var retryNote = result.retryCount ? ' หลังลองใหม่ ' + result.retryCount + ' ครั้ง' : '';
-  document.getElementById('calendar-import-status').textContent = 'วิเคราะห์สำเร็จด้วย ' + modelNote + retryNote + ' — กรุณาตรวจข้อมูลก่อนสร้าง';
+  document.getElementById('calendar-import-status').textContent = 'วิเคราะห์สำเร็จด้วย ' + modelNote + retryNote + ' อ่านได้ ' + state.calendarImport.tasks.length + ' รายการ — ตรวจข้อมูลก่อนสร้าง';
   renderCalendarTaskRows();
 }
 
 function renderCalendarTaskRows() {
   var tbody = document.getElementById('calendar-task-rows');
   tbody.innerHTML = '';
+  var workTypes = ((state.settings && state.settings.workTypes) || ['Content']).slice();
+  state.calendarImport.tasks.forEach(function(task) {
+    if (task.workType && workTypes.indexOf(task.workType) < 0) workTypes.push(task.workType);
+  });
   state.calendarImport.tasks.forEach(function(task, index) {
     var row = document.createElement('tr');
+    row.className = (task.confidence < 0.8 ? 'cal-low ' : '') + (task.selected ? '' : 'cal-off');
+
+    var selCell = document.createElement('td');
+    var sel = document.createElement('input');
+    sel.type = 'checkbox'; sel.checked = task.selected; sel.title = 'นำเข้ารายการนี้';
+    sel.onchange = function() { task.selected = sel.checked; renderCalendarTaskRows(); };
+    selCell.appendChild(sel);
+
     var nameCell = document.createElement('td');
     var nameInput = document.createElement('input');
     nameInput.type = 'text'; nameInput.value = task.taskName;
-    nameInput.oninput = function() { state.calendarImport.tasks[index].taskName = nameInput.value; validateCalendarImport(); };
+    nameInput.oninput = function() { task.taskName = nameInput.value; validateCalendarImport(); };
     nameCell.appendChild(nameInput);
 
     var dateCell = document.createElement('td');
     var dateInput = document.createElement('input');
     dateInput.type = 'date'; dateInput.value = task.dueDate;
-    dateInput.oninput = function() { state.calendarImport.tasks[index].dueDate = dateInput.value; validateCalendarImport(); };
+    dateInput.oninput = function() { task.dueDate = dateInput.value; validateCalendarImport(); };
     dateCell.appendChild(dateInput);
 
-    var confidenceCell = document.createElement('td');
-    var confidence = document.createElement('span');
-    var confidencePercent = Math.round(Math.max(0, Math.min(1, task.confidence || 0)) * 100);
-    confidence.className = 'calendar-confidence' + (confidencePercent < 80 ? ' low' : '');
-    confidence.textContent = confidencePercent + '%';
-    confidenceCell.appendChild(confidence);
+    var pfCell = document.createElement('td');
+    pfCell.className = 'cal-cp-col';
+    var pfWrap = document.createElement('div');
+    pfWrap.className = 'cal-pf';
+    var pfs = rowPlatforms_(task);
+    CAL_PLATFORMS.forEach(function(p) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = pfs.indexOf(p) >= 0 ? 'on' : '';
+      b.textContent = CAL_PLATFORM_SHORT[p];
+      b.title = p;
+      b.onclick = function() {
+        if (!task.platforms || !task.platforms.length) task.platforms = state.calendarImport.cpPlatforms.slice();
+        var i = task.platforms.indexOf(p);
+        if (i >= 0) task.platforms.splice(i, 1); else task.platforms.push(p);
+        renderCalendarTaskRows();
+      };
+      pfWrap.appendChild(b);
+    });
+    pfCell.appendChild(pfWrap);
+    if (!task.platforms || !task.platforms.length) {
+      var def = document.createElement('div');
+      def.style.cssText = 'font-size:11px;color:#B7791F;margin-top:2px';
+      def.textContent = 'ใช้ค่าเริ่มต้น';
+      pfCell.appendChild(def);
+    }
 
-    var removeCell = document.createElement('td');
-    var removeButton = document.createElement('button');
-    removeButton.type = 'button'; removeButton.className = 'calendar-remove'; removeButton.title = 'ลบรายการนี้';
-    removeButton.innerHTML = '<i class="ti ti-trash"></i>';
-    removeButton.onclick = function() { state.calendarImport.tasks.splice(index, 1); renderCalendarTaskRows(); };
-    removeCell.appendChild(removeButton);
+    var needCell = document.createElement('td');
+    var need = document.createElement('select');
+    need.innerHTML = '<option value="1">ใช่</option><option value="">ไม่</option>';
+    need.value = task.needTask ? '1' : '';
+    need.onchange = function() { task.needTask = !!need.value; renderCalendarTaskRows(); };
+    needCell.appendChild(need);
 
-    row.appendChild(nameCell); row.appendChild(dateCell); row.appendChild(confidenceCell); row.appendChild(removeCell);
+    var wtCell = document.createElement('td');
+    if (task.needTask) {
+      var wt = document.createElement('select');
+      workTypes.forEach(function(w) {
+        var o = document.createElement('option'); o.value = w; o.textContent = w; wt.appendChild(o);
+      });
+      wt.value = task.workType;
+      wt.onchange = function() { task.workType = wt.value; };
+      wtCell.appendChild(wt);
+    } else {
+      wtCell.innerHTML = '<span style="color:#999">— ไม่สร้าง Task</span>';
+    }
+
+    var noteCell = document.createElement('td');
+    var noteInput = document.createElement('input');
+    noteInput.type = 'text'; noteInput.value = task.note; noteInput.placeholder = '—';
+    noteInput.oninput = function() { task.note = noteInput.value; };
+    noteCell.appendChild(noteInput);
+
+    [selCell, nameCell, dateCell, pfCell, needCell, wtCell, noteCell].forEach(function(c) { row.appendChild(c); });
     tbody.appendChild(row);
   });
   validateCalendarImport();
 }
 
 function validateCalendarImport() {
-  var validTasks = state.calendarImport.tasks.filter(function(task) {
+  var all = state.calendarImport.tasks;
+  var selected = all.filter(function(task) { return task.selected; });
+  var validDates = selected.every(function(task) {
     return String(task.taskName || '').trim() && /^\\d{4}-\\d{2}-\\d{2}$/.test(task.dueDate || '');
   });
-  // ส่วน Project ตรวจละเอียดตอนกดสร้าง (readNewProjectForm_) ที่นี่เช็คแค่ว่าเลือกแล้ว
-  var allValid = validTasks.length > 0 && validTasks.length === state.calendarImport.tasks.length
+  var cp = calCpEnabled_();
+  var taskCount = selected.filter(function(task) { return task.needTask; }).length;
+  var postCount = cp ? selected.length : 0;
+  var platformsOk = !cp || selected.every(function(task) { return rowPlatforms_(task).length > 0; });
+  var allValid = selected.length > 0 && validDates && platformsOk
+    && (taskCount > 0 || postCount > 0)
     && !!document.getElementById('cal-project').value;
-  document.getElementById('calendar-task-summary').textContent = validTasks.length + ' Task';
-  document.getElementById('calendar-create-btn').disabled = !allValid;
+  document.getElementById('calendar-task-summary').textContent = all.length
+    ? ('เลือก ' + selected.length + ' / ' + all.length + ' รายการ' + (platformsOk ? '' : ' · มีแถวที่ยังไม่เลือกแพลตฟอร์ม'))
+    : '';
+  document.getElementById('calendar-select-all').checked = all.length > 0 && selected.length === all.length;
+  var btn = document.getElementById('calendar-create-btn');
+  if (btn.textContent !== 'กำลังสร้าง...') {
+    btn.textContent = 'สร้าง ' + taskCount + ' Task' + (cp ? ' + ' + postCount + ' โพสต์' : '');
+  }
+  btn.disabled = !allValid;
   return allValid;
 }
 
@@ -3331,67 +3693,136 @@ document.addEventListener('paste', function(event) {
 
 function submitCalendarImport() {
   if (!validateCalendarImport()) {
-    showToast('กรุณาเลือก Project และตรวจ Task กับ Due Date ให้ครบ');
+    showToast('กรุณาเลือก Project และตรวจรายการ วันที่ และแพลตฟอร์มให้ครบ');
     return;
   }
+  var cp = calCpEnabled_();
+  var selected = state.calendarImport.tasks.filter(function(task) { return task.selected; });
   var payload = {
     workType: document.getElementById('calendar-work-type').value || 'Content',
-    tasks: state.calendarImport.tasks.map(function(task) {
-      return { taskName: task.taskName.trim(), dueDate: task.dueDate };
-    })
+    tasks: selected.map(function(task) {
+      return {
+        taskName: task.taskName.trim(),
+        dueDate: task.dueDate,
+        needTask: task.needTask,
+        workType: task.workType,
+        platforms: rowPlatforms_(task).slice(),
+        note: (task.note || '').trim()
+      };
+    }),
+    contentPlanner: {
+      enabled: cp,
+      reviewer: document.getElementById('cal-cp-reviewer').value,
+      time: document.getElementById('cal-cp-time').value || '10:00'
+    }
   };
+  var taskCount = selected.filter(function(task) { return task.needTask; }).length;
+  var what = taskCount + ' Task' + (cp ? ' และ ' + selected.length + ' โพสต์ใน Content Planner' : '');
   var projectSel = document.getElementById('cal-project').value;
   var confirmText;
   if (projectSel === '__new__') {
     var np = readNewProjectForm_('cal');
     if (!np) return;
+    if (cp && !np.brand) { showToast('ลง Content Planner ต้องเลือกแบรนด์ของ Project'); return; }
     payload.projectName = np.name;
     payload.brandName = np.brand;
     payload.ownerName = np.owner;
     payload.serviceTypeId = np.serviceTypeId;
     payload.scopeItemIds = np.scopeItemIds;
     payload.contactIds = np.contactIds;
-    confirmText = 'สร้าง Project ใหม่ "' + np.name + '" และ ' + payload.tasks.length + ' Task ใน Notion ใช่หรือไม่?';
+    confirmText = 'สร้าง Project ใหม่ "' + np.name + '" พร้อม ' + what + ' ใช่หรือไม่?';
   } else {
     payload.projectId = projectSel;
     var picked = (state.projects || []).find(function(project) { return project.id === projectSel; });
-    confirmText = 'สร้าง ' + payload.tasks.length + ' Task เข้า Project "' + (picked ? picked.name : '') + '" ใช่หรือไม่?';
+    confirmText = 'สร้าง ' + what + ' เข้า Project "' + (picked ? picked.name : '') + '" ใช่หรือไม่?';
   }
   if (!confirm(confirmText)) return;
 
   var button = document.getElementById('calendar-create-btn');
   button.disabled = true; button.textContent = 'กำลังสร้าง...';
-  document.getElementById('calendar-import-status').textContent = 'กำลังสร้าง Project และ Task ใน Notion...';
+  document.getElementById('calendar-import-status').textContent = 'กำลังสร้าง...';
   google.script.run
     .withSuccessHandler(function(result) {
-      button.textContent = 'สร้าง Project และ Task';
+      button.textContent = '';
       if (!result) {
-        button.disabled = false;
+        validateCalendarImport();
         document.getElementById('calendar-import-status').textContent = 'สร้างไม่สำเร็จ: ไม่ได้รับผลลัพธ์จากระบบ';
         return;
       }
-      if (result.ok) {
-        showToast((result.projectCreated ? 'สร้าง Project และ ' : 'เพิ่มเข้า Project เดิม ') + result.createdCount + ' Task เรียบร้อย');
-        closeCalendarImportModal();
+      if (result.projectId) {
+        // สร้าง Project ไปแล้ว รอบถัดไป (ลองใหม่) ต้องใช้ Project เดิม ไม่สร้างซ้ำ
         state.projects = null;
+        ensureProjectsLoaded_('cal-project', function() {
+          fillProjectSelect('cal-project');
+          document.getElementById('cal-project').value = result.projectId;
+          onCalProjectChange();
+        });
+      }
+      var cpRes = result.contentPlanner;
+      if (cpRes && !cpRes.ok && cpRes.retry) {
+        state.calendarImport.cpRetry = cpRes.retry;
+        document.getElementById('calendar-cp-retry-msg').textContent = cpRes.error || 'ส่งเข้า Content Planner ไม่สำเร็จ';
+        document.getElementById('calendar-cp-retry').style.display = 'flex';
+      }
+      if (result.ok) {
+        showToast((result.projectCreated ? 'สร้าง Project และ ' : '') + result.createdCount + ' Task'
+          + (cpRes ? ' + ' + cpRes.createdCount + ' โพสต์' : '') + ' เรียบร้อย');
+        closeCalendarImportModal();
         refreshAfterCalendarImport();
         return;
       }
-      if (result.partial) {
-        var failedNames = (result.results || []).filter(function(item) { return !item.ok; }).map(function(item) { return item.taskName; });
-        state.calendarImport.tasks = state.calendarImport.tasks.filter(function(task) { return failedNames.indexOf(task.taskName) >= 0; });
-        document.getElementById('calendar-import-status').textContent = 'สร้างสำเร็จ ' + result.createdCount + ' รายการ, ไม่สำเร็จ ' + result.failedCount + ' รายการ — ตรวจแล้วลองเฉพาะรายการที่เหลืออีกครั้ง';
+      var failedNames = (result.results || []).filter(function(item) { return !item.ok; }).map(function(item) { return item.taskName; });
+      if (failedNames.length) {
+        // เหลือเฉพาะแถวที่สร้าง Task ไม่สำเร็จ ให้กดสร้างอีกครั้ง (Task + โพสต์ไปพร้อมกัน)
+        state.calendarImport.tasks = state.calendarImport.tasks.filter(function(task) {
+          return task.selected && task.needTask && failedNames.indexOf(task.taskName.trim()) >= 0;
+        });
+        document.getElementById('calendar-import-status').textContent = 'สร้าง Task สำเร็จ ' + result.createdCount + ' รายการ, ไม่สำเร็จ ' + result.failedCount + ' รายการ — ตรวจแล้วกดสร้างเฉพาะรายการที่เหลืออีกครั้ง';
         renderCalendarTaskRows();
+        refreshAfterCalendarImport();
         return;
       }
-      button.disabled = false;
+      if (cpRes && !cpRes.ok && result.failedCount === 0) {
+        // Task ครบแล้ว เหลือแค่ Content Planner — ห้ามกดสร้างซ้ำ ใช้ปุ่มส่งอีกครั้ง
+        state.calendarImport.tasks = [];
+        renderCalendarTaskRows();
+        document.getElementById('calendar-import-status').textContent = 'สร้าง ' + result.createdCount + ' Task เรียบร้อย แต่ยังไม่ได้ลง Content Planner';
+        refreshAfterCalendarImport();
+        return;
+      }
+      validateCalendarImport();
       document.getElementById('calendar-import-status').textContent = 'สร้างไม่สำเร็จ: ' + (result.error || 'Unknown error');
     })
     .withFailureHandler(function(error) {
-      button.disabled = false; button.textContent = 'สร้าง Project และ Task';
+      button.textContent = '';
+      validateCalendarImport();
       document.getElementById('calendar-import-status').textContent = 'สร้างไม่สำเร็จ: ' + error.message;
     })
     .handleBulkCreateCalendarPlan(payload);
+}
+
+function retryCalendarContentPlanner() {
+  var req = state.calendarImport.cpRetry;
+  if (!req) return;
+  var btn = document.getElementById('calendar-cp-retry-btn');
+  btn.disabled = true; btn.textContent = 'กำลังส่ง...';
+  google.script.run
+    .withSuccessHandler(function(res) {
+      btn.disabled = false; btn.textContent = 'ส่งเข้า Content Planner อีกครั้ง';
+      if (res && res.ok) {
+        state.calendarImport.cpRetry = null;
+        document.getElementById('calendar-cp-retry').style.display = 'none';
+        showToast('ลง Content Planner ' + res.createdCount + ' โพสต์เรียบร้อย');
+        if (!state.calendarImport.tasks.length) closeCalendarImportModal();
+      } else {
+        document.getElementById('calendar-cp-retry-msg').textContent = (res && res.error) || 'ส่งเข้า Content Planner ไม่สำเร็จ';
+      }
+    })
+    .withFailureHandler(function(err) {
+      btn.disabled = false; btn.textContent = 'ส่งเข้า Content Planner อีกครั้ง';
+      document.getElementById('calendar-cp-retry-msg').textContent = 'ส่งเข้า Content Planner ไม่สำเร็จ: ' + err.message;
+    })
+    .pushPostsToContentPlanner(req);
 }
 
 function refreshAfterCalendarImport() {
