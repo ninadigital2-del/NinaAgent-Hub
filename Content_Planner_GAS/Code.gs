@@ -286,6 +286,7 @@ function updateContent(id, data) {
   if (rowIdx === -1) throw new Error('Content not found: ' + id);
   const range = sheet.getRange(rowIdx, 1, 1, COLUMNS.length);
   const current = range.getValues()[0];
+  const oldTitle = current[COLUMNS.indexOf('Title')];
 
   // Reschedule -> the reminder ladder must restart for the new date, otherwise
   // an item already reminded under its old date silently never gets reminded
@@ -318,7 +319,36 @@ function updateContent(id, data) {
   range.setValues([current]);
   const item = rowToItem(current);
   syncCalendarEventSafely(sheet, rowIdx, item);
+  if (data.Title !== undefined && data.Title !== oldTitle && item.NotionTaskId) {
+    syncNotionTaskTitleSafely_(item.NotionTaskId, item.Title);
+  }
   return item;
+}
+
+/**
+ * Pushes a renamed content item's title to its linked Notion Task's "Name"
+ * property, for items created together with a GEM Capacity Board task (see
+ * NotionTaskId in COLUMNS). Best-effort: a failure here (task deleted,
+ * Notion down, token missing) is logged, never thrown -- renaming inside
+ * Content Planner must never fail just because the Notion side can't be
+ * reached, and it must never roll back the save that already happened.
+ */
+function syncNotionTaskTitleSafely_(pageId, title) {
+  try {
+    const token = PropertiesService.getScriptProperties().getProperty('NOTION_TOKEN');
+    if (!token) return;
+    const resp = UrlFetchApp.fetch('https://api.notion.com/v1/pages/' + pageId, {
+      method: 'patch',
+      contentType: 'application/json',
+      headers: { Authorization: 'Bearer ' + token, 'Notion-Version': '2022-06-28' },
+      payload: JSON.stringify({ properties: { Name: { title: [{ text: { content: title } }] } } }),
+      muteHttpExceptions: true,
+    });
+    const json = JSON.parse(resp.getContentText());
+    if (json.error) Logger.log('Notion task title sync failed for ' + pageId + ': ' + json.error.message);
+  } catch (e) {
+    Logger.log('Notion task title sync failed for ' + pageId + ': ' + e);
+  }
 }
 
 function addComment(id, author, text) {

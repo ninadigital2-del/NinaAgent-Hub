@@ -238,6 +238,23 @@ there's nothing valid to theme with).
   Dashboard" link entirely (shown here for AIS deliberately, since there's
   no separate client dashboard to link back to yet).
 
+## 10. Renaming a Notion-linked item syncs the title back to Notion
+
+An item created together with a GEM Capacity Board task (via its
+calendar-image import) carries that task's Notion page id in the
+`NotionTaskId` column. Renaming such an item in Content Planner (editing
+the "หัวข้อ" field and saving) pushes the new title to that Task's "Name"
+property in Notion too, in the same request — no separate step needed.
+
+This is one-way (Content Planner → Notion) and best-effort: if the Notion
+API call fails (the task was deleted, the token is missing, Notion is
+down), the failure is only logged — the save inside Content Planner itself
+always succeeds regardless. An item made directly in Content Planner (no
+`NotionTaskId`) has nothing to push to, so renaming it only ever touches
+Content Planner's own sheet, same as before.
+
+No Script Property to configure — reuses `NOTION_TOKEN` from step 3.
+
 **Security:** `action=theme` lives inside `doGet`'s already-verified
 client-link branch — it only ever returns the theme for the exact brand
 whose signature just verified, the same way `action=list` only ever returns
