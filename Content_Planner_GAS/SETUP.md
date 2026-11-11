@@ -238,23 +238,6 @@ there's nothing valid to theme with).
   Dashboard" link entirely (shown here for AIS deliberately, since there's
   no separate client dashboard to link back to yet).
 
-## 10. Renaming a Notion-linked item syncs the title back to Notion
-
-An item created together with a GEM Capacity Board task (via its
-calendar-image import) carries that task's Notion page id in the
-`NotionTaskId` column. Renaming such an item in Content Planner (editing
-the "หัวข้อ" field and saving) pushes the new title to that Task's "Name"
-property in Notion too, in the same request — no separate step needed.
-
-This is one-way (Content Planner → Notion) and best-effort: if the Notion
-API call fails (the task was deleted, the token is missing, Notion is
-down), the failure is only logged — the save inside Content Planner itself
-always succeeds regardless. An item made directly in Content Planner (no
-`NotionTaskId`) has nothing to push to, so renaming it only ever touches
-Content Planner's own sheet, same as before.
-
-No Script Property to configure — reuses `NOTION_TOKEN` from step 3.
-
 **Security:** `action=theme` lives inside `doGet`'s already-verified
 client-link branch — it only ever returns the theme for the exact brand
 whose signature just verified, the same way `action=list` only ever returns
@@ -266,6 +249,36 @@ A brand's theme is fetched once per page load (alongside `list`) and never
 blocks the dashboard from loading — a missing theme, a malformed
 `CLIENT_THEMES` value, or a lookup failure all just mean that client sees
 the page's ordinary default look.
+
+## 10. Editing a Notion-linked item syncs title/status back to Notion
+
+An item created together with a GEM Capacity Board task (via its
+calendar-image import) carries that task's Notion page id in the
+`NotionTaskId` column. Editing such an item in Content Planner pushes two
+kinds of changes to that Task in Notion too, in the same request — no
+separate step needed:
+
+- **Renaming it** (editing "หัวข้อ" and saving) updates the Task's "Name"
+  property to match.
+- **Changing its Status** updates the Task's "Status" property. Content
+  Planner's 8 statuses don't map 1:1 onto Notion's 4 (Not started/In
+  progress/Pending/Done), so they collapse:
+  - `Draft` → `Not started`
+  - `Review`/`Revision`/`Approved`/`Ready` → `In progress`
+  - `Posted`/`Scheduled` → `Done`
+  - `Cancelled` → Notion's Status is left untouched (there's no matching
+    status), but a comment is posted on the Task instead ("ยกเลิกแล้วใน
+    ระบบ Content Planner") so whoever's looking at it in Notion isn't left
+    wondering why it's stuck wherever it was.
+
+Both are one-way (Content Planner → Notion) and best-effort: if the Notion
+API call fails (the task was deleted, the token is missing, Notion is
+down), the failure is only logged — the save inside Content Planner itself
+always succeeds regardless. An item made directly in Content Planner (no
+`NotionTaskId`) has nothing to push to, so editing it only ever touches
+Content Planner's own sheet, same as before.
+
+No Script Property to configure — reuses `NOTION_TOKEN` from step 3.
 
 ## Notes
 

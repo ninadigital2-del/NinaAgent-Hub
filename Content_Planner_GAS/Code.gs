@@ -322,6 +322,9 @@ function updateContent(id, data) {
   if (data.Title !== undefined && data.Title !== oldTitle && item.NotionTaskId) {
     syncNotionTaskTitleSafely_(item.NotionTaskId, item.Title);
   }
+  if (data.Status !== undefined && data.Status !== oldStatus && item.NotionTaskId) {
+    syncNotionTaskStatusSafely_(item.NotionTaskId, item.Status);
+  }
   return item;
 }
 
@@ -348,6 +351,65 @@ function syncNotionTaskTitleSafely_(pageId, title) {
     if (json.error) Logger.log('Notion task title sync failed for ' + pageId + ': ' + json.error.message);
   } catch (e) {
     Logger.log('Notion task title sync failed for ' + pageId + ': ' + e);
+  }
+}
+
+/**
+ * Pushes a content item's status change to its linked Notion Task's
+ * "Status" property, for items created together with a GEM Capacity Board
+ * task (see NotionTaskId in COLUMNS). Content Planner's 8 statuses don't
+ * map 1:1 onto Notion's 4 (Not started / In progress / Pending / Done), so
+ * this collapses them:
+ *   - Draft               -> Not started
+ *   - Posted or Scheduled -> Done
+ *   - Cancelled           -> Notion's Status is left untouched (there's no
+ *                            matching status to set), but a comment is
+ *                            posted on the Task instead, so whoever's
+ *                            looking at it in Notion isn't left wondering
+ *                            why it's stuck wherever it was
+ *   - everything else (Review/Revision/Approved/Ready) -> In progress
+ * Best-effort, same as syncNotionTaskTitleSafely_: failures are only
+ * logged, never thrown.
+ */
+const CONTENT_STATUS_TO_NOTION_STATUS = { Draft: 'Not started', Posted: 'Done', Scheduled: 'Done' };
+function syncNotionTaskStatusSafely_(pageId, status) {
+  if (status === 'Cancelled') {
+    postNotionCommentSafely_(pageId, 'ยกเลิกแล้วในระบบ Content Planner');
+    return;
+  }
+  try {
+    const token = PropertiesService.getScriptProperties().getProperty('NOTION_TOKEN');
+    if (!token) return;
+    const notionStatus = CONTENT_STATUS_TO_NOTION_STATUS[status] || 'In progress';
+    const resp = UrlFetchApp.fetch('https://api.notion.com/v1/pages/' + pageId, {
+      method: 'patch',
+      contentType: 'application/json',
+      headers: { Authorization: 'Bearer ' + token, 'Notion-Version': '2022-06-28' },
+      payload: JSON.stringify({ properties: { Status: { status: { name: notionStatus } } } }),
+      muteHttpExceptions: true,
+    });
+    const json = JSON.parse(resp.getContentText());
+    if (json.error) Logger.log('Notion task status sync failed for ' + pageId + ': ' + json.error.message);
+  } catch (e) {
+    Logger.log('Notion task status sync failed for ' + pageId + ': ' + e);
+  }
+}
+
+function postNotionCommentSafely_(pageId, text) {
+  try {
+    const token = PropertiesService.getScriptProperties().getProperty('NOTION_TOKEN');
+    if (!token) return;
+    const resp = UrlFetchApp.fetch('https://api.notion.com/v1/comments', {
+      method: 'post',
+      contentType: 'application/json',
+      headers: { Authorization: 'Bearer ' + token, 'Notion-Version': '2022-06-28' },
+      payload: JSON.stringify({ parent: { page_id: pageId }, rich_text: [{ text: { content: text } }] }),
+      muteHttpExceptions: true,
+    });
+    const json = JSON.parse(resp.getContentText());
+    if (json.error) Logger.log('Notion comment failed for ' + pageId + ': ' + json.error.message);
+  } catch (e) {
+    Logger.log('Notion comment failed for ' + pageId + ': ' + e);
   }
 }
 
