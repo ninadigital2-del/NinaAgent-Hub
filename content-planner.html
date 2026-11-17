@@ -2114,11 +2114,13 @@ let followUps = [
 ];
 let fuPanelOpen = false;
 let fuDoneOpen = false;
+let fuLoadError = '';
 function fuEsc(v){ return String(v==null?'':v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 async function loadFollowUps(){
   if (!API_URL) return;
+  fuLoadError = '';
   try { followUps = (await apiGet('followups')).followUps; }
-  catch (err) { console.error('Failed to load follow-ups:', err); followUps = []; }
+  catch (err) { console.error('Failed to load follow-ups:', err); followUps = []; fuLoadError = err.message || 'load failed'; }
 }
 function visibleFollowUps(){
   return followUps.filter(f => !sharedBrand || f.Brand === sharedBrand);
@@ -2137,7 +2139,7 @@ function fuRowHtml(f){
   return `<div class="flex gap-2 py-2 border-b border-slate-100 text-sm ${f.Done?'opacity-60':''}">
     <input type="checkbox" class="mt-1" ${f.Done?'checked':''} onchange="toggleFollowUpDone('${fuEsc(f.ID)}', this.checked)">
     <div class="flex-1 min-w-0">
-      <div class="${f.Done?'line-through':''}">${fuEsc(f.Text)}</div>
+      <div class="cursor-pointer hover:underline ${f.Done?'line-through':''}" onclick="viewFollowUp('${fuEsc(f.ID)}')">${fuEsc(f.Text)}</div>
       <div class="flex flex-wrap items-center gap-1.5 mt-1 text-xs">
         <span class="px-2 py-0.5 rounded-full ${side[1]}">${side[0]}</span>
         ${due ? `<span class="text-slate-500"><i class="fa-regular fa-clock"></i> ${due}</span>` : ''}
@@ -2152,11 +2154,12 @@ function renderFollowUpPanel(){
   const open = list.filter(f => !f.Done).sort(fuSort);
   const done = list.filter(f => f.Done);
   document.getElementById('fu-badge').textContent = followUpBadgeCount();
-  document.getElementById('fu-add-btn').classList.toggle('hidden', clientMode);
   document.getElementById('fu-body').classList.toggle('hidden', !fuPanelOpen);
   document.getElementById('fu-chevron').className = 'fa-solid text-slate-400 lg:hidden ' + (fuPanelOpen ? 'fa-chevron-down' : 'fa-chevron-up');
-  document.getElementById('fu-body').innerHTML =
-    (open.length ? open.map(fuRowHtml).join('') : '<div class="text-xs text-slate-400 py-3">ไม่มีงานค้าง 🎉</div>') +
+  document.getElementById('fu-add-btn').disabled = !!fuLoadError;
+  document.getElementById('fu-body').innerHTML = fuLoadError
+    ? `<div class="text-xs text-red-600 py-3">โหลดงานค้างไม่สำเร็จ: ${fuEsc(fuLoadError)}<br>(Backend อาจยังไม่ได้ deploy เวอร์ชันใหม่)</div>`
+    : (open.length ? open.map(fuRowHtml).join('') : '<div class="text-xs text-slate-400 py-3">ไม่มีงานค้าง 🎉</div>') +
     (done.length ? `<div class="mt-3 text-xs text-slate-500 cursor-pointer" onclick="fuDoneOpen=!fuDoneOpen;renderFollowUpPanel()">${fuDoneOpen?'▾':'▸'} เสร็จแล้ว (${done.length})</div>${fuDoneOpen ? done.map(fuRowHtml).join('') : ''}` : '');
 }
 function toggleFollowUpPanel(){ fuPanelOpen = !fuPanelOpen; renderFollowUpPanel(); }
@@ -2181,8 +2184,7 @@ async function deleteFollowUpItem(id){
   renderFollowUpPanel();
 }
 function openCreateFollowUp(){
-  if (clientMode) return;
-  const brands = [...new Set([...(notionBrands || []), ...items.map(i => i.brand)])].filter(Boolean);
+  const brands = isRealClientLink() ? [sharedBrand] : [...new Set([...(notionBrands || []), ...items.map(i => i.brand)])].filter(Boolean);
   document.getElementById('fu-brand').innerHTML = brands.map(b => `<option ${b===sharedBrand?'selected':''}>${fuEsc(b)}</option>`).join('');
   document.getElementById('fu-text').value = '';
   document.getElementById('fu-due').value = '';
@@ -2194,6 +2196,25 @@ function fillFollowUpContentOptions(){
   const brand = document.getElementById('fu-brand').value;
   document.getElementById('fu-content').innerHTML = '<option value="">— ไม่ผูก —</option>' +
     items.filter(i => i.brand === brand).map(i => `<option value="${fuEsc(i.id)}">${fuEsc(i.title)}</option>`).join('');
+}
+function viewFollowUp(id){
+  const f = followUps.find(x => x.ID === id);
+  if (!f) return;
+  const linked = f.ContentId ? items.find(i => i.id === f.ContentId) : null;
+  const fmt = v => v ? new Date(v).toLocaleString('th-TH', { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
+  const who = v => v === 'Client' ? 'ลูกค้า' : 'ทีม';
+  document.getElementById('detail-body').innerHTML = `
+    <div class="font-semibold mb-2">📌 งานค้าง</div>
+    <div class="text-sm whitespace-pre-wrap mb-3">${fuEsc(f.Text)}</div>
+    <div class="text-xs text-slate-600 space-y-1">
+      <div>แบรนด์: ${fuEsc(f.Brand)}</div>
+      <div>ฝั่งที่รับผิดชอบ: ${f.ResponsibleSide === 'Client' ? 'ลูกค้า' : 'เรา'}</div>
+      ${f.DueDate ? `<div>ครบกำหนด: ${new Date(f.DueDate).toLocaleDateString('th-TH', { day:'numeric', month:'short', year:'numeric' })}</div>` : ''}
+      <div>สร้างโดย: ${who(f.CreatedBy)}${f.CreatedAt ? ' · ' + fmt(f.CreatedAt) : ''}</div>
+      <div>สถานะ: ${f.Done ? `เสร็จแล้วโดย${who(f.DoneBy)}${f.DoneAt ? ' · ' + fmt(f.DoneAt) : ''}` : 'ยังไม่เสร็จ'}</div>
+      ${linked ? `<div>🔗 <a href="#" class="text-indigo-600" onclick="event.preventDefault();viewDetail('${fuEsc(linked.id)}')">${fuEsc(linked.title)}</a></div>` : ''}
+    </div>`;
+  const m = document.getElementById('detail-modal'); m.classList.remove('hidden'); m.classList.add('flex');
 }
 function closeCreateFollowUp(){
   const m = document.getElementById('fu-modal'); m.classList.add('hidden'); m.classList.remove('flex');

@@ -95,12 +95,30 @@ test('listFollowUps survives a follow-up whose content was deleted (#5)', () => 
   assert.strictEqual(list[0].ContentId, 'c-A');
 });
 
-test('client doPost branch only allows toggleFollowUp; admin-only ones fall to the rejection (#3)', () => {
+test('clientCreateFollowUp_: brand comes from the link, CreatedBy=Client', () => {
+  const c = setup();
+  const f = c.clientCreateFollowUp_('AIS', { Brand: 'Nina Cosmetics', Text: 'from client', ResponsibleSide: 'Client' });
+  assert.strictEqual(f.Brand, 'AIS', 'a Brand in the body must be ignored');
+  assert.strictEqual(f.CreatedBy, 'Client');
+  assert.strictEqual(c.listFollowUps('Nina Cosmetics').length, 0);
+});
+
+test('clientCreateFollowUp_ rejects content of another brand, empty and oversized text', () => {
+  const c = setup();
+  assert.throws(() => c.clientCreateFollowUp_('AIS', { ContentId: 'c-B', Text: 'x' }), /BRAND_MISMATCH/);
+  assert.throws(() => c.clientCreateFollowUp_('AIS', { Text: '   ' }), /TEXT_REQUIRED/);
+  assert.throws(() => c.clientCreateFollowUp_('AIS', { Text: 'x'.repeat(1001) }), /TEXT_TOO_LONG/);
+  assert.strictEqual(c.listFollowUps(null).length, 0);
+});
+
+test('client doPost branch allows toggle + create only; update/delete fall to the rejection (#3)', () => {
   const src = fs.readFileSync(path.join(__dirname, '..', 'Code.gs'), 'utf8');
   const body = src.slice(src.indexOf('function doPost'), src.indexOf('function jsonResponse'));
   const clientSection = body.slice(0, body.indexOf("if (action === 'create')"));
   assert.ok(clientSection.includes("'toggleFollowUp'"));
-  ['createFollowUp', 'updateFollowUp', 'deleteFollowUp'].forEach(fn => {
+  assert.ok(clientSection.includes('clientCreateFollowUp_('));
+  assert.ok(!clientSection.includes('createFollowUp(body'), 'client must go through the brand-checked wrapper');
+  ['updateFollowUp', 'deleteFollowUp'].forEach(fn => {
     assert.ok(!clientSection.includes(fn), 'client branch must not reach ' + fn);
   });
   assert.ok(clientSection.includes('Action not allowed for client link'));
