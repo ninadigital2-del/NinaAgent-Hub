@@ -1148,8 +1148,10 @@ function render() {
     },
     meetingAnalyze: input => {
       const d = input.meetingDate || BOOT.today;
+      // Write "\/\/" inside strings, never a plain double slash: Apps Script cuts every served
+      // page-script line at its first double slash, which once killed this whole page.
       return delay({
-        ok: true, meetingDate: d, boot: BOOT, savedFolderUrl: 'https://drive.google.com/mock-folder',
+        ok: true, meetingDate: d, boot: BOOT, savedFolderUrl: 'https:\/\/drive.google.com/mock-folder',
         stats: { tasks: 5, matched: 1, uncertain: 1, new: 1 },
         projects: [
           { project_name: 'AIS - Q4 Campaign', project_id: 'mock-p1', match_status: 'exact', brand: 'AIS', owner: 'PM - ยู้', tags: 'Content', start_date: d, deadline: addDays(d, 14), status: 'In progress', lead_status: '-', notes: '',

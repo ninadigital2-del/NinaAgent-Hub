@@ -154,6 +154,20 @@ test('meetingGeminiGenerate_ refuses a truncated or blocked answer, returns a co
   assert.throws(() => load(() => reply('SAFETY')).ctx.meetingGeminiGenerate_([{ text: 'x' }], {}, 'k'), /SAFETY/);
 });
 
+test('Index.html script has no "//" inside a string (Apps Script cuts the line there and the whole page script dies)', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'Index.html'), 'utf8').replace(/\r/g, '');
+  const script = html.match(/<script>([\s\S]*)<\/script>/)[1];
+  const bad = [];
+  script.split('\n').forEach((line, i) => {
+    const at = line.indexOf('//');
+    if (at === -1) return;
+    const before = line.slice(0, at);
+    const quotes = (before.match(/'/g) || []).length + (before.match(/"/g) || []).length + (before.match(/`/g) || []).length;
+    if (quotes % 2 === 1) bad.push((i + 1) + ': ' + line.trim().slice(0, 80));
+  });
+  assert.deepStrictEqual(bad, []);
+});
+
 console.log('');
 if (failures) { console.log(failures + ' test(s) failed.'); process.exit(1); }
 console.log('All tests passed.');
