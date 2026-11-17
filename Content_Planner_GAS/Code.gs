@@ -12,6 +12,12 @@ const SHEET_CONTENT = 'Content';
 const SHEET_OWNERS = 'Owners';
 const SHEET_BRANDS = 'Brands';
 const SHEET_OWNER_EMAILS = 'OwnerEmails';
+const SHEET_FOLLOWUPS = 'FollowUps';
+// Column order is load-bearing (code indexes by position) -- append only, never insert.
+const FOLLOWUP_COLUMNS = [
+  'ID', 'Brand', 'ContentId', 'Text', 'ResponsibleSide', 'DueDate',
+  'CreatedAt', 'CreatedBy', 'DoneAt', 'DoneBy',
+];
 
 const COLUMNS = [
   'ID', 'Brand', 'Campaign', 'Title', 'Note',
@@ -105,6 +111,13 @@ function setupSheets(ss) {
     ownerEmails.appendRow(['Owner', 'Email', 'SyncedAt']);
     ownerEmails.setFrozenRows(1);
   }
+  let followUps = ss.getSheetByName(SHEET_FOLLOWUPS);
+  if (!followUps) followUps = ss.insertSheet(SHEET_FOLLOWUPS);
+  if (followUps.getLastRow() === 0) {
+    followUps.appendRow(FOLLOWUP_COLUMNS);
+    followUps.setFrozenRows(1);
+    followUps.getRange(1, 1, 1, FOLLOWUP_COLUMNS.length).setFontWeight('bold').setBackground('#f3f4f6');
+  }
 }
 
 // ---------- Web API ----------
@@ -132,12 +145,14 @@ function doGet(e) {
         // no path from one brand's link to another brand's theme.
         return jsonResponse({ success: true, theme: getClientTheme_(clientBrand) });
       }
+      if (action === 'followups') return jsonResponse({ success: true, followUps: listFollowUps(clientBrand) });
       // Deliberately no 'owners'/'brands' for client links -- those would
       // hand back every other brand's name, which is exactly what a
       // brand-scoped link must not leak.
       return jsonResponse({ success: false, error: 'Action not allowed for client link: ' + action });
     }
     if (action === 'list') return jsonResponse({ success: true, items: listContent() });
+    if (action === 'followups') return jsonResponse({ success: true, followUps: listFollowUps(null) });
     if (action === 'owners') return jsonResponse({ success: true, owners: listOwners() });
     if (action === 'brands') return jsonResponse({ success: true, brands: listBrands(), linkRequiredBrands: getLinkRequiredBrands() });
     return jsonResponse({ success: false, error: 'Unknown action: ' + action });
@@ -156,11 +171,12 @@ function doPost(e) {
     if (clientBrand && clientSig) {
       const check = verifyClientLink_(clientBrand, clientSig);
       if (!check.valid) return jsonResponse({ success: false, error: 'LINK_INVALID', reason: check.reason });
-      // Only these two actions exist for a client link -- everything else
+      // Only these actions exist for a client link -- everything else
       // (create/update/bulkCreate/delete/extractImage, and any admin-only
       // action below) is refused outright, not just hidden in the UI.
       if (action === 'updateStatus') return jsonResponse({ success: true, item: clientUpdateStatus_(clientBrand, body.id, body.status) });
       if (action === 'addComment') return jsonResponse({ success: true, item: clientAddComment_(clientBrand, body.id, body.author, body.text) });
+      if (action === 'toggleFollowUp') return jsonResponse({ success: true, followUp: clientToggleFollowUp_(clientBrand, body.id, !!body.done) });
       return jsonResponse({ success: false, error: 'Action not allowed for client link: ' + action });
     }
 
@@ -171,6 +187,10 @@ function doPost(e) {
     if (action === 'extractImage') return jsonResponse({ success: true, items: extractCalendarImage(body.imageBase64, body.mimeType) });
     if (action === 'bulkCreate') return jsonResponse({ success: true, items: bulkCreateContent(body.items || []) });
     if (action === 'delete') { deleteContent(body.id); return jsonResponse({ success: true }); }
+    if (action === 'createFollowUp') return jsonResponse({ success: true, followUp: createFollowUp(body.data || {}) });
+    if (action === 'updateFollowUp') return jsonResponse({ success: true, followUp: updateFollowUp(body.id, body.data || {}) });
+    if (action === 'toggleFollowUp') return jsonResponse({ success: true, followUp: toggleFollowUp(body.id, !!body.done, false) });
+    if (action === 'deleteFollowUp') { deleteFollowUp(body.id); return jsonResponse({ success: true }); }
     // Admin-only client-link management (see "Client link security" below).
     // Reachable the same way every other admin action is -- by knowing the
     // private base /exec URL, the same trust boundary this whole backend
@@ -433,6 +453,87 @@ function deleteContent(id) {
   const item = rowToItem(row);
   deleteCalendarEvent(item.CalendarEventId);
   sheet.deleteRow(rowIdx);
+}
+
+// ---------- Follow-ups (งานค้าง) ----------
+// DoneAt empty = open, set = done (same convention as ApprovedAt/PostedAt).
+// `Done` on the returned object is derived, never stored.
+function getFollowUpsSheet_() {
+  setupSheets();
+  return getSpreadsheet().getSheetByName(SHEET_FOLLOWUPS);
+}
+function rowToFollowUp(row) {
+  const f = {};
+  FOLLOWUP_COLUMNS.forEach((col, i) => { f[col] = row[i] !== undefined ? row[i] : ''; });
+  f.Done = !!f.DoneAt;
+  return f;
+}
+function listFollowUps(filterBrand) {
+  const values = getFollowUpsSheet_().getDataRange().getValues();
+  values.shift(); // header
+  return values.filter(r => r[0]).map(rowToFollowUp).filter(f => !filterBrand || f.Brand === filterBrand);
+}
+function findFollowUpRow_(sheet, id) {
+  const ids = sheet.getRange(2, 1, Math.max(sheet.getLastRow() - 1, 0), 1).getValues();
+  for (let i = 0; i < ids.length; i++) {
+    if (String(ids[i][0]) === String(id)) return i + 2;
+  }
+  return -1;
+}
+function normalizeSide_(v) { return v === 'Client' ? 'Client' : 'Us'; }
+function createFollowUp(data) {
+  const sheet = getFollowUpsSheet_();
+  let brand = data.Brand;
+  if (data.ContentId) {
+    // Linked content always wins -- never trust a Brand sent alongside it.
+    const cs = getContentSheet();
+    const idx = findRowIndexById(cs, data.ContentId);
+    if (idx === -1) throw new Error('Linked content not found: ' + data.ContentId);
+    brand = rowToItem(cs.getRange(idx, 1, 1, COLUMNS.length).getValues()[0]).Brand;
+  }
+  if (!brand) throw new Error('Brand is required');
+  const row = [
+    Utilities.getUuid(), brand, data.ContentId || '', data.Text || '', normalizeSide_(data.ResponsibleSide),
+    data.DueDate || '', new Date().toISOString(), 'Team', '', '',
+  ];
+  sheet.appendRow(row);
+  return rowToFollowUp(row);
+}
+function updateFollowUp(id, data) {
+  const sheet = getFollowUpsSheet_();
+  const rowIdx = findFollowUpRow_(sheet, id);
+  if (rowIdx === -1) throw new Error('FollowUp not found: ' + id);
+  const range = sheet.getRange(rowIdx, 1, 1, FOLLOWUP_COLUMNS.length);
+  const row = range.getValues()[0];
+  if (data.Text !== undefined) row[FOLLOWUP_COLUMNS.indexOf('Text')] = data.Text;
+  if (data.ResponsibleSide !== undefined) row[FOLLOWUP_COLUMNS.indexOf('ResponsibleSide')] = normalizeSide_(data.ResponsibleSide);
+  if (data.DueDate !== undefined) row[FOLLOWUP_COLUMNS.indexOf('DueDate')] = data.DueDate;
+  range.setValues([row]);
+  return rowToFollowUp(row);
+}
+function toggleFollowUp(id, done, isClient) {
+  const sheet = getFollowUpsSheet_();
+  const rowIdx = findFollowUpRow_(sheet, id);
+  if (rowIdx === -1) throw new Error('FollowUp not found: ' + id);
+  const range = sheet.getRange(rowIdx, 1, 1, FOLLOWUP_COLUMNS.length);
+  const row = range.getValues()[0];
+  row[FOLLOWUP_COLUMNS.indexOf('DoneAt')] = done ? new Date().toISOString() : '';
+  row[FOLLOWUP_COLUMNS.indexOf('DoneBy')] = done ? (isClient ? 'Client' : 'Team') : '';
+  range.setValues([row]);
+  return rowToFollowUp(row);
+}
+function deleteFollowUp(id) {
+  const sheet = getFollowUpsSheet_();
+  const rowIdx = findFollowUpRow_(sheet, id);
+  if (rowIdx === -1) throw new Error('FollowUp not found: ' + id);
+  sheet.deleteRow(rowIdx);
+}
+// Brand is read from the real row, never from the client's claim.
+function clientToggleFollowUp_(brand, id, done) {
+  const f = listFollowUps(null).find(x => x.ID === id);
+  if (!f) throw new Error('FollowUp not found: ' + id);
+  if (f.Brand !== brand) throw new Error('BRAND_MISMATCH');
+  return toggleFollowUp(id, done, true);
 }
 
 // ---------- Client link security ----------
