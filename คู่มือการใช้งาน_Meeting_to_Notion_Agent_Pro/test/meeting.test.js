@@ -147,6 +147,13 @@ test('meetingCreate: existing project reused (no template create); new project w
   assert.ok(r.errors.some(e => e.includes('PM Owner')));
 });
 
+test('meetingGeminiGenerate_ refuses a truncated or blocked answer, returns a complete one', () => {
+  const reply = reason => ({ candidates: [{ content: { parts: [{ text: 'ข้อความ' }] }, finishReason: reason }] });
+  assert.strictEqual(load(() => reply('STOP')).ctx.meetingGeminiGenerate_([{ text: 'x' }], {}, 'k'), 'ข้อความ');
+  assert.throws(() => load(() => reply('MAX_TOKENS')).ctx.meetingGeminiGenerate_([{ text: 'x' }], {}, 'k'), /ถูกตัด/);
+  assert.throws(() => load(() => reply('SAFETY')).ctx.meetingGeminiGenerate_([{ text: 'x' }], {}, 'k'), /SAFETY/);
+});
+
 console.log('');
 if (failures) { console.log(failures + ' test(s) failed.'); process.exit(1); }
 console.log('All tests passed.');

@@ -208,6 +208,11 @@ function meetingGeminiGenerate_(parts, generationConfig, key, systemInstruction,
       const cand = data.candidates && data.candidates[0];
       const out = cand && cand.content && cand.content.parts && cand.content.parts.map(function(p) { return p.text || ''; }).join('');
       if (!out) throw new Error('Gemini ไม่ส่งข้อความกลับมา (finishReason=' + (cand && cand.finishReason) + ')');
+      // Never hand back a half answer as if it were complete (a long transcript
+      // cut off at the output limit would otherwise look like a finished one).
+      const finish = cand.finishReason;
+      if (finish === 'MAX_TOKENS') throw new Error('ข้อความที่ถอดถูกตัดเพราะยาวเกินขีดจำกัดของ Gemini — ตัดไฟล์เป็นช่วงสั้นลงแล้วลองใหม่');
+      if (finish && finish !== 'STOP') throw new Error('Gemini หยุดก่อนเสร็จ (finishReason=' + finish + ')');
       return out;
     }
     message = (data && data.error && data.error.message) || ('HTTP ' + code);
