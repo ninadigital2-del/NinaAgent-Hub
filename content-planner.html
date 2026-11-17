@@ -2156,6 +2156,7 @@ function renderFollowUpPanel(){
   document.getElementById('fu-badge').textContent = followUpBadgeCount();
   document.getElementById('fu-body').classList.toggle('hidden', !fuPanelOpen);
   document.getElementById('fu-chevron').className = 'fa-solid text-slate-400 lg:hidden ' + (fuPanelOpen ? 'fa-chevron-down' : 'fa-chevron-up');
+  document.getElementById('fu-add-btn').classList.toggle('hidden', clientMode);
   document.getElementById('fu-add-btn').disabled = !!fuLoadError;
   document.getElementById('fu-body').innerHTML = fuLoadError
     ? `<div class="text-xs text-red-600 py-3">โหลดงานค้างไม่สำเร็จ: ${fuEsc(fuLoadError)}<br>(Backend อาจยังไม่ได้ deploy เวอร์ชันใหม่)</div>`
@@ -2184,7 +2185,8 @@ async function deleteFollowUpItem(id){
   renderFollowUpPanel();
 }
 function openCreateFollowUp(){
-  const brands = isRealClientLink() ? [sharedBrand] : [...new Set([...(notionBrands || []), ...items.map(i => i.brand)])].filter(Boolean);
+  if (clientMode) return;
+  const brands = [...new Set([...(notionBrands || []), ...items.map(i => i.brand)])].filter(Boolean);
   document.getElementById('fu-brand').innerHTML = brands.map(b => `<option ${b===sharedBrand?'selected':''}>${fuEsc(b)}</option>`).join('');
   document.getElementById('fu-text').value = '';
   document.getElementById('fu-due').value = '';
