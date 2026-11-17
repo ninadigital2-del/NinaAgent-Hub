@@ -2114,11 +2114,13 @@ let followUps = [
 ];
 let fuPanelOpen = false;
 let fuDoneOpen = false;
+let fuLoadError = '';
 function fuEsc(v){ return String(v==null?'':v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 async function loadFollowUps(){
   if (!API_URL) return;
+  fuLoadError = '';
   try { followUps = (await apiGet('followups')).followUps; }
-  catch (err) { console.error('Failed to load follow-ups:', err); followUps = []; }
+  catch (err) { console.error('Failed to load follow-ups:', err); followUps = []; fuLoadError = err.message || 'load failed'; }
 }
 function visibleFollowUps(){
   return followUps.filter(f => !sharedBrand || f.Brand === sharedBrand);
@@ -2155,8 +2157,10 @@ function renderFollowUpPanel(){
   document.getElementById('fu-add-btn').classList.toggle('hidden', clientMode);
   document.getElementById('fu-body').classList.toggle('hidden', !fuPanelOpen);
   document.getElementById('fu-chevron').className = 'fa-solid text-slate-400 lg:hidden ' + (fuPanelOpen ? 'fa-chevron-down' : 'fa-chevron-up');
-  document.getElementById('fu-body').innerHTML =
-    (open.length ? open.map(fuRowHtml).join('') : '<div class="text-xs text-slate-400 py-3">ไม่มีงานค้าง 🎉</div>') +
+  document.getElementById('fu-add-btn').disabled = !!fuLoadError;
+  document.getElementById('fu-body').innerHTML = fuLoadError
+    ? `<div class="text-xs text-red-600 py-3">โหลดงานค้างไม่สำเร็จ: ${fuEsc(fuLoadError)}<br>(Backend อาจยังไม่ได้ deploy เวอร์ชันใหม่)</div>`
+    : (open.length ? open.map(fuRowHtml).join('') : '<div class="text-xs text-slate-400 py-3">ไม่มีงานค้าง 🎉</div>') +
     (done.length ? `<div class="mt-3 text-xs text-slate-500 cursor-pointer" onclick="fuDoneOpen=!fuDoneOpen;renderFollowUpPanel()">${fuDoneOpen?'▾':'▸'} เสร็จแล้ว (${done.length})</div>${fuDoneOpen ? done.map(fuRowHtml).join('') : ''}` : '');
 }
 function toggleFollowUpPanel(){ fuPanelOpen = !fuPanelOpen; renderFollowUpPanel(); }
