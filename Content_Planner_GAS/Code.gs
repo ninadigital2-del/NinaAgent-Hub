@@ -177,7 +177,6 @@ function doPost(e) {
       if (action === 'updateStatus') return jsonResponse({ success: true, item: clientUpdateStatus_(clientBrand, body.id, body.status) });
       if (action === 'addComment') return jsonResponse({ success: true, item: clientAddComment_(clientBrand, body.id, body.author, body.text) });
       if (action === 'toggleFollowUp') return jsonResponse({ success: true, followUp: clientToggleFollowUp_(clientBrand, body.id, !!body.done) });
-      if (action === 'createFollowUp') return jsonResponse({ success: true, followUp: clientCreateFollowUp_(clientBrand, body.data) });
       return jsonResponse({ success: false, error: 'Action not allowed for client link: ' + action });
     }
 
@@ -482,7 +481,7 @@ function findFollowUpRow_(sheet, id) {
   return -1;
 }
 function normalizeSide_(v) { return v === 'Client' ? 'Client' : 'Us'; }
-function createFollowUp(data, isClient) {
+function createFollowUp(data) {
   const sheet = getFollowUpsSheet_();
   let brand = data.Brand;
   if (data.ContentId) {
@@ -495,7 +494,7 @@ function createFollowUp(data, isClient) {
   if (!brand) throw new Error('Brand is required');
   const row = [
     Utilities.getUuid(), brand, data.ContentId || '', data.Text || '', normalizeSide_(data.ResponsibleSide),
-    data.DueDate || '', new Date().toISOString(), isClient ? 'Client' : 'Team', '', '',
+    data.DueDate || '', new Date().toISOString(), 'Team', '', '',
   ];
   sheet.appendRow(row);
   return rowToFollowUp(row);
@@ -528,26 +527,6 @@ function deleteFollowUp(id) {
   const rowIdx = findFollowUpRow_(sheet, id);
   if (rowIdx === -1) throw new Error('FollowUp not found: ' + id);
   sheet.deleteRow(rowIdx);
-}
-// A client may add a follow-up, but only inside its own signed brand: the
-// brand comes from the verified link (never from the request body), a linked
-// content item must belong to that same brand, and the text is size-capped.
-const CLIENT_FOLLOWUP_MAX_TEXT = 1000;
-function clientCreateFollowUp_(brand, data) {
-  data = data || {};
-  const text = String(data.Text || '').trim();
-  if (!text) throw new Error('TEXT_REQUIRED');
-  if (text.length > CLIENT_FOLLOWUP_MAX_TEXT) throw new Error('TEXT_TOO_LONG');
-  if (data.ContentId) {
-    const cs = getContentSheet();
-    const idx = findRowIndexById(cs, data.ContentId);
-    if (idx === -1) throw new Error('Linked content not found: ' + data.ContentId);
-    if (rowToItem(cs.getRange(idx, 1, 1, COLUMNS.length).getValues()[0]).Brand !== brand) throw new Error('BRAND_MISMATCH');
-  }
-  return createFollowUp({
-    Brand: brand, ContentId: data.ContentId, Text: text,
-    ResponsibleSide: data.ResponsibleSide, DueDate: data.DueDate,
-  }, true);
 }
 // Brand is read from the real row, never from the client's claim.
 function clientToggleFollowUp_(brand, id, done) {
