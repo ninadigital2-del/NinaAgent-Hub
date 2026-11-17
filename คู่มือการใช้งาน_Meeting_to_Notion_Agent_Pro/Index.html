@@ -1103,6 +1103,112 @@ function render() {
 }
 
 
+// ============================================================
+// MOCK MODE -- lets the page be tried without Google or Notion.
+// Turns on ONLY when the page is opened outside Apps Script (no google.script)
+// or with ?mock=1. Inside the deployed web app google.script always exists, so
+// this never replaces the real backend there. A red MOCK badge is always shown.
+// Try: mock-audio, mock-line, mock-note, mock-pdf, mock-bad (error + retry), mock-huge (too large).
+// ?mockfail=1 makes the first Notion create fail so the retry path can be seen.
+// ============================================================
+(function () {
+  const q = new URLSearchParams(location.search);
+  const forced = q.get('mock') === '1';
+  if (!forced && typeof google !== 'undefined' && google.script) return;
+
+  const addDays = (iso, n) => { const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+  const BOOT = {
+    ok: true, today: new Date().toISOString().slice(0, 10),
+    projects: [
+      { id: 'mock-p1', name: 'AIS - Q4 Campaign' },
+      { id: 'mock-p2', name: "Neil's Bake Shoppe - Packaging Design - (2026)" },
+      { id: 'mock-p3', name: 'BPS - Website Maintenance - (2026)' }
+    ],
+    brands: [{ id: 'mock-b1', name: 'AIS' }, { id: 'mock-b2', name: 'BPS' }, { id: 'mock-b3', name: 'Bangmod Aesthetic' }, { id: 'mock-b4', name: "Neil's Bake Shoppe" }],
+    owners: ['PM - ยู้', 'PM - ชัย'],
+    serviceTypes: [{ id: 'mock-st1', name: 'Content / Graphic Design Production' }, { id: 'mock-st2', name: 'Social Media Management' }],
+    workTypes: ['Content', 'Graphic / Artwork', 'Video', 'Ads / Performance', 'Project Management', 'Affiliate', 'Influencer / KOL', 'Operation', 'General']
+  };
+  const FILES = {
+    'mock-audio': { name: 'ประชุม AIS 3 พ.ย..m4a', label: '🎙️ เสียงประชุม', text: 'ผู้พูด 1: วันนี้คุยเรื่องแคมเปญ AIS Q4 ครับ พรุ่งนี้ต้องส่งแบนเนอร์ชุดแรก\nผู้พูด 2: ได้ค่ะ ยู้ดูแลเอง ส่วนคลิปรีวิวขอสัปดาห์หน้า\nผู้พูด 1: [ฟังไม่ชัด] ส่วนเรื่อง Neil\'s ยังไม่ confirm ราคา' },
+    'mock-line': { name: 'LINE chat BPS.txt', label: '💬 ข้อความ / แชท', text: '2026.11.04 Tuesday\n10:12\tคุณสมชาย\tเว็บใหม่ของ BPS อยากได้หน้าแรกใหม่ ส่งแบบภายในศุกร์นี้\n10:30\tชัย\tรับทราบครับ' },
+    'mock-note': { name: 'โน้ต iPad.png', label: '✍️ รูป / โน้ตลายมือ', text: '- Bangmod Aesthetic: เริ่ม Influencer Campaign Q1\n- [อ่านไม่ออก] ติดต่อ KOL 5 คน' },
+    'mock-pdf': { name: 'Brief Neil Packaging.pdf', label: '📄 เอกสาร PDF', text: "Brief: Neil's Bake Shoppe รีแบรนด์ Packaging ส่งแบบร่างภายใน 2 สัปดาห์" }
+  };
+  const delay = (v, ms) => new Promise(r => setTimeout(() => r(v), ms || 600));
+  let createCalls = 0;
+
+  const handlers = {
+    meetingBootstrap: () => delay(BOOT, 300),
+    meetingConvertDriveFile: ref => {
+      const key = Object.keys(FILES).find(k => String(ref).includes(k));
+      if (String(ref).includes('mock-huge')) return delay({ ok: false, name: 'ประชุมยาว.m4a', error: 'ไฟล์ใหญ่เกิน 48 MB — กรุณาตัดหรือบีบอัดไฟล์ก่อน' }, 500);
+      if (!key) return delay({ ok: false, error: 'ลิงก์หรือ ID ไฟล์ Drive ไม่ถูกต้อง (โหมด mock รับ: ' + Object.keys(FILES).join(', ') + ', mock-bad, mock-huge)' }, 300);
+      return delay(Object.assign({ ok: true, kind: key }, FILES[key]), 900);
+    },
+    meetingAnalyze: input => {
+      const d = input.meetingDate || BOOT.today;
+      return delay({
+        ok: true, meetingDate: d, boot: BOOT, savedFolderUrl: 'https://drive.google.com/mock-folder',
+        stats: { tasks: 5, matched: 1, uncertain: 1, new: 1 },
+        projects: [
+          { project_name: 'AIS - Q4 Campaign', project_id: 'mock-p1', match_status: 'exact', brand: 'AIS', owner: 'PM - ยู้', tags: 'Content', start_date: d, deadline: addDays(d, 14), status: 'In progress', lead_status: '-', notes: '',
+            sub_tasks: [
+              { name: 'แบนเนอร์ชุดแรก', work_type: 'Graphic / Artwork', owner_hint: 'ยู้', status: 'Not started', due_date: addDays(d, 1) },
+              { name: 'คลิปรีวิว', work_type: 'Video', owner_hint: '', status: 'Not started', due_date: addDays(d, 7) }] },
+          { project_name: "Neil's Packaging", project_id: '', match_status: 'uncertain', brand: "Neil's Bake Shoppe", owner: '', tags: 'Graphic', start_date: d, deadline: '', status: 'Not started', lead_status: '-', notes: 'ยังไม่ confirm ราคา',
+            sub_tasks: [{ name: 'แบบร่าง Packaging', work_type: 'Graphic / Artwork', owner_hint: '', status: 'Not started', due_date: addDays(d, 14) }] },
+          { project_name: 'Bangmod Aesthetic - Influencer Q1', project_id: '', match_status: 'new', brand: 'Bangmod Aesthetic', owner: '', tags: 'Influencer', start_date: d, deadline: '', status: 'Not started', lead_status: '-', notes: '',
+            sub_tasks: [
+              { name: 'ติดต่อ KOL 5 คน', work_type: 'Influencer / KOL', owner_hint: '', status: 'Not started', due_date: '' },
+              { name: 'หน้าแรกเว็บ BPS', work_type: 'Graphic / Artwork', owner_hint: 'ชัย', status: 'Not started', due_date: addDays(d, 3) }] }
+        ]
+      }, 1200);
+    },
+    meetingBrandOptions: id => delay({
+      ok: true,
+      contacts: [{ id: id + '-c1', name: 'คุณสมชาย ใจดี', email: 'somchai@example.com' }, { id: id + '-c2', name: 'คุณสมหญิง รักงาน', email: '' }],
+      scopeItems: [{ id: id + '-s1', item: 'Retainer Content 12 เดือน', itemType: 'Retainer', qtNo: 'QT-2026-014' }, { id: id + '-s2', item: 'Website Redesign', itemType: 'Deliverable', qtNo: 'QT-2026-020' }]
+    }, 500),
+    meetingCreate: payload => {
+      createCalls++;
+      const out = { success: true, count: 0, errors: [], warnings: [], successfulSyncIds: [], updatedProjects: {}, taskIds: {} };
+      payload.forEach(p => {
+        let pid = p.project_id;
+        if (!pid) {
+          if (!p.owner) { out.errors.push('โปรเจกต์ [' + p.project_name + ']: ยังไม่ได้เลือก PM Owner'); return; }
+          pid = 'mock-new-' + Math.random().toString(36).slice(2, 8);
+          if (p._projSyncId) out.updatedProjects[p._projSyncId] = pid;
+        }
+        (p.sub_tasks || []).forEach((t, i) => {
+          if (q.get('mockfail') === '1' && createCalls === 1 && out.count === 0 && i === 0 && out.errors.length === 0) { out.errors.push(t.name + ': (mock) Notion ปฏิเสธข้อมูล'); return; }
+          out.count++;
+          if (t._syncId) { out.successfulSyncIds.push(t._syncId); out.taskIds[t._syncId] = 'mock-task-' + Math.random().toString(36).slice(2, 8); }
+        });
+      });
+      if (out.errors.length) out.success = true; // same as the real backend: partial results + errors list
+      window.__mockLastCreate = payload; // inspect in the console
+      return delay(out, 900);
+    }
+  };
+
+  function runner(ok, fail) {
+    return new Proxy({}, { get: (_, name) => (...args) => {
+      Promise.resolve().then(() => {
+        if (name === 'meetingConvertDriveFile' && String(args[0]).includes('mock-bad')) throw new Error('(mock) เปิดไฟล์ไม่ได้');
+        if (!handlers[name]) throw new Error('mock: ไม่มี handler ชื่อ ' + name);
+        return handlers[name](...args);
+      }).then(ok, fail);
+    } });
+  }
+  window.google = { script: { run: { withSuccessHandler: ok => ({ withFailureHandler: fail => runner(ok, fail) }) } } };
+
+  const badge = document.createElement('div');
+  badge.style.cssText = 'position:fixed;right:12px;bottom:12px;z-index:9999;background:#dc2626;color:#fff;font:600 11px var(--mono,monospace);padding:6px 10px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.25);';
+  badge.innerHTML = '🧪 MOCK MODE — ไม่ได้ต่อ Google/Notion จริง &nbsp;' + Object.keys(FILES).concat(['mock-bad', 'mock-huge']).map(k => '<a href="#" style="color:#fecaca;margin-left:6px" onclick="event.preventDefault();document.getElementById(\'srcDriveRef\').value=\'' + k + '\';addDriveSource();">' + k + '</a>').join('');
+  document.body.appendChild(badge);
+})();
+
 initMeetingForm();
 </script>
 
