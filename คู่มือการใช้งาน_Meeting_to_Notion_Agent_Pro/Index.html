@@ -220,6 +220,28 @@
   .owner-item:last-child { border-bottom: none; }
   .owner-item button { background: transparent; border: none; color: var(--danger); cursor: pointer; padding: 4px; border-radius: 4px; }
   .owner-item button:hover { background: #fee2e2; }
+  /* --- Meeting input: sources --- */
+  .src-form { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px; }
+  .src-form input[type=text] { flex:1; min-width:160px; }
+  .src-form input, .src-add input { border:1px solid var(--border); border-radius:8px; padding:8px 10px; font-family:var(--sans); font-size:12px; background:#fff; color:var(--text); }
+  .src-date { display:flex; align-items:center; gap:6px; font-size:11px; color:var(--muted); font-family:var(--mono); }
+  .src-add { display:flex; gap:8px; margin-bottom:6px; }
+  .src-add input { flex:1; min-width:0; }
+  .src-hint { font-size:10px; color:var(--muted); line-height:1.5; margin-bottom:8px; }
+  .src-list { display:flex; flex-direction:column; gap:6px; margin-bottom:8px; }
+  .src-card { display:flex; align-items:center; gap:8px; border:1px solid var(--border); border-radius:8px; padding:6px 10px; background:var(--surface2); font-size:12px; }
+  .src-card.error { border-color:#fecaca; background:#fef2f2; }
+  .src-card.done { border-color:#a7f3d0; background:#ecfdf5; }
+  .src-main { flex:1; min-width:0; }
+  .src-name { font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .src-msg { font-size:10px; color:var(--muted); }
+  .newproj-form { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px; padding:10px 16px; border-top:1px dashed var(--border); background:#faf5ff; }
+  .newproj-form label { display:block; font-family:var(--mono); font-size:9px; text-transform:uppercase; color:var(--muted); margin-bottom:3px; }
+  .newproj-form select { width:100%; border:1px solid var(--border); border-radius:6px; padding:5px 6px; font-size:12px; background:#fff; }
+  .newproj-form .pick-list { max-height:110px; overflow:auto; border:1px solid var(--border); border-radius:6px; padding:4px 6px; background:#fff; font-size:11px; }
+  .newproj-form .pick-list label { font-family:var(--sans); font-size:11px; text-transform:none; color:var(--text); display:flex; gap:6px; margin:2px 0; }
+  .newproj-wide { grid-column:1 / -1; }
+  .hint-tag { font-size:10px; color:var(--muted); margin-left:6px; }
 </style>
 </head>
 <body>
@@ -237,7 +259,6 @@
     <div id="step3" class="step-pill">03 CONFIRM</div>
   </div>
   <div style="display:flex; align-items:center; gap: 12px;">
-    <button class="btn btn-ghost" style="padding: 4px 8px; font-size: 10px; height: 24px; border-color: var(--accent2); color: var(--accent2);" onclick="loadMockData()">🛠 โหลด Mock</button>
     <div class="notion-badge" id="notionBadge">
       <div class="notion-dot" id="notionDot" style="background: var(--muted);"></div>
       <span id="notionStatusText">Notion Standby</span>
@@ -249,25 +270,23 @@
 
   <div class="left-panel">
     <div class="panel-header">
-      <span class="panel-title">Meeting Notes</span>
-      <span class="badge green">Plain Text / Bullet</span>
+      <span class="panel-title">Meeting Input</span>
+      <span class="badge green">หลายไฟล์ได้</span>
     </div>
     <div class="textarea-wrap">
-      <div class="meeting-meta">
-        <div class="meta-chip"><span class="icon">📅</span> วันนี้</div>
-        <div class="meta-chip"><span class="icon">👥</span> ผู้ร่วมประชุม</div>
-        <div class="meta-chip"><span class="icon">⏱</span> Auto Detect</div>
+      <div class="src-form">
+        <input id="meetTitle" type="text" placeholder="ชื่อการประชุม (เช่น Kickoff AIS Q4)">
+        <label class="src-date">📅 วันที่ประชุม <input id="meetDate" type="date"></label>
       </div>
-      <textarea id="notesInput" placeholder="วาง Meeting Notes ที่นี่...
+      <div class="src-add">
+        <input id="srcDriveRef" type="text" placeholder="วางลิงก์ / ID ไฟล์จาก Google Drive แล้วกด + เพิ่มไฟล์" onkeydown="if(event.key==='Enter'){addDriveSource();}">
+        <button class="btn btn-ghost" onclick="addDriveSource()">+ เพิ่มไฟล์</button>
+      </div>
+      <div class="src-hint">รองรับ เสียงประชุม · รูปโน้ต/ลายมือ · PDF · Word · Google Doc · .txt (แชท LINE) &nbsp;|&nbsp; ไฟล์ต้องอยู่ใน Drive และบัญชีเจ้าของระบบเปิดได้ · ไฟล์ไม่เกิน ~48MB</div>
+      <div id="srcList" class="src-list"></div>
+      <textarea id="notesInput" placeholder="ข้อความรวมจากทุกแหล่ง — ตรวจและแก้ไขได้ก่อนกดวิเคราะห์
 
-ตัวอย่าง:
-- SPM Cat Lover: ออกแบบ Banner สำหรับงาน Event เดือน มิ.ย. ให้เสร็จภายใน 30 พ.ค.
-- STAEDTLER: ทำ Content Plan เดือน มิ.ย.-ก.ค. มอบหมาย ยู้
-- โปรเจคใหม่ กับ Bangmod: เริ่ม Influencer Campaign Q3">- SPM Cat Lover: ออกแบบ Banner + Standee สำหรับงาน Event มิ.ย. ให้เสร็จ 30 พ.ค. มอบหมาย Graphic Team
-- STAEDTLER: ทำ Content Plan เดือน มิ.ย.-ก.ค. — อ้อดูแล ส่งภายใน 25 พ.ค.
-- STD Creators Challenge: ติดตาม Influencer List ที่ยังไม่ตอบกลับ ด่วน
-- Bangmod Aesthetic: นัด Kick-off ใหม่ เดือนหน้า — ยู้ประสาน
-- งานใหม่: Neil's รีแบรนด์ Packaging Q3 — ยังไม่ confirm ราคา</textarea>
+หรือวาง Meeting Notes / แชท LINE ตรงนี้ได้เลย (แชทที่มีวันที่และชื่อผู้ส่งให้วางมาทั้งหมด)"></textarea>
     </div>
     <div class="action-row">
       <button class="btn btn-ghost" onclick="clearText()">ล้าง</button>
@@ -292,7 +311,6 @@
         <div class="panel-title">Review & Confirm</div>
         <div style="display: flex; gap: 10px; flex-wrap: wrap;">
           <button class="btn btn-ghost" style="padding: 6px 12px; font-size: 11px;" onclick="addNewProject()">+ Project ใหม่</button>
-          <button class="btn btn-ghost" style="padding: 6px 12px; font-size: 11px;" onclick="openSettingsModal()">👥 จัดการ PM</button>
           <button id="editToggleBtn" class="btn btn-ghost" style="padding: 6px 12px; font-size: 11px; border-color: var(--accent); color: var(--accent); background:#fff;" onclick="toggleEditMode()">✍️ แก้ไขข้อมูล</button>
         </div>
         <div class="review-stats">
@@ -332,23 +350,6 @@
   <button onclick="hideUndoToast()" style="background:transparent; border:none; color:var(--muted); cursor:pointer; font-size:18px;">&times;</button>
 </div>
 
-<div id="settingsModal" class="modal-overlay">
-  <div class="modal-content">
-    <div class="modal-header">
-      <h3>👥 จัดการรายชื่อ PM</h3>
-      <button onclick="closeSettingsModal()" class="close-btn">&times;</button>
-    </div>
-    <div class="modal-body">
-      <div class="modal-input-row">
-        <input type="text" id="newOwnerInput" placeholder="ชื่อ PM คนใหม่...">
-        <button onclick="addOwner()" class="btn btn-primary" style="padding: 6px 12px;">+ เพิ่ม</button>
-      </div>
-      <div class="owner-list" id="modalOwnerList">
-      </div>
-    </div>
-  </div>
-</div>
-
 <div id="deleteModal" class="modal-overlay">
   <div class="modal-content" style="max-width:320px;">
     <div class="modal-header">
@@ -365,141 +366,23 @@
   </div>
 </div>
 
-<div id="assignmentWarningModal" class="modal-overlay">
-  <div class="modal-content" style="max-width: 440px; border-color: #fcd34d; box-shadow: 0 20px 25px -5px rgba(245, 158, 11, 0.1);">
-    <div class="modal-header" style="background: #fffbeb;">
-      <h3 style="color: #b45309;">⚠️ ตรวจพบงานยังไม่ได้มอบหมาย</h3>
-      <button onclick="closeAssignmentModal()" class="close-btn">&times;</button>
-    </div>
-    <div class="modal-body" style="padding-bottom: 20px;">
-      <p style="font-size: 13px; color: var(--text); line-height: 1.6; margin-bottom: 12px;">
-        มีงานย่อยบางส่วนที่ยังคงขึ้นสถานะ <span style="background: #fffbeb; color: #d97706; padding: 2px 6px; border-radius: 4px; font-weight: 600; border:1px dashed #fcd34d;">⚠️ รอมอบหมาย</span> 
-      </p>
-      <p style="font-size: 12px; color: var(--muted); line-height: 1.5; margin-bottom: 20px;">
-        หากปล่อยไว้เป็นเครื่องหมายขีด ระบบจะส่งค่านั้นไปสร้างเป็นแท็ก <span style="background: #e0f2fe; color: #0284c7; padding: 2px 6px; border-radius: 4px;">[-]</span> สีฟ้าใน Notion ครับ คุณต้องการให้ระบบจัดการอย่างไรดีครับ?
-      </p>
-      <div style="display: flex; flex-direction: column; gap: 8px;">
-        <button onclick="resolveAndSync(true)" class="btn btn-success" style="width: 100%; font-size: 12px; justify-content: center; padding: 12px; font-weight: 600;">
-          🛡️ ให้ PM Owner ประจำโปรเจกต์รับงานแทนอัตโนมัติ
-        </button>
-        <button onclick="resolveAndSync(false)" class="btn btn-ghost" style="width: 100%; font-size: 12px; justify-content: center; padding: 12px; color: var(--text); border-color: var(--border); background: #fff;">
-          ⏩ ซิงค์แบบเว้นว่างไว้ก่อน (สร้างแท็ก [-] ใน Notion)
-        </button>
-        <button onclick="closeAssignmentModal()" class="btn btn-ghost" style="width: 100%; font-size: 12px; justify-content: center; padding: 12px; color: var(--muted); border-color: var(--border);">
-          ❌ ขอกลับไปกดเลือกรายชื่อผู้รับผิดชอบเองก่อน
-        </button>
-      </div>
-    </div>
-  </div>
-</div>
-
 <script>
 // --- GLOBAL STATE ---
 let state = {
   tasks: [],
-  stats: null, 
-  owners: ['PM - อ้อ', 'PM - ยู้'],
+  stats: null,
+  owners: [],          // PM names, loaded from Notion (GEM Team Member) -- never hardcoded
   isEditMode: false,
   deletedItems: [],
   undoTimeout: null,
-  notionProjects: [] 
+  notionProjects: [],
+  brands: [],          // [{id,name}]
+  serviceTypes: [],    // [{id,name}]
+  workTypes: [],
+  brandOptions: {},    // brandId -> {contacts, scopeItems}
+  sources: [],         // files being converted to text
+  meetingDate: ''
 };
-
-function loadMockData() {
-  const mockData = [
-    {
-      project_id: "", 
-      project_name: "แคมเปญโปรโมตสินค้า Q3 - 2026",
-      owner: "PM - อ้อ",
-      deadline: "2026-09-30",
-      lead_status: "Qualified",
-      brand: "MoonRacle",
-      match_status: "new",
-      sub_tasks: [
-        {
-          name: "บรีฟงานทีม Graphic",
-          task_type: "Internal",
-          work_type: "Creative",
-          work_by: "PM - อ้อ",
-          due_date: "2026-07-15",
-          status: "Not started",
-          _syncId: "task_001",
-          checked: true,
-          editing: false
-        },
-        {
-          name: "ดราฟต์แคปชั่นโพสต์ Social Media",
-          task_type: "Internal",
-          work_type: "Content",
-          work_by: "Copywriter - นิก",
-          due_date: "2026-07-20",
-          status: "In progress",
-          _syncId: "task_002",
-          checked: true,
-          editing: false
-        }
-      ],
-      _projSyncId: "proj_001"
-    },
-    {
-      project_id: "existing_notion_page_id_12345", 
-      project_name: "ปรับปรุงเว็บไซต์บริษัท (เฟส 2)",
-      owner: "PM - แบงค์",
-      deadline: "2026-12-15",
-      lead_status: "In Progress",
-      brand: "MoonRacle",
-      match_status: "exact",
-      project_sub: "EXISTING · ID: existing_notion_page_id_12345",
-      sub_tasks: [
-        {
-          name: "อัปเดตหน้า About Us",
-          task_type: "Internal",
-          work_type: "Development",
-          work_by: "Dev - ภูมิ",
-          due_date: "2026-10-01",
-          status: "Not started",
-          notion_page_id: "existing_task_page_id_67890",
-          _syncId: "task_003",
-          checked: true,
-          editing: false
-        },
-        {
-          name: "เทสระบบส่งอีเมลฟอร์มติดต่อ",
-          task_type: "Internal",
-          work_type: "QA",
-          work_by: "-",
-          due_date: "2026-10-05",
-          status: "Not started",
-          _syncId: "task_004",
-          checked: true,
-          editing: false
-        }
-      ],
-      _projSyncId: "proj_002"
-    }
-  ];
-
-  state.stats = { tasks: 4, matched: 1, uncertain: 0, new: 1 };
-  state.tasks = mockData;
-  
-  document.getElementById('emptyState').style.display = 'none';
-  document.getElementById('analyzingState').style.display = 'none';
-  document.getElementById('reviewState').style.display = 'flex';
-  
-  document.getElementById('step1').className = 'step-pill done';
-  document.getElementById('step2').className = 'step-pill active';
-  
-  const syncBtn = document.getElementById('syncBtn');
-  if(syncBtn) {
-     syncBtn.disabled = false;
-     syncBtn.innerHTML = '✓ สร้างใน Notion';
-     syncBtn.style.background = 'var(--accent2)';
-  }
-  
-  render();
-  showToast('โหลด Mock Data สำหรับเทส UI เรียบร้อย', 'success');
-}
-
 
 let deleteConfig = { type: null, tIndex: null, sIndex: null };
 
@@ -513,46 +396,67 @@ function runGoogleScript(serverFunctionName, ...args) {
 }
 
 // --- FETCH PROJECTS FROM NOTION (REALTIME VIA GAS) ---
-async function loadNotionProjects() {
-  const badgeDot = document.getElementById('notionDot');
-  const badgeText = document.getElementById('notionStatusText');
+function esc(v) {
+  return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
 
-  try {
-    const parsedProjects = await runGoogleScript('getNotionProjects');
-    
-    if (parsedProjects && parsedProjects.length > 0) {
-      state.notionProjects = parsedProjects;
-      showToast('ดึงรายชื่อโปรเจกต์จาก Notion ปัจจุบันเรียบร้อยแล้ว', 'success');
-      
-      if (badgeDot && badgeText) {
-        badgeDot.style.background = 'var(--accent2)';
-        badgeText.textContent = 'Notion Connected';
-      }
-    } else {
-      throw new Error("ไม่พบโปรเจกต์ใน Notion Database");
-    }
-  } catch (error) {
-    console.warn("Notion project sync error:", error.message);
-    showToast(error.message, 'warn');
-    
-    state.notionProjects = [
-      { id: "staedtler_affiliate", name: "STAEDTLER - Affiliate Program - (2026)" },
-      { id: "nina_digital", name: "NINA DIGITAL - STAEDTLER TIKTOK SHOPEE SHOP - (2026)" },
-      { id: "mom_choice", name: "Mom Choice- Out of home media - (2026)" },
-      { id: "std_art", name: "STD - Art Workshop 1 - วาดใบไม้ 28/2/26" },
-      { id: "advance_driving", name: "Advance Driving School (Lead) - 2026" },
-      { id: "bi_video", name: "BI - Video Dr.Aui - 1 Clips - (2026)" },
-      { id: "spm_mimi", name: "SPM - Mimi VitaOne - Media Influencer OHANA (2026)" },
-      { id: "neils_bake", name: "Neil's Bake Shoppe - Packaging Design - (2026)" },
-      { id: "bangmod_aesthetic", name: "Bangmod Aesthetic (Lead) - 2026" },
-      { id: "neils_mkt", name: "Neil's Mkt Plan (Lead) - 2026" }
-    ];
+// Applies the lists the server read from Notion. There is NO built-in fallback list:
+// if Notion cannot be read the server returns an error and the page shows it.
+function applyBootstrap(boot) {
+  state.notionProjects = boot.projects;
+  state.brands = boot.brands;
+  state.owners = boot.owners;
+  state.serviceTypes = boot.serviceTypes || [];
+  state.workTypes = boot.workTypes || [];
+  const dot = document.getElementById('notionDot'), txt = document.getElementById('notionStatusText');
+  if (dot && txt) { dot.style.background = 'var(--accent2)'; txt.textContent = 'Notion Connected'; }
+}
 
-    if (badgeDot && badgeText) {
-      badgeDot.style.background = 'var(--warn)';
-      badgeText.textContent = 'Notion Fallback (Offline)';
-    }
+function initMeetingForm() {
+  const d = document.getElementById('meetDate');
+  if (d && !d.value) {
+    const t = new Date();
+    d.value = t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0');
   }
+  renderSources();
+}
+
+// ---------- Step 1-2: sources -> text ----------
+let srcSeq = 0;
+function renderSources() {
+  const el = document.getElementById('srcList');
+  if (!el) return;
+  el.innerHTML = state.sources.map(s => {
+    const icon = s.status === 'working' ? '⏳' : s.status === 'done' ? '✅' : '❌';
+    const msg = s.status === 'working' ? 'กำลังแปลงเป็นข้อความ...' : s.status === 'done' ? `${s.label || ''} · ${s.chars} ตัวอักษร (ใส่ในช่องข้อความแล้ว)` : (s.error || 'ไม่สำเร็จ');
+    const retry = s.status === 'error' ? `<button class="ctrl-btn" onclick="retrySource(${s.id})">ลองใหม่</button>` : '';
+    return `<div class="src-card ${s.status}"><span>${icon}</span><div class="src-main"><div class="src-name">${esc(s.name || s.ref)}</div><div class="src-msg">${esc(msg)}</div></div>${retry}<button class="ctrl-btn" onclick="removeSource(${s.id})" title="ลบการ์ด (ข้อความที่ใส่แล้วแก้/ลบเองในช่องด้านล่าง)">&times;</button></div>`;
+  }).join('');
+}
+function addDriveSource() {
+  const input = document.getElementById('srcDriveRef');
+  const ref = input.value.trim();
+  if (!ref) { showToast('วางลิงก์หรือ ID ไฟล์จาก Drive ก่อน', 'warn'); return; }
+  if (state.sources.some(x => x.ref === ref && x.status !== 'error')) { showToast('ไฟล์นี้เพิ่มไว้แล้ว', 'warn'); return; }
+  const src = { id: ++srcSeq, ref: ref, name: '', status: 'working' };
+  state.sources.push(src);
+  input.value = '';
+  convertSource(src);
+}
+function retrySource(id) { const src = state.sources.find(x => x.id === id); if (src) convertSource(src); }
+function removeSource(id) { state.sources = state.sources.filter(x => x.id !== id); renderSources(); }
+async function convertSource(src) {
+  src.status = 'working'; src.error = ''; renderSources();
+  try {
+    const r = await runGoogleScript('meetingConvertDriveFile', src.ref);
+    if (!r || !r.ok) throw new Error((r && r.error) || 'แปลงไม่สำเร็จ');
+    src.name = r.name; src.label = r.label; src.chars = r.text.length; src.status = 'done';
+    const ta = document.getElementById('notesInput');
+    ta.value = (ta.value.trim() ? ta.value.replace(/\s+$/, '') + '\n\n' : '') + '=== ' + r.label + ' · ' + r.name + ' ===\n' + r.text + '\n';
+  } catch (e) {
+    src.status = 'error'; src.error = e.message || String(e);
+  }
+  renderSources();
 }
 
 function showToast(message, type = 'info') {
@@ -591,7 +495,11 @@ function backToEdit() {
 async function showAnalyzing() {
   const notes = document.getElementById('notesInput').value.trim();
   if (!notes) {
-    showToast('กรุณากรอกข้อความบันทึกการประชุมก่อนครับ', 'warn');
+    showToast('ยังไม่มีข้อความ — เพิ่มไฟล์หรือวางบันทึกการประชุมก่อนครับ', 'warn');
+    return;
+  }
+  if (state.sources.some(x => x.status === 'working')) {
+    showToast('รอให้ไฟล์ทุกไฟล์แปลงเสร็จก่อน', 'warn');
     return;
   }
 
@@ -599,136 +507,51 @@ async function showAnalyzing() {
   const analyzingState = document.getElementById('analyzingState');
   const reviewState = document.getElementById('reviewState');
   const analyzeBtn = document.getElementById('analyzeBtn');
-  
-  const analyzingMainText = document.getElementById('analyzingMainText');
-  const analyzingSubText = document.getElementById('analyzingSubText');
 
   emptyState.style.display = 'none';
   analyzingState.style.display = 'flex';
   reviewState.style.display = 'none';
   analyzeBtn.disabled = true;
   analyzeBtn.innerHTML = 'กำลังประมวลผล...';
-
   document.getElementById('step1').className = 'step-pill done';
   document.getElementById('step2').className = 'step-pill active';
 
   try {
-    analyzingMainText.textContent = "กำลังเชื่อมต่อ Notion...";
-    analyzingSubText.textContent = "กำลังดึงฐานข้อมูลโปรเจกต์ล่าสุดของคุณเพื่อเป็นฐานอ้างอิง";
-    await loadNotionProjects();
+    document.getElementById('analyzingMainText').textContent = 'กำลังให้ AI วิเคราะห์...';
+    document.getElementById('analyzingSubText').textContent = 'ดึงรายชื่อ Project / Brand / PM ล่าสุดจาก Notion แล้วให้ Gemini แยกงาน';
 
-    analyzingMainText.textContent = "กำลังให้ AI วิเคราะห์...";
-    analyzingSubText.textContent = "Gemini กำลังคัดแยกข้อมูลโปรเจกต์และจับคู่กับบอร์ด Notion";
-
-    const today = new Date();
-    const formattedToday = today.toISOString().split('T')[0];
-    const thaiDateStr = today.toLocaleDateString('th-TH', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-
-    const notionProjectsCtx = state.notionProjects.map(p => `- ${p.name} (ID: ${p.id})`).join('\n');
-
-    const systemPrompt = `คุณคือ PM Agent อัจฉริยะ ทำหน้าที่วิเคราะห์บันทึกการประชุมภาษาไทย คัดแยกแยกแยะโปรเจกต์ (Project) และงานย่อย (Sub Tasks) ตามโครงสร้าง JSON เสมอ
-
-รายชื่อโปรเจกต์ดั้งเดิมที่มีอยู่ในระบบ Notion ปัจจุบัน:
-${notionProjectsCtx}
-
-ข้อกำหนดการวิเคราะห์โครงสร้างข้อมูล:
-- วิเคราะห์ระดับความมั่นใจของโปรเจกต์ (match_status):
-  * "exact" คือระบุชื่อตรงกับข้อมูลโปรเจกต์ดั้งเดิมในระบบ Notion ข้างต้นอย่างชัดเจน
-  * "uncertain" คือข้อมูลมีคำคีย์เวิร์ดที่คล้ายคลึงหรือเกี่ยวข้องกับโปรเจกต์เดิมที่มีอยู่ใน Notion (เช่น ในบันทึกประชุมพูดถึงแบรนด์ "Neil's" หรือ "STAEDTLER" ซึ่งตรงหรือคล้ายกับชื่อโปรเจกต์ที่มีอยู่แล้ว) ให้จับคู่เป็น "uncertain" เพื่อให้หน้าเว็บทำการดึงตัวเลือกมาให้ผู้ใช้ยืนยันการจับคู่ ห้ามเดาและตั้งค่าเป็น "new" สุ่มสี่สุ่มห้าเด็ดขาด!
-  * "new" คือเป็นโปรเจกต์ที่ตั้งขึ้นมาใหม่ และไม่มีชื่อหรือคีย์เวิร์ดใดๆ เกี่ยวข้องกับโปรเจกต์เดิมใน Notion เลยจริงๆ
-- หากระบุเวลา ให้คำนวณจากวันประชุมปัจจุบันเสมอ วันประชุมนี้คือ: ${thaiDateStr} (${formattedToday})
-- owner (PM Owner หรือเจ้าของโปรเจกต์หลัก): ต้องระบุเป็นรายชื่อ PM จริงที่มีในระบบคนใดคนหนึ่งเท่านั้น (เลือกจากรายชื่อนี้: ${state.owners.join(', ')}) ห้ามใส่เครื่องหมาย "-" หรือ "Unassigned" หรือ "PM - อ้อ หรือ PM - ยู้" เด็ดขาด! แม้ในบันทึกประชุมจะไม่ระบุชื่อ PM ให้เดาจากบริบทหรือสุ่มมอบหมายให้ PM คนใดคนหนึ่งในรายชื่อด้านบนนี้ทันทีเพื่อเป็นเจ้าของโปรเจกต์
-- tags: ประเภทของงาน คั่นด้วยเครื่องหมายคอมม่า (comma) เสมอ เช่น "Content, Graphic"
-- status (สถานะงานปัจจุบันของโปรเจกต์และงานย่อย ให้ประเมินจากความคืบหน้าในที่ประชุม): "Not started" / "In progress" / "Done"
-- lead_status (สำคัญมาก เลือกเฉพาะที่มีจริงในระบบ Notion): "Lead - Initial Brief" / "Lead - Planning" / "Lead - Awaiting Presentaion" / "Lead - Presented" / "Lead - Pending Decision" / "Won" / "Lost" / "-"
-
-กติกาสำคัญสำหรับงานย่อย (sub_tasks):
-- **work_by (ผู้รับผิดชอบงานย่อย):** หากในบันทึกการประชุมไม่มีการกล่าวถึงคนรับผิดชอบงานย่อยชิ้นนั้นๆ อย่างชัดเจน ให้ใส่ค่าเป็น "-" เสมอ! ห้ามนำชื่อ PM Owner มาเดาใส่เด็ดขาด เพื่อให้หน้าแอปแสดงป้ายเตือน "⚠️ รอมอบหมาย" ให้ผู้ใช้เลือกมอบหมายงานหน้าเว็บด้วยตนเอง
-- **work_type (ประเภทงาน):** วิเคราะห์ให้ตรงกับประเภทงานจริง เช่น "Content", "Influencer / KOL", "Project Management", "Ads / Performance", "Graphic / Artwork", "Video"
-
-ตัวอย่างรูปแบบ JSON Schema ที่ต้องการ:
-{
-  "stats": {
-    "tasks": 5,
-    "matched": 3,
-    "uncertain": 1,
-    "new": 1
-  },
-  "projects": [
-    {
-      "project_name": "ชื่อโปรเจกต์ภาษาไทยกระชับ",
-      "brand": "ชื่อแบรนด์หรือบริษัท",
-      "owner": "PM - อ้อ", 
-      "match_status": "exact", 
-      "project_sub": "EXISTING · ID: dccd31a9",
-      "tags": "Graphic, Event",
-      "start_date": "${formattedToday}",
-      "deadline": "YYYY-MM-DD",
-      "status": "Not started",
-      "lead_status": "Lead - Initial Brief",
-      "notes": "บันทึกสรุปเพิ่มเติมที่สำคัญ",
-      "sub_tasks": [
-        {
-          "name": "ชื่องานย่อยที่จะทำ",
-          "work_type": "ประเภทงาน",
-          "work_by": "-",
-          "task_type": "Internal",
-          "status": "Not started",
-          "due_date": "YYYY-MM-DD"
-        }
-      ]
-    }
-  ]
-}`;
-
-    const rawResult = await runGoogleScript('callGeminiAPI', notes, systemPrompt);
-    const parsedData = JSON.parse(rawResult);
-    
-    state.stats = parsedData.stats || { tasks: 0, matched: 0, uncertain: 0, new: 0 };
-state.tasks = (parsedData.projects || []).map(p => {
-      let extId = "";
-      if (p.match_status === 'exact') {
-         // 🟢 ค้นหา ID จากฐานข้อมูลโปรเจกต์โดยตรง ป้องกัน Gemini ส่ง ID แหว่ง
-         let matchedProj = state.notionProjects.find(np => np.name === p.project_name);
-         if (matchedProj) {
-             extId = matchedProj.id;
-         } else if (p.project_sub) {
-             // แผนสำรองเผื่อชื่อไม่ตรงเป๊ะ
-             let match = p.project_sub.match(/ID:\s*([a-zA-Z0-9-]+)/);
-             if (match) {
-                 let idMatch = state.notionProjects.find(np => np.id.includes(match[1]));
-                 extId = idMatch ? idMatch.id : match[1];
-             }
-         }
-      }
-
-      return {
-        ...p,
-        status: p.status || "Not started",
-        project_id: extId,
-        _projSyncId: 'p_' + Math.random().toString(36).substr(2, 9),
-        sub_tasks: (p.sub_tasks || []).map(sub => ({ 
-          ...sub, 
-          _syncId: 't_' + Math.random().toString(36).substr(2, 9),
-          checked: true, 
-          editing: false,
-          synced: false // เพิ่มสถานะการซิงค์
-        }))
-      };
+    const r = await runGoogleScript('meetingAnalyze', {
+      text: notes,
+      meetingDate: document.getElementById('meetDate').value,
+      title: document.getElementById('meetTitle').value
     });
-    
-        render();
-    
+    if (!r || !r.ok) throw new Error((r && r.error) || 'วิเคราะห์ไม่สำเร็จ');
+
+    applyBootstrap(r.boot);
+    state.meetingDate = r.meetingDate;
+    state.stats = r.stats;
+    state.tasks = r.projects.map(p => ({
+      ...p,
+      contactIds: [],
+      scopeItemIds: [],
+      serviceTypeId: '',
+      _projSyncId: 'p_' + Math.random().toString(36).substr(2, 9),
+      sub_tasks: p.sub_tasks.map(sub => ({
+        ...sub,
+        _syncId: 't_' + Math.random().toString(36).substr(2, 9),
+        checked: true, editing: false, synced: false
+      }))
+    }));
+    render();
+
     const syncBtn = document.getElementById('syncBtn');
-    if(syncBtn) {
-       syncBtn.disabled = false;
-       syncBtn.innerHTML = '✓ สร้างใน Notion';
-       syncBtn.style.background = 'var(--accent2)';
-    }
+    if (syncBtn) { syncBtn.disabled = false; syncBtn.innerHTML = '✓ สร้างใน Notion'; syncBtn.style.background = 'var(--accent2)'; }
 
     analyzingState.style.display = 'none';
     reviewState.style.display = 'flex';
-    showToast('วิเคราะห์และแปลงแยกงานเป็นเรียบร้อยแล้ว', 'success');
+    showToast('วิเคราะห์เรียบร้อย — ตรวจข้อมูลโปรเจกต์ใหม่ก่อนสร้าง', 'success');
+    if (r.saveWarning) showToast(r.saveWarning, 'warn');
+    if (r.savedFolderUrl) document.getElementById('statusText').innerHTML = 'บันทึกข้อความไว้ใน Drive แล้ว · <a href="' + esc(r.savedFolderUrl) + '" target="_blank">เปิดโฟลเดอร์</a>';
   } catch (error) {
     console.error(error);
     showToast(`เกิดข้อผิดพลาด: ${error.message}`, 'error');
@@ -850,51 +673,53 @@ function moveSubTask(tIndex, sIndex, direction) {
 }
 
 function duplicateProject(index) {
-  state.stats = null; 
-  const target = state.tasks[index];
-  const copy = JSON.parse(JSON.stringify(target));
+  state.stats = null;
+  const copy = JSON.parse(JSON.stringify(state.tasks[index]));
   copy.project_name = `${copy.project_name} (Copy)`;
+  copy._projSyncId = 'p_' + Math.random().toString(36).substr(2, 9);
+  (copy.sub_tasks || []).forEach(sub => { sub._syncId = 't_' + Math.random().toString(36).substr(2, 9); delete sub.notion_page_id; sub.synced = false; sub.checked = true; });
   state.tasks.splice(index + 1, 0, copy);
   render();
   showToast('คัดลอกโปรเจกต์เรียบร้อยแล้ว', 'success');
 }
 
 function addNewProject() {
-  state.stats = null; 
+  state.stats = null;
   const today = new Date().toISOString().split('T')[0];
-  const newProj = {
-    project_name: "โปรเจกต์ใหม่",
-    brand: "-",
-    owner: state.owners[0] || "PM - อ้อ",
-    match_status: "new",
-    project_id: "",
-    project_sub: "NEW · ID: temp_" + Date.now().toString(16),
-    tags: "General",
-    notes: "เพิ่มสรุปรายละเอียดโปรเจกต์ตรงนี้",
+  state.tasks.unshift({
+    project_name: 'โปรเจกต์ใหม่',
+    brand: '',
+    owner: '',
+    match_status: 'new',
+    project_id: '',
+    contactIds: [],
+    scopeItemIds: [],
+    serviceTypeId: '',
+    tags: 'General',
+    notes: '',
     start_date: today,
-    deadline: today,
-    status: "Not started",
-    lead_status: "Lead - Initial Brief", 
+    deadline: '',
+    status: 'Not started',
+    lead_status: '-',
+    _projSyncId: 'p_' + Math.random().toString(36).substr(2, 9),
     sub_tasks: []
-  };
-  state.tasks.unshift(newProj);
+  });
   document.getElementById('emptyState').style.display = 'none';
   document.getElementById('reviewState').style.display = 'flex';
   render();
-  showToast('เพิ่มเทมเพลตโปรเจกต์ใหม่แล้ว', 'success');
+  showToast('เพิ่มโปรเจกต์ใหม่แล้ว — เลือก Brand และ PM', 'success');
 }
 
 function addNewSubtask(projIdx) {
-  state.stats = null; 
+  state.stats = null;
   if (state.tasks[projIdx]) {
-    const today = new Date().toISOString().split('T')[0];
     state.tasks[projIdx].sub_tasks.push({
-      name: "งานย่อยใหม่",
-      work_by: "-", 
-      work_type: "General",
-      task_type: "Internal",
-      due_date: today,
-      status: "Not started",
+      name: 'งานย่อยใหม่',
+      work_type: 'General',
+      owner_hint: '',
+      due_date: '',
+      status: 'Not started',
+      _syncId: 't_' + Math.random().toString(36).substr(2, 9),
       checked: true,
       editing: false
     });
@@ -962,73 +787,19 @@ function handleUndo() {
   showToast('กู้คืนรายการลบแล้ว', 'success');
 }
 
-function openSettingsModal() {
-  document.getElementById('settingsModal').classList.add('active');
-  renderOwnerList();
-}
-
-function closeSettingsModal() {
-  document.getElementById('settingsModal').classList.remove('active');
-}
-
-function renderOwnerList() {
-  const list = document.getElementById('modalOwnerList');
-  list.innerHTML = '';
-  state.owners.forEach(owner => {
-    const el = document.createElement('div');
-    el.className = 'owner-item';
-    el.innerHTML = `
-      <span>${owner}</span>
-      <button onclick="removeOwner('${owner}')">&times;</button>
-    `;
-    list.appendChild(el);
+function validateBeforeSync() {
+  const problems = [];
+  state.tasks.forEach(p => {
+    const picked = (p.sub_tasks || []).filter(sub => sub.checked !== false);
+    if (p.project_id && !picked.length) return;
+    const label = '"' + (p.project_name || 'ไม่มีชื่อ') + '"';
+    if (!p.project_id && p.match_status === 'uncertain') problems.push(label + ': ยืนยันการจับคู่โปรเจกต์ หรือเลือก "สร้างโปรเจกต์ใหม่"');
+    if (!p.project_id) {
+      if (!p.owner) problems.push(label + ': เลือก PM Owner');
+      if (!p.brand) problems.push(label + ': เลือก Brand');
+    }
   });
-}
-
-function addOwner() {
-  const input = document.getElementById('newOwnerInput');
-  const val = input.value.trim();
-  if (val && !state.owners.includes(val)) {
-    state.owners.push(val);
-    input.value = '';
-    renderOwnerList();
-    render();
-    showToast(`เพิ่มรายชื่อ PM: ${val} แล้ว`, 'success');
-  }
-}
-
-function removeOwner(name) {
-  if (state.owners.length <= 1) {
-    showToast('ต้องเหลือชื่อ PM รับผิดชอบอย่างน้อย 1 คนในระบบ', 'warn');
-    return;
-  }
-  state.owners = state.owners.filter(o => o !== name);
-  renderOwnerList();
-  render();
-  showToast('ลบชื่อออกจากรายการแล้ว', 'info');
-}
-
-function closeAssignmentModal() {
-  document.getElementById('assignmentWarningModal').classList.remove('active');
-}
-
-function resolveAndSync(autoAssign) {
-  closeAssignmentModal();
-  
-  if (autoAssign) {
-    state.tasks.forEach(proj => {
-      const subTasks = proj.sub_tasks || [];
-      subTasks.forEach(sub => {
-        if (sub.checked !== false && (sub.work_by === '-' || !sub.work_by)) {
-          sub.work_by = proj.owner || 'PM - อ้อ';
-        }
-      });
-    });
-    render(); 
-    showToast('มอบหมายงานย่อยที่ยังรอมอบหมายให้กับ PM Owner ประจำโครงการเรียบร้อยแล้ว', 'success');
-  }
-  
-  executeSync();
+  return problems;
 }
 
 async function showSuccess() {
@@ -1036,22 +807,11 @@ async function showSuccess() {
     showToast('ไม่มีรายการสรุปโปรเจกต์จะใช้จัดส่ง', 'warn');
     return;
   }
-
-  let hasUnassigned = false;
-  state.tasks.forEach(proj => {
-    const subTasks = proj.sub_tasks || [];
-    subTasks.forEach(sub => {
-      if (sub.checked !== false && (sub.work_by === '-' || !sub.work_by)) {
-        hasUnassigned = true;
-      }
-    });
-  });
-
-  if (hasUnassigned) {
-    document.getElementById('assignmentWarningModal').classList.add('active');
+  const problems = validateBeforeSync();
+  if (problems.length) {
+    alert('ยังส่งเข้า Notion ไม่ได้ — กรุณาแก้ก่อน:\n\n• ' + problems.join('\n• '));
     return;
   }
-
   executeSync();
 }
 
@@ -1061,133 +821,81 @@ async function showSuccess() {
 async function executeSync() {
   const syncBtn = document.getElementById('syncBtn');
   const backBtn = document.querySelector('#confirmActionBtns .btn-ghost');
-  
+
+  const payload = [];
+  state.tasks.forEach(proj => {
+    proj._projSyncId = proj._projSyncId || ('p_' + Math.random().toString(36).substr(2, 9));
+    const subs = [];
+    (proj.sub_tasks || []).forEach(sub => {
+      if (sub.checked === false) return;
+      sub._syncId = sub._syncId || ('t_' + Math.random().toString(36).substr(2, 9));
+      subs.push({
+        _syncId: sub._syncId,
+        notion_page_id: sub.notion_page_id || null,
+        name: sub.name || 'Untitled Subtask',
+        work_type: sub.work_type || 'General',
+        due_date: sub.due_date || '',
+        status: sub.status || 'Not started'
+      });
+    });
+    if (subs.length || !proj.project_id) {
+      payload.push({
+        _projSyncId: proj._projSyncId,
+        project_id: proj.project_id || '',
+        project_name: proj.project_name || 'Untitled Project',
+        brand: proj.brand || '',
+        owner: proj.owner || '',
+        serviceTypeId: proj.serviceTypeId || '',
+        contactIds: proj.contactIds || [],
+        scopeItemIds: proj.scopeItemIds || [],
+        deadline: proj.deadline || '',
+        lead_status: proj.lead_status || '-',
+        sub_tasks: subs
+      });
+    }
+  });
+
+  if (payload.length === 0) {
+    showToast('โปรดติ๊กเลือกรายการที่ต้องการส่ง', 'warn');
+    return;
+  }
+
   if (syncBtn) {
     syncBtn.disabled = true;
     syncBtn.innerHTML = '<div class="spinner" style="border-width:2px; border-color: rgba(255,255,255,0.4); border-top-color: #fff; margin-right:8px;"></div> กำลังบันทึก...';
   }
   if (backBtn) backBtn.style.display = 'none';
 
-  const nestedTasksToSync = [];
-  
-  state.tasks.forEach(proj => {
-    let pOwner = proj.owner || 'PM - อ้อ';
-    if (pOwner === '-' || pOwner === 'Unassigned' || !state.owners.includes(pOwner)) pOwner = state.owners[0] || 'PM - อ้อ';
-
-    const allowedLeadStatuses = ["Lead - Initial Brief", "Lead - Planning", "Lead - Awaiting Presentaion", "Lead - Presented", "Lead - Pending Decision", "Won", "Lost", "-"];
-    let pLead = proj.lead_status || 'Lead - Initial Brief';
-    if (!allowedLeadStatuses.includes(pLead)) pLead = 'Lead - Initial Brief';
-
-    let validSubTasks = [];
-    if (proj.sub_tasks && proj.sub_tasks.length > 0) {
-        proj.sub_tasks.forEach(sub => {
-            // 🟢 ส่งงานเฉพาะที่มีติ๊กถูก (ไม่ว่าจะเป็นงานใหม่ หรืองานเก่าที่โดนแก้)
-            if (sub.checked !== false) {
-                let mappedWorkType = sub.work_type || 'General';
-                if (mappedWorkType === 'Graphic Design') mappedWorkType = 'Graphic / Artwork';
-                if (mappedWorkType === 'Influencer') mappedWorkType = 'Influencer / KOL';
-
-                validSubTasks.push({
-                    _syncId: sub._syncId, 
-                    notion_page_id: sub.notion_page_id || null, // 🟢 ส่ง Notion ID ไปด้วยเพื่อให้ระบบรู้ว่าต้องอัปเดต
-                    name: sub.name || 'Untitled Subtask',
-                    work_by: (sub.work_by && sub.work_by !== '-') ? sub.work_by : pOwner,
-                    work_type: mappedWorkType,
-                    task_type: sub.task_type || 'Internal',
-                    due_date: sub.due_date || '',
-                    status: sub.status || 'Not started'
-                });
-            }
-        });
-    }
-
-    if (validSubTasks.length > 0 || (!proj.project_id && (!proj.sub_tasks || proj.sub_tasks.length === 0))) {
-        nestedTasksToSync.push({
-            _projSyncId: proj._projSyncId,
-            project_name: proj.project_name || 'Untitled Project',
-            project_id: proj.project_id || '',
-            brand: proj.brand || '-',
-            owner: pOwner,
-            start_date: proj.start_date || '',
-            deadline: proj.deadline || '',
-            lead_status: pLead,
-            tags: proj.tags || 'General',
-            sub_tasks: validSubTasks
-        });
-    }
-  });
-
-  if (nestedTasksToSync.length === 0) {
-    showToast('โปรดติ๊กเลือกรายการที่ต้องการซิงค์ หรืออัปเดต', 'warn');
-    if (syncBtn) { syncBtn.disabled = false; syncBtn.innerHTML = '✓ สร้าง / อัปเดต'; }
-    if (backBtn) backBtn.style.display = 'inline-flex';
-    return;
-  }
-
   try {
-    const result = await runGoogleScript('syncTasksToNotion', nestedTasksToSync);
+    const result = await runGoogleScript('meetingCreate', payload);
 
     if (result.updatedProjects) {
-        state.tasks.forEach(proj => {
-            if (result.updatedProjects[proj._projSyncId]) {
-                proj.project_id = result.updatedProjects[proj._projSyncId];
-                proj.match_status = "exact"; 
-            }
-        });
+      state.tasks.forEach(proj => {
+        if (result.updatedProjects[proj._projSyncId]) { proj.project_id = result.updatedProjects[proj._projSyncId]; proj.match_status = 'exact'; }
+      });
     }
-
-    // 🟢 เก็บ Notion Page ID ที่สร้างเสร็จกลับเข้า State
     if (result.taskIds) {
-        state.tasks.forEach(proj => {
-            if (proj.sub_tasks) {
-                proj.sub_tasks.forEach(sub => {
-                    if (result.taskIds[sub._syncId]) {
-                        sub.notion_page_id = result.taskIds[sub._syncId];
-                        sub.synced = true;  
-                        sub.checked = false; // เอาติ๊กถูกออก เพื่อไม่ให้ส่งซ้ำ
-                        sub.editing = false; 
-                    }
-                });
-            }
-        });
+      state.tasks.forEach(proj => (proj.sub_tasks || []).forEach(sub => {
+        if (result.taskIds[sub._syncId]) { sub.notion_page_id = result.taskIds[sub._syncId]; sub.synced = true; sub.checked = false; sub.editing = false; }
+      }));
     }
-    
-    render(); 
+    render();
 
-    const statusLine = document.getElementById('syncStatusLine');
+    if (result.warnings && result.warnings.length) showToast(result.warnings.join(' · '), 'warn');
 
-    if (result.errors && result.errors.length > 0) {
-        showToast(`มีข้อผิดพลาด ${result.errors.length} รายการ`, 'warn');
-        alert("⚠️ บันทึกไม่ผ่านบางรายการ เนื่องจาก Notion ปฏิเสธข้อมูล:\n\n" + result.errors.join("\n\n") + "\n\n💡 คำแนะนำ: โปรดเช็คชื่อตัวเลือกให้สะกดตรงกับใน Notion เป๊ะๆ");
-        
-        if (syncBtn) {
-            syncBtn.disabled = false; 
-            syncBtn.innerHTML = '🔄 ซิงค์รายการที่ค้างอีกครั้ง';
-            syncBtn.style.background = 'var(--warn)';
-        }
-        if (backBtn) backBtn.style.display = 'inline-flex';
-    } else {
-        document.getElementById('step2').className = 'step-pill done';
-        document.getElementById('step3').className = 'step-pill active';
-
-        if (syncBtn) {
-            syncBtn.disabled = false; // 🟢 ปลดล็อกปุ่มไว้ เผื่อจะอัปเดตอีก
-            syncBtn.innerHTML = '✓ ซิงค์ข้อมูลครบถ้วน';
-            syncBtn.style.background = 'var(--accent2)';
-        }
-        
-        document.getElementById('confirmSummary').innerHTML = `<span style="color:var(--accent2); font-size:13px;">✅ สร้าง/อัปเดต ${result.count} Tasks เรียบร้อย!</span>`;
-
-        if (statusLine) {
-            statusLine.style.background = 'rgba(16, 185, 129, 0.1)';
-            statusLine.style.borderColor = 'rgba(16, 185, 129, 0.3)';
-            statusLine.style.color = 'var(--accent2)';
-            statusLine.innerHTML = '✓ &nbsp;Sync เสร็จสิ้นเรียบร้อย — สามารถกดแก้ไขงานย่อยแล้วกดซิงค์เพื่ออัปเดตข้อมูลได้ตลอดเวลา';
-        }
-        
-        showToast(`สร้าง/อัปเดต Task เข้า Notion สำเร็จ ${result.count} รายการ!`, 'success');
+    if (!result.success || (result.errors && result.errors.length)) {
+      showToast(`มีข้อผิดพลาด ${(result.errors || []).length} รายการ`, 'warn');
+      alert('⚠️ ส่งเข้า Notion ไม่ครบ:\n\n' + (result.errors || []).join('\n\n') + '\n\nรายการที่ผ่านแล้วถูกติ๊กออกให้ กดส่งอีกครั้งเพื่อส่งเฉพาะที่ค้าง');
+      if (syncBtn) { syncBtn.disabled = false; syncBtn.innerHTML = '🔄 ส่งรายการที่ค้างอีกครั้ง'; syncBtn.style.background = 'var(--warn)'; }
+      if (backBtn) backBtn.style.display = 'inline-flex';
+      return;
     }
 
+    document.getElementById('step2').className = 'step-pill done';
+    document.getElementById('step3').className = 'step-pill active';
+    if (syncBtn) { syncBtn.disabled = false; syncBtn.innerHTML = '✓ ส่งครบแล้ว'; syncBtn.style.background = 'var(--accent2)'; }
+    document.getElementById('confirmSummary').innerHTML = `<span style="color:var(--accent2); font-size:13px;">✅ สร้าง/อัปเดต ${result.count} Tasks เรียบร้อย!</span>`;
+    showToast(`สร้าง/อัปเดต Task เข้า Notion สำเร็จ ${result.count} รายการ`, 'success');
   } catch (error) {
     console.error(error);
     showToast(`ระบบขัดข้อง: ${error.message}`, 'error');
@@ -1220,10 +928,57 @@ function toggleEditSubtask(projIdx, subIdx) {
   render();
 }
 
+function setProjField(i, field, value) { if (state.tasks[i]) state.tasks[i][field] = value; }
+
+async function onProjBrandChange(i, name) {
+  const p = state.tasks[i];
+  if (!p) return;
+  p.brand = name; p.contactIds = []; p.scopeItemIds = [];
+  const b = state.brands.find(x => x.name === name);
+  if (b && !state.brandOptions[b.id]) {
+    p._loadingBrand = true; render();
+    const r = await runGoogleScript('meetingBrandOptions', b.id);
+    p._loadingBrand = false;
+    state.brandOptions[b.id] = (r && r.ok) ? r : { contacts: [], scopeItems: [], error: (r && r.error) || 'โหลดไม่สำเร็จ' };
+  }
+  render();
+}
+
+function toggleProjList(i, field, id, checked) {
+  const p = state.tasks[i];
+  if (!p) return;
+  p[field] = p[field] || [];
+  const at = p[field].indexOf(id);
+  if (checked && at < 0) p[field].push(id);
+  if (!checked && at >= 0) p[field].splice(at, 1);
+}
+
+function newProjectFormHTML(proj, i) {
+  const b = state.brands.find(x => x.name === proj.brand);
+  const opts = b ? state.brandOptions[b.id] : null;
+  const sel = (list, cur, ph) => `<option value="">${ph}</option>` + list.map(o => `<option value="${esc(o.id || o)}" ${(o.id || o) === cur ? 'selected' : ''}>${esc(o.name || o)}</option>`).join('');
+  const brandSel = `<option value="">— เลือก Brand —</option>` + state.brands.map(x => `<option value="${esc(x.name)}" ${x.name === proj.brand ? 'selected' : ''}>${esc(x.name)}</option>`).join('');
+  const ownerSel = `<option value="">— เลือก PM —</option>` + state.owners.map(o => `<option value="${esc(o)}" ${o === proj.owner ? 'selected' : ''}>${esc(o)}</option>`).join('');
+  let contacts = '<div class="hint-tag">เลือก Brand ก่อน</div>', scopes = '<div class="hint-tag">เลือก Brand ก่อน</div>';
+  if (proj._loadingBrand) { contacts = scopes = '<div class="hint-tag">กำลังโหลด...</div>'; }
+  else if (opts) {
+    contacts = (opts.contacts || []).map(c => `<label><input type="checkbox" ${(proj.contactIds || []).includes(c.id) ? 'checked' : ''} onchange="toggleProjList(${i}, 'contactIds', '${esc(c.id)}', this.checked)"> ${esc(c.name)}</label>`).join('') || '<div class="hint-tag">ไม่มีผู้ติดต่อ</div>';
+    scopes = (opts.scopeItems || []).map(c => `<label><input type="checkbox" ${(proj.scopeItemIds || []).includes(c.id) ? 'checked' : ''} onchange="toggleProjList(${i}, 'scopeItemIds', '${esc(c.id)}', this.checked)"> ${esc(c.item)}${c.qtNo ? ' · ' + esc(c.qtNo) : ''}</label>`).join('') || '<div class="hint-tag">ไม่มี Scope Item ที่เปิดอยู่</div>';
+    if (opts.error) contacts = scopes = '<div class="hint-tag" style="color:var(--danger)">โหลดไม่สำเร็จ: ' + esc(opts.error) + '</div>';
+  }
+  return `
+    <div class="newproj-form">
+      <div><label>Brand *</label><select onchange="onProjBrandChange(${i}, this.value)">${brandSel}</select></div>
+      <div><label>PM Owner *</label><select onchange="setProjField(${i}, 'owner', this.value)">${ownerSel}</select></div>
+      <div><label>Service Type</label><select onchange="setProjField(${i}, 'serviceTypeId', this.value)">${sel(state.serviceTypes, proj.serviceTypeId, '— Content / Graphic (ค่าเริ่มต้น) —')}</select></div>
+      <div><label>ผู้ติดต่อ (Contacts)</label><div class="pick-list">${contacts}</div></div>
+      <div class="newproj-wide"><label>Scope Item (ใบเสนอราคา)</label><div class="pick-list">${scopes}</div></div>
+    </div>`;
+}
+
 function render() {
   const reviewBody = document.getElementById('reviewBody');
   reviewBody.innerHTML = '';
-  // ... (ส่วนต้นของ render เหมือนเดิม)
   let totalTasks = 0, matched = 0, uncertain = 0, sNew = 0;
   if (state.stats) {
     totalTasks = state.stats.tasks; matched = state.stats.matched; uncertain = state.stats.uncertain; sNew = state.stats.new;
@@ -1233,7 +988,6 @@ function render() {
     uncertain = state.tasks.filter(p => p.match_status === 'uncertain').length;
     sNew = state.tasks.filter(p => p.match_status === 'new').length;
   }
-
   document.getElementById('stat-total').textContent = totalTasks;
   document.getElementById('stat-matched').textContent = matched;
   document.getElementById('stat-uncertain').textContent = uncertain;
@@ -1245,24 +999,22 @@ function render() {
   }
 
   state.tasks.forEach((proj, projIdx) => {
-    let groupClass = "project-group"; let groupIcon = "📁"; let groupBadge = `<span class="badge green">exact match</span>`;
-
+    let groupClass = 'project-group', groupIcon = '📁', groupBadge = `<span class="badge green">exact match</span>`;
     if (proj.match_status === 'uncertain') {
-      groupClass = "project-group uncertain"; groupIcon = "⚠️"; groupBadge = `<span class="badge" style="border-color:var(--warn);color:var(--warn); background:#fffbeb;">uncertain</span>`;
+      groupClass = 'project-group uncertain'; groupIcon = '⚠️'; groupBadge = `<span class="badge" style="border-color:var(--warn);color:var(--warn); background:#fffbeb;">uncertain</span>`;
     } else if (proj.match_status === 'new') {
-      groupClass = "project-group new-project"; groupIcon = "✨"; groupBadge = `<span class="badge purple">new</span>`;
+      groupClass = 'project-group new-project'; groupIcon = '✨'; groupBadge = `<span class="badge purple">new</span>`;
     }
-
     const element = document.createElement('div');
     element.className = groupClass;
 
-    let headerHTML = `
+    const headerHTML = `
       <div class="project-bar">
         <div class="project-bar-left">
           <div class="project-icon ${proj.match_status === 'exact' ? 'existing' : proj.match_status === 'new' ? 'new' : 'uncertain'}">${groupIcon}</div>
           <div>
-            <div class="project-name">${proj.project_name}</div>
-            <div class="project-sub">BRAND: ${proj.brand || '-'} · PM: ${proj.owner || 'ไม่ระบุ'} · Status: ${proj.lead_status || 'Lead - Initial Brief'}</div>
+            <div class="project-name">${esc(proj.project_name)}</div>
+            <div class="project-sub">BRAND: ${esc(proj.brand || '-')} · PM: ${esc(proj.owner || 'ยังไม่เลือก')}${proj.deadline ? ' · Deadline: ' + esc(proj.deadline) : ''}</div>
           </div>
         </div>
         <div class="project-bar-right">
@@ -1275,12 +1027,11 @@ function render() {
             <button class="ctrl-btn" onclick="openDeleteModal('project', ${projIdx})" style="color:var(--danger); border-color:rgba(239,68,68,0.2);" title="ลบโปรเจกต์">&times;</button>
           </div>
         </div>
-      </div>
-    `;
+      </div>`;
 
     let uncertainHTML = '';
     if (proj.match_status === 'uncertain') {
-      let optionList = state.notionProjects.map(p => `<option value="${p.name}" data-id="${p.id}">${p.name}</option>`).join('');
+      const optionList = state.notionProjects.map(p => `<option value="${esc(p.name)}" data-id="${esc(p.id)}">${esc(p.name)}</option>`).join('');
       uncertainHTML = `
         <div class="uncertain-bar">
           <span>จับคู่โปรเจกต์กับ:</span>
@@ -1289,89 +1040,70 @@ function render() {
             ${optionList}
             <option value="NEW_PROJECT" data-id="">➕ สร้างโปรเจกต์ใหม่</option>
           </select>
-        </div>
-      `;
+        </div>`;
     }
 
-    // (ข้าม editFormHTML โครงสร้างยาวๆ เพื่อความกระชับ ให้ใช้โค้ด editFormHTML เดิมจากครั้งที่แล้ววางตรงนี้ได้เลย)
+    const newFormHTML = (!proj.project_id && proj.match_status === 'new') ? newProjectFormHTML(proj, projIdx) : '';
+
     let editFormHTML = '';
     if (state.isEditMode) {
-      let ownerOptions = state.owners.map(o => `<option value="${o}" ${proj.owner === o ? 'selected' : ''}>${o}</option>`).join('');
+      const ownerOptions = '<option value="">— เลือก PM —</option>' + state.owners.map(o => `<option value="${esc(o)}" ${proj.owner === o ? 'selected' : ''}>${esc(o)}</option>`).join('');
       editFormHTML = `
         <div class="project-meta-form">
-          <div class="meta-field"><label>ชื่อโปรเจกต์</label><input type="text" value="${proj.project_name}" oninput="updateProjectField(${projIdx}, 'project_name', this.value)"></div>
+          <div class="meta-field"><label>ชื่อโปรเจกต์</label><input type="text" value="${esc(proj.project_name)}" oninput="updateProjectField(${projIdx}, 'project_name', this.value)"></div>
           <div class="meta-field"><label>ผู้รับผิดชอบ (PM)</label><select onchange="updateProjectField(${projIdx}, 'owner', this.value)">${ownerOptions}</select></div>
-        </div>
-      `;
+        </div>`;
     }
 
     let subtasksHTML = '';
-    if (proj.sub_tasks && proj.sub_tasks.length > 0) {
-      proj.sub_tasks.forEach((sub, subIdx) => {
-        const statusClass = getStatusClass(sub.status);
-        let rowContent = '';
-        
-        // 🟢 ถ้าเข้าโหมดแก้
-        if (state.isEditMode || sub.editing) {
-          const allowedWorkByOptions = ["PM - อ้อ", "PM - ยู้", "Creative", "Copywriter", "Graphic Team", "Video Editor", "Ads Specialist", "CEO (Approval)", "Graphic Team & VDO Editor", "-"];
-          const allowedWorkTypeOptions = ["General", "Affiliate", "Influencer / KOL", "Project Management", "Ads / Performance", "Graphic / Artwork", "Content", "Video"];
-          let workBySelectOptions = allowedWorkByOptions.map(opt => `<option value="${opt}" ${sub.work_by === opt ? 'selected' : ''}>${opt}</option>`).join('');
-          let workTypeSelectOptions = allowedWorkTypeOptions.map(opt => `<option value="${opt}" ${sub.work_type === opt ? 'selected' : ''}>${opt}</option>`).join('');
-
-          rowContent = `
-            <input class="task-name-input editing" style="flex: 2;" value="${sub.name}" oninput="updateSubtaskField(${projIdx}, ${subIdx}, 'name', this.value)">
-            <select class="task-select" style="width: 110px;" onchange="updateSubtaskField(${projIdx}, ${subIdx}, 'work_by', this.value)">${workBySelectOptions}</select>
-            <select class="task-select" style="width: 100px;" onchange="updateSubtaskField(${projIdx}, ${subIdx}, 'work_type', this.value)">${workTypeSelectOptions}</select>
-            <input type="date" class="task-select" value="${sub.due_date || ''}" onchange="updateSubtaskField(${projIdx}, ${subIdx}, 'due_date', this.value)">
-            <select class="task-select" onchange="updateSubtaskField(${projIdx}, ${subIdx}, 'status', this.value)">
-              <option value="Not started" ${sub.status === 'Not started' || !sub.status ? 'selected' : ''}>Not started</option>
-              <option value="In progress" ${sub.status === 'In progress' ? 'selected' : ''}>In progress</option>
-              <option value="Done" ${sub.status === 'Done' ? 'selected' : ''}>Done</option>
-            </select>
-          `;
-        } else {
-          // โหมดแสดงผลปกติ เพิ่มการโชว์ป้ายเขียวเมื่ออัปเดต/ซิงค์แล้ว
-          let workByBadge = (sub.work_by === '-' || !sub.work_by) ? `<span class="tag" style="background:#fffbeb; color:#d97706; border:1px dashed #fcd34d;">⚠️ รอมอบหมาย</span>` : `<span class="tag tag-workby">${sub.work_by}</span>`;
-          let syncedBadge = sub.synced ? `<span class="tag" style="background:#ecfdf5; color:#059669; border:1px solid #a7f3d0; margin-left:8px;">✅ ซิงค์แล้ว</span>` : '';
-
-          rowContent = `
-            <div class="task-name">${sub.name} ${syncedBadge}</div>
-            ${workByBadge}
-            <span class="tag tag-worktype">${sub.work_type || 'General'}</span>
-            <span class="tag ${statusClass}">${sub.status || 'Not started'}</span>
-            <span class="due-date">${sub.due_date || '—'}</span>
-          `;
-        }
-
-        // 🟢 ปุ่มควบคุมแสดงให้เห็นตลอดเวลาแล้ว เพื่อให้กดแก้ได้
-        let actionBtns = `
-          <button class="ctrl-btn" onclick="moveSubTask(${projIdx}, ${subIdx}, -1)" ${subIdx === 0 ? 'disabled' : ''}>▲</button>
-          <button class="ctrl-btn" onclick="moveSubTask(${projIdx}, ${subIdx}, 1)" ${subIdx === proj.sub_tasks.length - 1 ? 'disabled' : ''}>▼</button>
-          <button class="ctrl-btn" onclick="toggleEditSubtask(${projIdx}, ${subIdx})" title="แก้ไขงานนี้" style="color: ${sub.editing ? 'var(--accent2)' : 'var(--accent)'}; border-color: ${sub.editing ? 'rgba(16,185,129,0.3)' : 'rgba(99,102,241,0.3)'}">${sub.editing ? '💾' : '✏️'}</button>
-          <button class="ctrl-btn" onclick="openDeleteModal('subtask', ${projIdx}, ${subIdx})" style="color:var(--danger); border-color:rgba(239,68,68,0.2);">&times;</button>
-          <div class="row-check ${sub.checked ? 'checked' : ''}" onclick="toggleCheck(${projIdx}, ${subIdx}, this)">${sub.checked ? '✓' : ''}</div>
-        `;
-
-        subtasksHTML += `<div class="task-row">${rowContent}<div style="display: flex; gap: 4px; align-items: center;">${actionBtns}</div></div>`;
-      });
-    }
+    (proj.sub_tasks || []).forEach((sub, subIdx) => {
+      const statusClass = getStatusClass(sub.status);
+      let rowContent = '';
+      if (state.isEditMode || sub.editing) {
+        const wtOptions = (state.workTypes.length ? state.workTypes : ['General']).map(opt => `<option value="${esc(opt)}" ${sub.work_type === opt ? 'selected' : ''}>${esc(opt)}</option>`).join('');
+        rowContent = `
+          <input class="task-name-input editing" style="flex: 2;" value="${esc(sub.name)}" oninput="updateSubtaskField(${projIdx}, ${subIdx}, 'name', this.value)">
+          <select class="task-select" style="width: 130px;" onchange="updateSubtaskField(${projIdx}, ${subIdx}, 'work_type', this.value)">${wtOptions}</select>
+          <input type="date" class="task-select" value="${esc(sub.due_date || '')}" onchange="updateSubtaskField(${projIdx}, ${subIdx}, 'due_date', this.value)">
+          <select class="task-select" onchange="updateSubtaskField(${projIdx}, ${subIdx}, 'status', this.value)">
+            <option value="Not started" ${sub.status === 'Not started' || !sub.status ? 'selected' : ''}>Not started</option>
+            <option value="In progress" ${sub.status === 'In progress' ? 'selected' : ''}>In progress</option>
+            <option value="Done" ${sub.status === 'Done' ? 'selected' : ''}>Done</option>
+          </select>`;
+      } else {
+        const syncedBadge = sub.synced ? `<span class="tag" style="background:#ecfdf5; color:#059669; border:1px solid #a7f3d0; margin-left:8px;">✅ ซิงค์แล้ว</span>` : '';
+        const hint = sub.owner_hint ? `<span class="hint-tag" title="ข้อมูลจากที่ประชุม (ไม่ได้ส่งเข้า Notion)">💬 ${esc(sub.owner_hint)}</span>` : '';
+        rowContent = `
+          <div class="task-name">${esc(sub.name)} ${syncedBadge}${hint}</div>
+          <span class="tag tag-worktype">${esc(sub.work_type || 'General')}</span>
+          <span class="tag ${statusClass}">${esc(sub.status || 'Not started')}</span>
+          <span class="due-date">${esc(sub.due_date || '—')}</span>`;
+      }
+      const actionBtns = `
+        <button class="ctrl-btn" onclick="moveSubTask(${projIdx}, ${subIdx}, -1)" ${subIdx === 0 ? 'disabled' : ''}>▲</button>
+        <button class="ctrl-btn" onclick="moveSubTask(${projIdx}, ${subIdx}, 1)" ${subIdx === proj.sub_tasks.length - 1 ? 'disabled' : ''}>▼</button>
+        <button class="ctrl-btn" onclick="toggleEditSubtask(${projIdx}, ${subIdx})" title="แก้ไขงานนี้" style="color: ${sub.editing ? 'var(--accent2)' : 'var(--accent)'};">${sub.editing ? '💾' : '✏️'}</button>
+        <button class="ctrl-btn" onclick="openDeleteModal('subtask', ${projIdx}, ${subIdx})" style="color:var(--danger); border-color:rgba(239,68,68,0.2);">&times;</button>
+        <div class="row-check ${sub.checked ? 'checked' : ''}" onclick="toggleCheck(${projIdx}, ${subIdx}, this)">${sub.checked ? '✓' : ''}</div>`;
+      subtasksHTML += `<div class="task-row">${rowContent}<div style="display: flex; gap: 4px; align-items: center;">${actionBtns}</div></div>`;
+    });
 
     element.innerHTML = `
       ${headerHTML}
       ${uncertainHTML}
+      ${newFormHTML}
       ${editFormHTML}
       <div style="padding: 10px 16px 4px; font-family:var(--mono); font-size:9px; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em; display:flex; justify-content:space-between; align-items:center;">
-        <span>งานย่อยทั้งหมด</span><button onclick="addNewSubtask(${projIdx})" style="background:transparent; border:none; color:var(--accent); font-family:var(--mono); cursor:pointer; font-weight:600;">+ เพิ่มงานย่อย</button>
+        <span>งานย่อยทั้งหมด <span class="hint-tag">Work By / Task Type / Financial Risk เติมอัตโนมัติตามประเภทงาน</span></span><button onclick="addNewSubtask(${projIdx})" style="background:transparent; border:none; color:var(--accent); font-family:var(--mono); cursor:pointer; font-weight:600;">+ เพิ่มงานย่อย</button>
       </div>
-      <div class="task-list">${subtasksHTML}</div>
-    `;
-
+      <div class="task-list">${subtasksHTML}</div>`;
     reviewBody.appendChild(element);
   });
-
   updateSummary();
 }
 
+
+initMeetingForm();
 </script>
 
 </body>
