@@ -19,8 +19,23 @@ function load(handler) {
     PropertiesService: { getScriptProperties: () => ({ getProperty: k => (props[k] !== undefined ? props[k] : null) }) },
     Utilities: {
       sleep() {}, base64Encode: b => Buffer.from(b).toString('base64'),
+      base64Decode: s => Array.from(Buffer.from(s, 'base64')),
+      newBlob: (bytes, mime, name) => ({ bytes, mime, name }),
       formatDate: () => '2026-11-17',
     },
+    DriveApp: (() => {
+      const mkFolder = name => {
+        const kids = {};
+        return { name, kids, files: [],
+          getFoldersByName: n => { const f = kids[n]; return { hasNext: () => !!f, next: () => f }; },
+          createFolder: n => (kids[n] = mkFolder(n)),
+          createFile(blob) { this.files.push(blob); return { getId: () => 'file-' + blob.name }; } };
+      };
+      const roots = {};
+      return { roots,
+        getFoldersByName: n => { const f = roots[n]; return { hasNext: () => !!f, next: () => f }; },
+        createFolder: n => (roots[n] = mkFolder(n)) };
+    })(),
     UrlFetchApp: {
       fetch(url, opts) {
         const body = opts && opts.payload && typeof opts.payload === 'string' ? JSON.parse(opts.payload) : undefined;
@@ -152,6 +167,32 @@ test('meetingGeminiGenerate_ refuses a truncated or blocked answer, returns a co
   assert.strictEqual(load(() => reply('STOP')).ctx.meetingGeminiGenerate_([{ text: 'x' }], {}, 'k'), 'ข้อความ');
   assert.throws(() => load(() => reply('MAX_TOKENS')).ctx.meetingGeminiGenerate_([{ text: 'x' }], {}, 'k'), /ถูกตัด/);
   assert.throws(() => load(() => reply('SAFETY')).ctx.meetingGeminiGenerate_([{ text: 'x' }], {}, 'k'), /SAFETY/);
+});
+
+test('meetingUploadFile saves supported files under "Meeting Agent Uploads/_dropped files" and returns the Drive id', () => {
+  const { ctx } = load(() => ({}));
+  const b64 = Buffer.from('hello').toString('base64');
+  const r = ctx.meetingUploadFile('note.png', 'image/png', b64);
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(r.id, 'file-note.png');
+  const folder = ctx.DriveApp.roots['Meeting Agent Uploads'].kids['_dropped files'];
+  assert.strictEqual(folder.files.length, 1);
+  assert.strictEqual(folder.files[0].name, 'note.png');
+  assert.strictEqual(ctx.meetingUploadFile('rec.m4a', 'audio/x-m4a', b64).ok, true);
+  assert.strictEqual(ctx.meetingUploadFile('b.pdf', '', b64).ok, false, 'pdf with no mime is not guessed');
+});
+
+test('meetingUploadFile refuses unsupported types, empty files, oversize files, and cleans the name', () => {
+  const { ctx } = load(() => ({}));
+  const b64 = Buffer.from('hello').toString('base64');
+  assert.ok(/ไม่รองรับ/.test(ctx.meetingUploadFile('x.exe', 'application/x-msdownload', b64).error));
+  assert.ok(/ไม่รองรับ/.test(ctx.meetingUploadFile('d', 'application/vnd.google-apps.document', b64).error));
+  assert.ok(/ว่างเปล่า/.test(ctx.meetingUploadFile('a.png', 'image/png', '').error));
+  const big = Buffer.alloc(9 * 1024 * 1024).toString('base64');
+  assert.ok(/ใหญ่เกิน 8 MB/.test(ctx.meetingUploadFile('big.png', 'image/png', big).error));
+  const r = ctx.meetingUploadFile('../../a:b?.png', 'image/png', b64);
+  assert.strictEqual(r.name, '.._.._a_b_.png');
+  assert.strictEqual(ctx.DriveApp.roots['Meeting Agent Uploads'].kids['_dropped files'].files.length, 1);
 });
 
 test('Index.html script has no "//" inside a string (Apps Script cuts the line there and the whole page script dies)', () => {
