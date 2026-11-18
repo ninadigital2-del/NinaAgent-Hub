@@ -64,6 +64,41 @@ const MEETING_TRANSCRIBE_PROMPT = {
   pdf: 'ดึงข้อความทั้งหมดจากเอกสารนี้ตามลำดับ ตารางให้เขียนเป็นข้อความทีละแถว ห้ามสรุป ห้ามเพิ่มข้อมูลที่ไม่มีในเอกสาร',
 };
 
+// Files dropped on the page travel to the server as base64 through google.script.run, which is
+// unreliable for big payloads (handoff section 6.4). Keep it small; bigger files go through Drive.
+const MEETING_MAX_DROP_BYTES = 8 * 1024 * 1024;
+const MEETING_DROP_FOLDER = '_dropped files';
+
+/**
+ * Saves one file dropped on the page into Drive ("Meeting Agent Uploads/_dropped files") and
+ * returns its id, which the page then feeds to meetingConvertDriveFile like any Drive file.
+ * Only the input types this agent can read are accepted, and only up to MEETING_MAX_DROP_BYTES.
+ * @return {{ok:boolean, id?:string, name?:string, error?:string}}
+ */
+function meetingUploadFile(name, mime, base64) {
+  try {
+    name = String(name || '').replace(/[\\/:*?"<>|]/g, '_').slice(0, 120);
+    if (!name) return { ok: false, error: 'ไฟล์ไม่มีชื่อ' };
+    const kind = meetingKindFromMime_(mime, name);
+    if (!kind || kind === 'gdoc') {
+      return { ok: false, name: name, error: 'ชนิดไฟล์นี้ไม่รองรับ (รองรับ เสียง · รูป · PDF · Word · .txt)' };
+    }
+    if (!base64) return { ok: false, name: name, error: 'ไฟล์ว่างเปล่า' };
+    const bytes = Utilities.base64Decode(String(base64));
+    if (bytes.length > MEETING_MAX_DROP_BYTES) {
+      return { ok: false, name: name, error: 'ไฟล์ใหญ่เกิน ' + Math.round(MEETING_MAX_DROP_BYTES / 1048576) + ' MB สำหรับการลากใส่ — อัปโหลดเข้า Drive แล้ววางลิงก์แทน' };
+    }
+    const roots = DriveApp.getFoldersByName(MEETING_UPLOAD_ROOT_FOLDER);
+    const root = roots.hasNext() ? roots.next() : DriveApp.createFolder(MEETING_UPLOAD_ROOT_FOLDER);
+    const subs = root.getFoldersByName(MEETING_DROP_FOLDER);
+    const folder = subs.hasNext() ? subs.next() : root.createFolder(MEETING_DROP_FOLDER);
+    const file = folder.createFile(Utilities.newBlob(bytes, String(mime || 'application/octet-stream'), name));
+    return { ok: true, id: file.getId(), name: name };
+  } catch (err) {
+    return { ok: false, error: 'บันทึกไฟล์ลง Drive ไม่สำเร็จ: ' + String(err && err.message || err) };
+  }
+}
+
 /**
  * Server entry the page calls once per source file.
  * @return {{ok:boolean, name?:string, kind?:string, label?:string, text?:string, error?:string}}

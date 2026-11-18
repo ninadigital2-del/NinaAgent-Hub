@@ -227,6 +227,8 @@
   .src-date { display:flex; align-items:center; gap:6px; font-size:11px; color:var(--muted); font-family:var(--mono); }
   .src-add { display:flex; gap:8px; margin-bottom:6px; }
   .src-add input { flex:1; min-width:0; }
+  .drop-zone { border:2px dashed var(--border); border-radius:8px; padding:12px; text-align:center; font-size:12px; color:var(--muted); cursor:pointer; margin-bottom:6px; background:#fff; }
+  .drop-zone.over { border-color:#4f46e5; background:#eef2ff; color:var(--text); }
   .src-hint { font-size:10px; color:var(--muted); line-height:1.5; margin-bottom:8px; }
   .src-list { display:flex; flex-direction:column; gap:6px; margin-bottom:8px; }
   .src-card { display:flex; align-items:center; gap:8px; border:1px solid var(--border); border-radius:8px; padding:6px 10px; background:var(--surface2); font-size:12px; }
@@ -282,7 +284,11 @@
         <input id="srcDriveRef" type="text" placeholder="วางลิงก์ / ID ไฟล์จาก Google Drive แล้วกด + เพิ่มไฟล์" onkeydown="if(event.key==='Enter'){addDriveSource();}">
         <button class="btn btn-ghost" onclick="addDriveSource()">+ เพิ่มไฟล์</button>
       </div>
-      <div class="src-hint">รองรับ เสียงประชุม · รูปโน้ต/ลายมือ · PDF · Word · Google Doc · .txt (แชท LINE) &nbsp;|&nbsp; ไฟล์ต้องอยู่ใน Drive และบัญชีเจ้าของระบบเปิดได้ · ไฟล์ไม่เกิน ~48MB</div>
+      <div id="dropZone" class="drop-zone" onclick="document.getElementById('fileInput').click()">
+        📎 ลากไฟล์มาวางที่นี่ หรือกดเพื่อเลือกไฟล์ (หลายไฟล์ได้) · ไฟล์ไม่เกิน 8MB
+        <input id="fileInput" type="file" multiple hidden accept="audio/*,image/*,.pdf,.docx,.txt,.m4a,.mp3,.wav" onclick="event.stopPropagation();" onchange="handleFiles(this.files); this.value='';">
+      </div>
+      <div class="src-hint">รองรับ เสียงประชุม · รูปโน้ต/ลายมือ · PDF · Word · Google Doc · .txt (แชท LINE) &nbsp;|&nbsp; ไฟล์ใหญ่กว่า 8MB (เช่น เสียง 1 ชม.) ให้อัปโหลดเข้า Drive แล้ววางลิงก์ด้านบน · บัญชีเจ้าของระบบต้องเปิดไฟล์นั้นได้ · ไม่เกิน ~48MB</div>
       <div id="srcList" class="src-list"></div>
       <textarea id="notesInput" placeholder="ข้อความรวมจากทุกแหล่ง — ตรวจและแก้ไขได้ก่อนกดวิเคราะห์
 
@@ -443,16 +449,75 @@ function addDriveSource() {
   input.value = '';
   convertSource(src);
 }
-function retrySource(id) { const src = state.sources.find(x => x.id === id); if (src) convertSource(src); }
+function retrySource(id) {
+  const src = state.sources.find(x => x.id === id);
+  if (!src) return;
+  if (src.file) ingestLocalFile(src); else convertSource(src);
+}
 function removeSource(id) { state.sources = state.sources.filter(x => x.id !== id); renderSources(); }
+
+// ---------- dropped / picked local files ----------
+// .txt is read right in the browser. Anything else (up to DROP_MAX_BYTES) is sent to the server,
+// saved into Drive, and then converted exactly like a pasted Drive link.
+const DROP_MAX_BYTES = 8 * 1024 * 1024;
+function appendSourceText(label, name, text) {
+  const ta = document.getElementById('notesInput');
+  ta.value = (ta.value.trim() ? ta.value.replace(/\s+$/, '') + '\n\n' : '') + '=== ' + label + ' · ' + name + ' ===\n' + text + '\n';
+}
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onload = () => resolve(String(fr.result).split(',')[1] || '');
+    fr.onerror = () => reject(new Error('อ่านไฟล์ในเครื่องไม่สำเร็จ'));
+    fr.readAsDataURL(file);
+  });
+}
+function handleFiles(fileList) {
+  Array.from(fileList || []).forEach(file => {
+    const src = { id: ++srcSeq, ref: '', name: file.name, file: file, status: 'working' };
+    state.sources.push(src);
+    ingestLocalFile(src);
+  });
+}
+async function ingestLocalFile(src) {
+  src.status = 'working'; src.error = ''; renderSources();
+  const file = src.file;
+  try {
+    if (file.size > DROP_MAX_BYTES) throw new Error('ไฟล์ใหญ่เกิน 8 MB — อัปโหลดเข้า Drive แล้ววางลิงก์ด้านบนแทน');
+    if (/\.txt$/i.test(file.name) || file.type === 'text/plain') {
+      const text = await file.text();
+      if (!text.trim()) throw new Error('ไฟล์ว่างเปล่า');
+      src.label = '💬 ข้อความ / แชท'; src.chars = text.length; src.status = 'done';
+      appendSourceText(src.label, file.name, text);
+    } else {
+      if (!src.ref) {
+        const up = await runGoogleScript('meetingUploadFile', file.name, file.type || '', await fileToBase64(file));
+        if (!up || !up.ok) throw new Error((up && up.error) || 'อัปโหลดไม่สำเร็จ');
+        src.ref = up.id;
+      }
+      await convertSource(src);
+      return;
+    }
+  } catch (e) {
+    src.status = 'error'; src.error = e.message || String(e);
+  }
+  renderSources();
+}
+(function setupDropZone() {
+  const z = document.getElementById('dropZone');
+  if (!z) return;
+  ['dragenter', 'dragover'].forEach(ev => z.addEventListener(ev, e => { e.preventDefault(); z.classList.add('over'); }));
+  ['dragleave', 'drop'].forEach(ev => z.addEventListener(ev, e => { e.preventDefault(); z.classList.remove('over'); }));
+  z.addEventListener('drop', e => handleFiles(e.dataTransfer && e.dataTransfer.files));
+})();
+
 async function convertSource(src) {
   src.status = 'working'; src.error = ''; renderSources();
   try {
     const r = await runGoogleScript('meetingConvertDriveFile', src.ref);
     if (!r || !r.ok) throw new Error((r && r.error) || 'แปลงไม่สำเร็จ');
     src.name = r.name; src.label = r.label; src.chars = r.text.length; src.status = 'done';
-    const ta = document.getElementById('notesInput');
-    ta.value = (ta.value.trim() ? ta.value.replace(/\s+$/, '') + '\n\n' : '') + '=== ' + r.label + ' · ' + r.name + ' ===\n' + r.text + '\n';
+    appendSourceText(r.label, r.name, r.text);
   } catch (e) {
     src.status = 'error'; src.error = e.message || String(e);
   }
@@ -1140,6 +1205,13 @@ function render() {
 
   const handlers = {
     meetingBootstrap: () => delay(BOOT, 300),
+    meetingUploadFile: (name, mime, b64) => {
+      if (!b64) return delay({ ok: false, name: name, error: 'ไฟล์ว่างเปล่า' }, 200);
+      // mock: pick a canned file by the dropped file's name, e.g. a file called "mock-pdf.pdf"
+      const key = Object.keys(FILES).find(k => String(name).includes(k));
+      if (!key) return delay({ ok: false, name: name, error: 'ชนิดไฟล์นี้ไม่รองรับ (mock รับไฟล์ที่ชื่อมี: ' + Object.keys(FILES).join(', ') + ')' }, 300);
+      return delay({ ok: true, id: key + '-uploaded', name: name }, 400);
+    },
     meetingConvertDriveFile: ref => {
       const key = Object.keys(FILES).find(k => String(ref).includes(k));
       if (String(ref).includes('mock-huge')) return delay({ ok: false, name: 'ประชุมยาว.m4a', error: 'ไฟล์ใหญ่เกิน 48 MB — กรุณาตัดหรือบีบอัดไฟล์ก่อน' }, 500);
