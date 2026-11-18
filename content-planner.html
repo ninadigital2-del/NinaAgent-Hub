@@ -202,7 +202,7 @@ body[data-client-theme] .cp-theme-bar {
 body[data-client-theme] #cp-theme-dashboard-link { color: var(--cp-accent) !important; }
 
 .fu-panel{position:sticky;bottom:0;z-index:30}
-@media (min-width:1024px){.fu-panel{bottom:auto}}
+@media (min-width:1024px){.fu-panel{position:relative;bottom:auto}}
 .fu-pill-us{background:#eef2ff;color:#4338ca}.fu-pill-client{background:#fff7ed;color:#c2410c}
 /* Today highlight in the calendar: a brand-colored 2px frame instead of the
    default indigo background wash, so it stays legible against any brand's
@@ -315,8 +315,6 @@ body[data-client-theme] .day-num.today-badge {
 
   <!-- ============ CALENDAR VIEW ============ -->
   <div id="view-calendar" class="hidden">
-   <div class="lg:flex lg:gap-4 lg:items-start">
-    <div class="flex-1 min-w-0">
     <div class="flex items-center justify-between mb-1">
       <button onclick="shiftMonth(-1)" class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-sm"><i class="fa-solid fa-chevron-left"></i></button>
       <div class="font-semibold" id="cal-title"></div>
@@ -328,20 +326,25 @@ body[data-client-theme] .day-num.today-badge {
       </div>
     </div>
     <div id="cal-hint" class="text-xs text-slate-400 mb-3"><i class="fa-solid fa-hand"></i> ลากการ์ดไปวางวันที่ต้องการเพื่อเลื่อนกำหนดโพสต์ — บนมือถือแตะที่จุดสีเพื่อดูรายละเอียด</div>
+   <!-- Month header above spans full width; the follow-up panel starts at the weekday row and stretches to the calendar's height -->
+   <div class="lg:flex lg:gap-4 lg:items-stretch">
+    <div class="flex-1 min-w-0">
     <div class="grid grid-cols-7">
       <div class="cal-weekday weekend">อา</div><div class="cal-weekday">จ</div><div class="cal-weekday">อ</div><div class="cal-weekday">พ</div><div class="cal-weekday">พฤ</div><div class="cal-weekday">ศ</div><div class="cal-weekday weekend">ส</div>
     </div>
     <div id="cal-body" class="grid grid-cols-7 gap-1 md:gap-2"></div>
     </div>
     <!-- Follow-up (งานค้าง): side panel on desktop, sticky collapsible bar on mobile -->
-    <aside id="fu-panel" class="fu-panel lg:w-80 lg:shrink-0 lg:sticky lg:top-2 bg-white border border-slate-200 rounded-t-2xl lg:rounded-2xl shadow-lg lg:shadow-none">
+    <aside id="fu-panel" class="fu-panel lg:w-80 lg:shrink-0 bg-white border border-slate-200 rounded-t-2xl lg:rounded-2xl shadow-lg lg:shadow-none">
+     <div class="lg:absolute lg:inset-0 lg:flex lg:flex-col">
       <div class="flex items-center gap-2 px-4 py-3 cursor-pointer lg:cursor-default" onclick="toggleFollowUpPanel()">
         <span class="font-semibold text-sm">📌 งานค้าง</span>
         <span id="fu-badge" class="text-xs bg-indigo-600 text-white rounded-full px-2 py-0.5">0</span>
         <button id="fu-add-btn" onclick="event.stopPropagation();openCreateFollowUp()" class="ml-auto text-xs px-2.5 py-1 rounded-lg bg-indigo-600 text-white">+ เพิ่ม</button>
         <i id="fu-chevron" class="fa-solid fa-chevron-up text-slate-400 lg:hidden"></i>
       </div>
-      <div id="fu-body" class="hidden lg:block px-4 pb-4 max-h-[50vh] lg:max-h-[70vh] overflow-y-auto"></div>
+      <div id="fu-body" class="hidden lg:block lg:flex-1 lg:min-h-0 px-4 pb-4 max-h-[50vh] lg:max-h-none overflow-y-auto"></div>
+     </div>
     </aside>
    </div>
   </div>
