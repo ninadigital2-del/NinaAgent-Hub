@@ -283,7 +283,6 @@
       <div class="src-add">
         <input id="srcDriveRef" type="text" placeholder="วางลิงก์ / ID ไฟล์จาก Google Drive แล้วกด + เพิ่มไฟล์" onkeydown="if(event.key==='Enter'){addDriveSource();}">
         <button class="btn btn-ghost" onclick="addDriveSource()">+ เพิ่มไฟล์</button>
-        <button class="btn btn-ghost" onclick="openDrivePicker()">📂 เลือกจาก Drive</button>
       </div>
       <div id="dropZone" class="drop-zone" onclick="document.getElementById('fileInput').click()">
         📎 ลากไฟล์มาวางที่นี่ หรือกดเพื่อเลือกไฟล์ (หลายไฟล์ได้) · ไฟล์ไม่เกิน 8MB
@@ -503,46 +502,6 @@ async function ingestLocalFile(src) {
     src.status = 'error'; src.error = e.message || String(e);
   }
   renderSources();
-}
-let pickerReady = null;
-function loadPickerLib() {
-  if (pickerReady) return pickerReady;
-  pickerReady = new Promise((resolve, reject) => {
-    const s = document.createElement('script');
-    s.src = 'https:\/\/apis.google.com\/js\/api.js';
-    s.onerror = () => { pickerReady = null; reject(new Error('โหลด Google Picker ไม่สำเร็จ')); };
-    s.onload = () => gapi.load('picker', { callback: resolve, onerror: () => { pickerReady = null; reject(new Error('โหลด Google Picker ไม่สำเร็จ')); } });
-    document.head.appendChild(s);
-  });
-  return pickerReady;
-}
-async function openDrivePicker() {
-  try {
-    const cfg = await runGoogleScript('meetingPickerConfig');
-    if (!cfg || !cfg.ok) throw new Error((cfg && cfg.error) || 'เปิด Picker ไม่สำเร็จ');
-    await loadPickerLib();
-    const view = new google.picker.DocsView().setIncludeFolders(true).setSelectFolderEnabled(false);
-    new google.picker.PickerBuilder()
-      .addView(view)
-      .addView(new google.picker.DocsView().setEnableDrives(true).setIncludeFolders(true).setSelectFolderEnabled(false))
-      .enableFeature(google.picker.Feature.MULTISELECT_ENABLED)
-      .enableFeature(google.picker.Feature.SUPPORT_DRIVES)
-      .setOAuthToken(cfg.token)
-      .setDeveloperKey(cfg.key)
-      .setOrigin(google.script.host.origin)
-      .setCallback(data => {
-        if (data[google.picker.Response.ACTION] !== google.picker.Action.PICKED) return;
-        (data[google.picker.Response.DOCUMENTS] || []).forEach(doc => addPickedSource(doc[google.picker.Document.ID], doc[google.picker.Document.NAME]));
-      })
-      .build().setVisible(true);
-  } catch (e) {
-    showToast(e.message || String(e), 'error');
-  }
-}
-function addPickedSource(id, name) {
-  const src = { id: ++srcSeq, ref: id, name: name || id, status: 'working' };
-  state.sources.push(src);
-  convertSource(src);
 }
 (function setupDropZone() {
   const z = document.getElementById('dropZone');
@@ -1253,7 +1212,6 @@ function render() {
       if (!key) return delay({ ok: false, name: name, error: 'ชนิดไฟล์นี้ไม่รองรับ (mock รับไฟล์ที่ชื่อมี: ' + Object.keys(FILES).join(', ') + ')' }, 300);
       return delay({ ok: true, id: key + '-uploaded', name: name }, 400);
     },
-    meetingPickerConfig: () => delay({ ok: false, error: '(mock) Picker ใช้ได้เฉพาะบนเว็บแอปจริงที่ login แล้ว' }, 200),
     meetingConvertDriveFile: ref => {
       const key = Object.keys(FILES).find(k => String(ref).includes(k));
       if (String(ref).includes('mock-huge')) return delay({ ok: false, name: 'ประชุมยาว.m4a', error: 'ไฟล์ใหญ่เกิน 48 MB — กรุณาตัดหรือบีบอัดไฟล์ก่อน' }, 500);

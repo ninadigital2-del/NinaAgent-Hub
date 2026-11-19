@@ -14,7 +14,6 @@ function test(name, fn) {
 function load(handler) {
   const calls = [];
   const props = { NOTION_API_KEY: 'nk', GEMINI_API_KEY: 'gk' };
-  const setProp = (k, v) => { props[k] = v; };
   const ctx = {
     console, Logger: { log() {} },
     PropertiesService: { getScriptProperties: () => ({ getProperty: k => (props[k] !== undefined ? props[k] : null) }) },
@@ -50,7 +49,7 @@ function load(handler) {
   ['CapacityStandards.js', 'MeetingInputs.js', 'MeetingAnalyze.js', 'Code.js'].forEach(f => {
     vm.runInContext(fs.readFileSync(path.join(__dirname, '..', f), 'utf8'), ctx, { filename: f });
   });
-  return { ctx, calls, setProp };
+  return { ctx, calls };
 }
 
 const PROJECTS = [{ id: 'p-1', name: 'AIS - Q4 Campaign' }, { id: 'p-2', name: 'BPS - Website' }];
@@ -194,27 +193,6 @@ test('meetingUploadFile refuses unsupported types, empty files, oversize files, 
   const r = ctx.meetingUploadFile('../../a:b?.png', 'image/png', b64);
   assert.strictEqual(r.name, '.._.._a_b_.png');
   assert.strictEqual(ctx.DriveApp.roots['Meeting Agent Uploads'].kids['_dropped files'].files.length, 1);
-});
-
-test('meetingPickerConfig hands out the token only when the app runs as the visitor, and needs PICKER_API_KEY', () => {
-  const { ctx, setProp } = load(() => ({}));
-  ctx.ScriptApp = { getOAuthToken: () => 'tok' };
-  // USER_DEPLOYING + anonymous visitor: active user empty -> must refuse (token would be the owner's)
-  ctx.Session = { getActiveUser: () => ({ getEmail: () => '' }), getEffectiveUser: () => ({ getEmail: () => 'owner@x.com' }) };
-  let r = ctx.meetingPickerConfig();
-  assert.strictEqual(r.ok, false);
-  assert.ok(!('token' in r), 'no token leaked');
-  // visitor differs from owner -> refuse
-  ctx.Session = { getActiveUser: () => ({ getEmail: () => 'pm@x.com' }), getEffectiveUser: () => ({ getEmail: () => 'owner@x.com' }) };
-  assert.strictEqual(ctx.meetingPickerConfig().ok, false);
-  // USER_ACCESSING but no key
-  ctx.Session = { getActiveUser: () => ({ getEmail: () => 'pm@x.com' }), getEffectiveUser: () => ({ getEmail: () => 'pm@x.com' }) };
-  r = ctx.meetingPickerConfig();
-  assert.strictEqual(r.ok, false);
-  assert.ok(/PICKER_API_KEY/.test(r.error));
-  setProp('PICKER_API_KEY', ' key1 ');
-  r = ctx.meetingPickerConfig();
-  assert.deepStrictEqual([r.ok, r.token, r.key], [true, 'tok', 'key1']);
 });
 
 test('Index.html script has no "//" inside a string (Apps Script cuts the line there and the whole page script dies)', () => {

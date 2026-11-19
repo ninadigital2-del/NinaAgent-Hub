@@ -100,28 +100,6 @@ function meetingUploadFile(name, mime, base64) {
 }
 
 /**
- * Config for the Google Drive Picker on the page: the visitor's own OAuth token plus the
- * developer key from Script Properties (PICKER_API_KEY).
- * Refuses unless the web app runs AS the visitor (executeAs USER_ACCESSING). Under USER_DEPLOYING
- * the token belongs to the owner, and handing it to the page would expose the owner's whole Drive.
- * @return {{ok:boolean, token?:string, key?:string, origin?:string, error?:string}}
- */
-function meetingPickerConfig() {
-  try {
-    const active = Session.getActiveUser().getEmail();
-    const effective = Session.getEffectiveUser().getEmail();
-    if (!active || active !== effective) {
-      return { ok: false, error: 'เปิด Picker ไม่ได้: เว็บแอปยังไม่ได้ตั้งให้รันด้วยสิทธิ์ของผู้ใช้ที่ login (USER_ACCESSING)' };
-    }
-    const key = PropertiesService.getScriptProperties().getProperty('PICKER_API_KEY');
-    if (!key || !key.trim()) return { ok: false, error: 'ยังไม่ได้ตั้งค่า PICKER_API_KEY ใน Script Properties' };
-    return { ok: true, token: ScriptApp.getOAuthToken(), key: key.trim() };
-  } catch (err) {
-    return { ok: false, error: String(err && err.message || err) };
-  }
-}
-
-/**
  * Server entry the page calls once per source file.
  * @return {{ok:boolean, name?:string, kind?:string, label?:string, text?:string, error?:string}}
  */
