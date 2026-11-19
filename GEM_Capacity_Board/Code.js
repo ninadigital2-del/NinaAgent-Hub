@@ -1843,18 +1843,28 @@ function sheetDayName_(dateStr) {
   return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][m ? d.getUTCDay() : d.getDay()];
 }
 
-// ประเภทงานในชีทของ Graphic ใช้ dropdown ของทีม Graphic เอง (New AW, Edit AW, ...)
-// ไม่ใช่ Work Type ของ Notion — แปลงก่อนเขียน ค่าที่เป็นของชีทอยู่แล้วส่งผ่านตามเดิม
-// ประเภทที่ไม่มีคู่ในชีทเว้นว่างให้ Graphic เลือกเอง (กันขึ้น Invalid)
-const SHEET_WORK_TYPES = ['Adapt', 'New AW', 'New VDO', 'New Retouch', 'Edit AW', 'Edit VDO', 'Edit Retouch',
-  'Art Direction', 'Meeting', 'Brief Guideline', 'LIVE Setup', 'LIVE', 'TRIP', 'NEW PROJECT', 'AI', 'Character Design'];
-const NOTION_TO_SHEET_WORK_TYPE = { 'Content': 'New AW', 'Graphic / Artwork': 'New AW', 'Video': 'New VDO' };
+// ประเภทงานในชีทของ Graphic ใช้ dropdown ของทีม Graphic เอง (New AW, Edit AW, ...
+// แต่ละคนมีตัวเลือกเพิ่มต่างกัน เช่น Drawing, 3D) ไม่ใช่ Work Type ของ Notion
+// แปลงเฉพาะค่าที่เป็น Work Type ของ Notion; ค่าอื่น (มาจากชีทอยู่แล้ว เช่น ตอนย้ายงาน)
+// ส่งผ่านตามเดิม. Work Type ที่ไม่มีคู่ในชีทเว้นว่างให้ Graphic เลือกเอง (กันขึ้น Invalid)
+// ทุกชีทมี New AW และ New VDO (เช็คแล้วทั้ง 7 คน)
+const NOTION_TO_SHEET_WORK_TYPE = {
+  'Content': 'New AW',
+  'Graphic / Artwork': 'New AW',
+  'Video': 'New VDO',
+  'Ads / Performance': '',
+  'Affiliate': '',
+  'General': '',
+  'Influencer / KOL': '',
+  'Operation': '',
+  'Project Management': ''
+};
 
 function toSheetWorkType_(workType) {
   const first = String(workType || '').split(',')[0].trim();
   if (!first) return '';
-  if (SHEET_WORK_TYPES.indexOf(first) >= 0) return first;
-  return NOTION_TO_SHEET_WORK_TYPE[first] || '';
+  if (Object.prototype.hasOwnProperty.call(NOTION_TO_SHEET_WORK_TYPE, first)) return NOTION_TO_SHEET_WORK_TYPE[first];
+  return String(workType).trim();
 }
 
 function writeToPersonSheet(assignee, task) {
