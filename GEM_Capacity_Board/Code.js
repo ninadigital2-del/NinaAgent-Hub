@@ -596,8 +596,7 @@ function handleEditTask(body) {
       dueFormatted = Utilities.formatDate(new Date(dueDate), 'Asia/Bangkok', 'dMMMyy');
     }
     
-    const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-    const dayStr = dueDate ? dayNames[new Date(dueDate).getDay()] : '';
+    const dayStr = sheetDayName_(dueDate);
     
     if (body.status) {
       let sheetStatus = body.status;
@@ -607,7 +606,7 @@ function handleEditTask(body) {
     
     sheet.getRange(actualRow, 4).setValue(dayStr);
     sheet.getRange(actualRow, 5).setValue(dueFormatted);
-    sheet.getRange(actualRow, 8).setValue(workType || '');
+    sheet.getRange(actualRow, 8).setValue(toSheetWorkType_(workType));
     sheet.getRange(actualRow, 11).setValue(brand || '');
     sheet.getRange(actualRow, 12).setValue(taskName || '');
     
@@ -1291,7 +1290,8 @@ function handleCreateTask(body) {
       dueDate: body.dueDate || '',
       brand: body.newProjectBrand || '',
       workType: body.workType || '',
-      owner: '',
+      // เจ้าของงานในชีท = PM ของ Project (เหมือนตอน Assign จากบอร์ด)
+      owner: body.newProjectName ? (body.newProjectOwner || '') : (projectId ? getProjectBrandAndOwner_(projectId, key).owner : ''),
       jobNumber: '',
       briefLink: briefLink
     });
@@ -1832,6 +1832,31 @@ function setSheetBriefLink_(range, link) {
   range.setRichTextValue(richText);
 }
 
+// ชื่อวัน (Sun..Sat) ของวันที่ YYYY-MM-DD ตามปฏิทินไทย
+// โปรเจกต์ตั้ง timeZone เป็น America/New_York ถ้าใช้ new Date(dueDate).getDay()
+// วันจะถอยไป 1 วัน (เช่น พฤหัสกลายเป็นพุธ) จึงคำนวณจากวันที่ตรงๆ แทน
+function sheetDayName_(dateStr) {
+  if (!dateStr) return '';
+  const m = String(dateStr).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  const d = m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])) : new Date(dateStr);
+  if (isNaN(d.getTime())) return '';
+  return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][m ? d.getUTCDay() : d.getDay()];
+}
+
+// ประเภทงานในชีทของ Graphic ใช้ dropdown ของทีม Graphic เอง (New AW, Edit AW, ...)
+// ไม่ใช่ Work Type ของ Notion — แปลงก่อนเขียน ค่าที่เป็นของชีทอยู่แล้วส่งผ่านตามเดิม
+// ประเภทที่ไม่มีคู่ในชีทเว้นว่างให้ Graphic เลือกเอง (กันขึ้น Invalid)
+const SHEET_WORK_TYPES = ['Adapt', 'New AW', 'New VDO', 'New Retouch', 'Edit AW', 'Edit VDO', 'Edit Retouch',
+  'Art Direction', 'Meeting', 'Brief Guideline', 'LIVE Setup', 'LIVE', 'TRIP', 'NEW PROJECT', 'AI', 'Character Design'];
+const NOTION_TO_SHEET_WORK_TYPE = { 'Content': 'New AW', 'Graphic / Artwork': 'New AW', 'Video': 'New VDO' };
+
+function toSheetWorkType_(workType) {
+  const first = String(workType || '').split(',')[0].trim();
+  if (!first) return '';
+  if (SHEET_WORK_TYPES.indexOf(first) >= 0) return first;
+  return NOTION_TO_SHEET_WORK_TYPE[first] || '';
+}
+
 function writeToPersonSheet(assignee, task) {
   const sheetId = SHEET_IDS[assignee];
   if (!sheetId) return { ok: false, error: `ไม่พบ Sheet ของ ${assignee}` };
@@ -1919,11 +1944,8 @@ function writeToPersonSheet(assignee, task) {
       }
     }
 
-    // Day of week
-    const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-    const dayStr = task.dueDate
-      ? dayNames[new Date(task.dueDate).getDay()]
-      : '';
+    // Day of week (ตามปฏิทินไทย)
+    const dayStr = sheetDayName_(task.dueDate);
 
     // ดึงแค่ค่าปัจจุบันของ Time เพื่อเอามาเซ็ต Default ถ้ามันว่าง
     const existingTime = sheet.getRange(targetRow, 7).getValue();
@@ -1933,7 +1955,7 @@ function writeToPersonSheet(assignee, task) {
     sheet.getRange(targetRow, 5).setValue(dueFormatted);                 // วันที่ส่งงาน (E)
     sheet.getRange(targetRow, 6).setValue(task.jobNumber || '');         // No (F)
     sheet.getRange(targetRow, 7).setValue(existingTime || '09.00 - 18.00'); // ช่วงเวลา (G)
-    sheet.getRange(targetRow, 8).setValue(task.workType || '');          // ประเภทงาน (H)
+    sheet.getRange(targetRow, 8).setValue(toSheetWorkType_(task.workType)); // ประเภทงาน (H)
     sheet.getRange(targetRow, 10).setValue(task.jobNumber || '');        // Job No. (J)
     sheet.getRange(targetRow, 11).setValue(task.brand || '');            // แบรนด์ (K)
     sheet.getRange(targetRow, 12).setValue(task.taskName || '');         // ชื่อชิ้นงาน (L)
@@ -4051,7 +4073,7 @@ function confirmAssign() {
     .handleAssign({
       action: 'assign', taskId: task.id, taskName: task.name, taskUrl: task.url,
       assignee: assignee, dueDate: finalDueDate, brand: task.brandCode,
-      workType: task.workType, owner: task.workBy, jobNumber: task.jobNumber, briefLink: linkResult.value,
+      workType: task.workType, owner: task.ownerForGrouping || '', jobNumber: task.jobNumber, briefLink: linkResult.value,
       originalDueDate: task.dueDate
     });
 }
