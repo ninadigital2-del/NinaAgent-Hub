@@ -326,12 +326,14 @@ body[data-client-theme] .day-num.today-badge {
       </div>
     </div>
     <div id="cal-hint" class="text-xs text-slate-400 mb-3"><i class="fa-solid fa-hand"></i> ลากการ์ดไปวางวันที่ต้องการเพื่อเลื่อนกำหนดโพสต์ — บนมือถือแตะที่จุดสีเพื่อดูรายละเอียด</div>
-   <!-- Month header above spans full width; the follow-up panel starts at the weekday row and stretches to the calendar's height -->
-   <div class="lg:flex lg:gap-4 lg:items-stretch">
-    <div class="flex-1 min-w-0">
     <div class="grid grid-cols-7">
       <div class="cal-weekday weekend">อา</div><div class="cal-weekday">จ</div><div class="cal-weekday">อ</div><div class="cal-weekday">พ</div><div class="cal-weekday">พฤ</div><div class="cal-weekday">ศ</div><div class="cal-weekday weekend">ส</div>
     </div>
+   <!-- Weekday labels above span full width; the flex row below holds only
+        cal-body and fu-panel as direct siblings, so their tops line up
+        exactly via flexbox (no reliance on matching heights elsewhere). -->
+   <div class="lg:flex lg:gap-4 lg:items-stretch">
+    <div class="flex-1 min-w-0">
     <div id="cal-body" class="grid grid-cols-7 gap-1 md:gap-2"></div>
     </div>
     <!-- Follow-up (งานค้าง): side panel on desktop, sticky collapsible bar on mobile -->
@@ -502,7 +504,7 @@ body[data-client-theme] .day-num.today-badge {
 <div id="fu-modal" class="fixed inset-0 modal-mask hidden items-center justify-center z-50 p-4">
   <div class="bg-white rounded-2xl w-full max-w-md p-5 relative">
     <button onclick="closeCreateFollowUp()" class="absolute top-3 right-3 text-slate-400 hover:text-slate-700"><i class="fa-solid fa-xmark"></i></button>
-    <div class="font-semibold mb-3">📌 เพิ่มงานค้าง</div>
+    <div class="font-semibold mb-3" id="fu-modal-title">📌 เพิ่มงานค้าง</div>
     <label class="text-xs text-slate-500">รายละเอียด</label>
     <textarea id="fu-text" rows="3" class="w-full border border-slate-200 rounded-lg p-2 text-sm mb-2"></textarea>
     <div class="grid grid-cols-2 gap-2 mb-2">
@@ -511,13 +513,15 @@ body[data-client-theme] .day-num.today-badge {
       <div><label class="text-xs text-slate-500">วันครบกำหนด (ไม่บังคับ)</label>
         <input id="fu-due" type="date" class="w-full border border-slate-200 rounded-lg p-2 text-sm"></div>
     </div>
-    <label class="text-xs text-slate-500">แบรนด์</label>
-    <select id="fu-brand" onchange="fillFollowUpContentOptions()" class="w-full border border-slate-200 rounded-lg p-2 text-sm mb-2"></select>
-    <label class="text-xs text-slate-500">ผูกกับคอนเทนต์ (ไม่บังคับ)</label>
-    <select id="fu-content" class="w-full border border-slate-200 rounded-lg p-2 text-sm mb-4"></select>
+    <div id="fu-brand-fields">
+      <label class="text-xs text-slate-500">แบรนด์</label>
+      <select id="fu-brand" onchange="fillFollowUpContentOptions()" class="w-full border border-slate-200 rounded-lg p-2 text-sm mb-2"></select>
+      <label class="text-xs text-slate-500">ผูกกับคอนเทนต์ (ไม่บังคับ)</label>
+      <select id="fu-content" class="w-full border border-slate-200 rounded-lg p-2 text-sm mb-4"></select>
+    </div>
     <div class="flex justify-end gap-2">
       <button onclick="closeCreateFollowUp()" class="px-3 py-1.5 rounded-lg border border-slate-200 text-sm">ยกเลิก</button>
-      <button onclick="submitCreateFollowUp()" class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-sm">บันทึก</button>
+      <button onclick="submitCreateFollowUp()" class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-sm" id="fu-submit-btn">บันทึก</button>
     </div>
   </div>
 </div>
@@ -2118,6 +2122,7 @@ let followUps = [
 let fuPanelOpen = false;
 let fuDoneOpen = false;
 let fuLoadError = '';
+let fuEditingId = null;
 function fuEsc(v){ return String(v==null?'':v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 async function loadFollowUps(){
   if (!API_URL) return;
@@ -2149,7 +2154,8 @@ function fuRowHtml(f){
         ${linked ? `<a href="#" class="text-indigo-600" onclick="event.preventDefault();viewDetail('${fuEsc(linked.id)}')">🔗 ${fuEsc(linked.title)}</a>` : ''}
       </div>
     </div>
-    ${clientMode ? '' : `<button onclick="deleteFollowUpItem('${fuEsc(f.ID)}')" class="text-slate-400 hover:text-red-600 text-xs self-start" title="ลบ"><i class="fa-solid fa-trash"></i></button>`}
+    ${clientMode ? '' : `<button onclick="openEditFollowUp('${fuEsc(f.ID)}')" class="text-slate-400 hover:text-indigo-600 text-xs self-start" title="แก้ไข"><i class="fa-solid fa-pen"></i></button>
+    <button onclick="deleteFollowUpItem('${fuEsc(f.ID)}')" class="text-slate-400 hover:text-red-600 text-xs self-start" title="ลบ"><i class="fa-solid fa-trash"></i></button>`}
   </div>`;
 }
 function renderFollowUpPanel(){
@@ -2189,12 +2195,32 @@ async function deleteFollowUpItem(id){
 }
 function openCreateFollowUp(){
   if (clientMode) return;
+  fuEditingId = null;
+  document.getElementById('fu-modal-title').textContent = '📌 เพิ่มงานค้าง';
+  document.getElementById('fu-submit-btn').textContent = 'บันทึก';
+  document.getElementById('fu-brand-fields').classList.remove('hidden');
   const brands = [...new Set([...(notionBrands || []), ...items.map(i => i.brand)])].filter(Boolean);
   document.getElementById('fu-brand').innerHTML = brands.map(b => `<option ${b===sharedBrand?'selected':''}>${fuEsc(b)}</option>`).join('');
   document.getElementById('fu-text').value = '';
   document.getElementById('fu-due').value = '';
   document.getElementById('fu-side').value = 'Us';
   fillFollowUpContentOptions();
+  const m = document.getElementById('fu-modal'); m.classList.remove('hidden'); m.classList.add('flex');
+}
+function openEditFollowUp(id){
+  if (clientMode) return;
+  const f = followUps.find(x => x.ID === id);
+  if (!f) return;
+  fuEditingId = id;
+  document.getElementById('fu-modal-title').textContent = '📌 แก้ไขงานค้าง';
+  document.getElementById('fu-submit-btn').textContent = 'บันทึกการแก้ไข';
+  // Brand/linked content are set at creation and can't be changed afterward
+  // (updateFollowUp only accepts Text/ResponsibleSide/DueDate) -- hide
+  // those fields rather than show something editing can't actually change.
+  document.getElementById('fu-brand-fields').classList.add('hidden');
+  document.getElementById('fu-text').value = f.Text;
+  document.getElementById('fu-due').value = f.DueDate || '';
+  document.getElementById('fu-side').value = f.ResponsibleSide === 'Client' ? 'Client' : 'Us';
   const m = document.getElementById('fu-modal'); m.classList.remove('hidden'); m.classList.add('flex');
 }
 function fillFollowUpContentOptions(){
@@ -2222,11 +2248,31 @@ function viewFollowUp(id){
   const m = document.getElementById('detail-modal'); m.classList.remove('hidden'); m.classList.add('flex');
 }
 function closeCreateFollowUp(){
+  fuEditingId = null;
   const m = document.getElementById('fu-modal'); m.classList.add('hidden'); m.classList.remove('flex');
 }
 async function submitCreateFollowUp(){
   const text = document.getElementById('fu-text').value.trim();
   if (!text) { alert('กรอกรายละเอียดก่อน'); return; }
+
+  if (fuEditingId) {
+    const data = {
+      Text: text,
+      ResponsibleSide: document.getElementById('fu-side').value,
+      DueDate: document.getElementById('fu-due').value,
+    };
+    const f = followUps.find(x => x.ID === fuEditingId);
+    if (API_URL) {
+      try { Object.assign(f, (await apiCall('updateFollowUp', { id: fuEditingId, data })).followUp); }
+      catch (err) { alert('บันทึกไม่สำเร็จ: ' + err.message); return; }
+    } else {
+      Object.assign(f, data);
+    }
+    closeCreateFollowUp();
+    renderFollowUpPanel();
+    return;
+  }
+
   const data = {
     Brand: document.getElementById('fu-brand').value,
     ContentId: document.getElementById('fu-content').value,
