@@ -326,12 +326,17 @@ body[data-client-theme] .day-num.today-badge {
       </div>
     </div>
     <div id="cal-hint" class="text-xs text-slate-400 mb-3"><i class="fa-solid fa-hand"></i> ลากการ์ดไปวางวันที่ต้องการเพื่อเลื่อนกำหนดโพสต์ — บนมือถือแตะที่จุดสีเพื่อดูรายละเอียด</div>
-    <div class="grid grid-cols-7">
+   <!-- Weekday labels sit in their own flex row, same flex-1/lg:w-80 split
+        as the row below, so the label grid stays exactly as wide as
+        cal-body -- the second column here is an invisible spacer, not the
+        follow-up panel itself (that panel starts one row down, flush with
+        cal-body's top). -->
+   <div class="lg:flex lg:gap-4">
+    <div class="grid grid-cols-7 flex-1 min-w-0">
       <div class="cal-weekday weekend">อา</div><div class="cal-weekday">จ</div><div class="cal-weekday">อ</div><div class="cal-weekday">พ</div><div class="cal-weekday">พฤ</div><div class="cal-weekday">ศ</div><div class="cal-weekday weekend">ส</div>
     </div>
-   <!-- Weekday labels above span full width; the flex row below holds only
-        cal-body and fu-panel as direct siblings, so their tops line up
-        exactly via flexbox (no reliance on matching heights elsewhere). -->
+    <div class="hidden lg:block lg:w-80 lg:shrink-0"></div>
+   </div>
    <div class="lg:flex lg:gap-4 lg:items-stretch">
     <div class="flex-1 min-w-0">
     <div id="cal-body" class="grid grid-cols-7 gap-1 md:gap-2"></div>
