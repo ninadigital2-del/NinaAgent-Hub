@@ -1701,6 +1701,7 @@ function handleBulkCreateCalendarPlan(body) {
         owner: info.owner,
         reviewer: String(cp.reviewer || '').trim(),
         time: String(cp.time || ''),
+        mediaUrl: String(cp.mediaUrl || '').trim(),
         posts: posts
       };
       contentPlanner = pushPostsToContentPlanner(cpRequest);
@@ -1758,6 +1759,7 @@ function pushPostsToContentPlanner(body) {
     const brand = String(body.brand || '').trim();
     if (!brand) return { ok: false, error: 'ไม่พบแบรนด์ของ Project — Content Planner ต้องมีแบรนด์' };
     const time = /^\d{2}:\d{2}$/.test(String(body.time || '')) ? body.time : '10:00';
+    const mediaUrl = String(body.mediaUrl || '').trim();
     const posts = (Array.isArray(body.posts) ? body.posts : []).slice(0, CALENDAR_IMPORT_MAX_TASKS);
     const items = posts.map(function(post) {
       return {
@@ -1770,7 +1772,8 @@ function pushPostsToContentPlanner(body) {
         Owner: String(body.owner || ''),
         Reviewer: String(body.reviewer || ''),
         Status: 'Draft',
-        NotionTaskId: String(post.notionTaskId || '')
+        NotionTaskId: String(post.notionTaskId || ''),
+        MediaUrl: mediaUrl
       };
     }).filter(function(item) { return item.Title && item.Platforms.length && !isNaN(new Date(item.ScheduledAt).getTime()); });
     if (!items.length) return { ok: false, error: 'ไม่มีโพสต์ที่พร้อมส่ง' };
@@ -2359,6 +2362,11 @@ input[type="date"]::-webkit-calendar-picker-indicator{position:absolute;left:0;t
             <label>แพลตฟอร์มเริ่มต้น</label>
             <div id="cal-cp-platforms" class="cal-chips"></div>
             <div class="cal-hint">ใช้กับแถวที่ AI อ่านแพลตฟอร์มจากรูปไม่ได้ แก้รายแถวได้ในตาราง โพสต์จะเข้า Content Planner เป็นสถานะ Draft ให้ PM ใส่แคปชันก่อนส่งลูกค้า</div>
+          </div>
+          <div class="modal-form-group" style="margin:10px 0 0">
+            <label for="cal-cp-media">ลิงก์ไฟล์ต้นฉบับ (ไม่บังคับ)</label>
+            <input id="cal-cp-media" placeholder="https://www.canva.com/..." style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;background:#fff;box-sizing:border-box">
+            <div class="cal-hint">ถ้าใส่ จะตั้งเป็น "ลิงก์สื่อ" ของทุกโพสต์ที่ลง Content Planner รอบนี้</div>
           </div>
         </div>
       </div>
@@ -3338,6 +3346,7 @@ function resetCalendarImport() {
   resetNewProjectState_('cal');
   document.getElementById('cal-cp-enabled').checked = true;
   document.getElementById('cal-cp-time').value = '10:00';
+  document.getElementById('cal-cp-media').value = '';
   document.getElementById('calendar-cp-retry').style.display = 'none';
   document.getElementById('calendar-task-rows').innerHTML = '';
   document.getElementById('calendar-task-summary').textContent = '';
@@ -3745,7 +3754,8 @@ function submitCalendarImport() {
     contentPlanner: {
       enabled: cp,
       reviewer: document.getElementById('cal-cp-reviewer').value,
-      time: document.getElementById('cal-cp-time').value || '10:00'
+      time: document.getElementById('cal-cp-time').value || '10:00',
+      mediaUrl: document.getElementById('cal-cp-media').value.trim()
     }
   };
   var taskCount = selected.filter(function(task) { return task.needTask; }).length;
