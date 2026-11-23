@@ -2165,14 +2165,14 @@ function fuSort(a, b){
 }
 function fuRowHtml(f){
   const linked = f.ContentId ? items.find(i => i.id === f.ContentId) : null;
-  const side = f.ResponsibleSide === 'Client' ? ['ลูกค้า','fu-pill-client'] : ['เรา','fu-pill-us'];
+  const side = f.ResponsibleSide === 'Client' ? [f.Brand || 'ลูกค้า','fu-pill-client'] : ['GEM','fu-pill-us'];
   const due = f.DueDate ? new Date(f.DueDate).toLocaleDateString('th-TH', { day:'numeric', month:'short' }) : '';
   return `<div class="flex gap-2 py-2 border-b border-slate-100 text-sm ${f.Done?'opacity-60':''}">
     <input type="checkbox" class="mt-1" ${f.Done?'checked':''} onchange="toggleFollowUpDone('${fuEsc(f.ID)}', this.checked)">
     <div class="flex-1 min-w-0">
       <div class="cursor-pointer hover:underline ${f.Done?'line-through':''}" onclick="viewFollowUp('${fuEsc(f.ID)}')">${fuEsc(f.Text)}</div>
       <div class="flex flex-wrap items-center gap-1.5 mt-1 text-xs">
-        <span class="px-2 py-0.5 rounded-full ${side[1]}">${side[0]}</span>
+        <span class="px-2 py-0.5 rounded-full ${side[1]}">${fuEsc(side[0])}</span>
         ${due ? `<span class="text-slate-500"><i class="fa-regular fa-clock"></i> ${due}</span>` : ''}
         ${linked ? `<a href="#" class="text-indigo-600" onclick="event.preventDefault();viewDetail('${fuEsc(linked.id)}')">🔗 ${fuEsc(linked.title)}</a>` : ''}
       </div>
@@ -2262,7 +2262,7 @@ function viewFollowUp(id){
     <div class="text-sm whitespace-pre-wrap mb-3">${fuEsc(f.Text)}</div>
     <div class="text-xs text-slate-600 space-y-1">
       <div>แบรนด์: ${fuEsc(f.Brand)}</div>
-      <div>ฝั่งที่รับผิดชอบ: ${f.ResponsibleSide === 'Client' ? 'ลูกค้า' : 'เรา'}</div>
+      <div>ฝั่งที่รับผิดชอบ: ${fuEsc(f.ResponsibleSide === 'Client' ? (f.Brand || 'ลูกค้า') : 'GEM')}</div>
       ${f.DueDate ? `<div>ครบกำหนด: ${new Date(f.DueDate).toLocaleDateString('th-TH', { day:'numeric', month:'short', year:'numeric' })}</div>` : ''}
       <div>สร้างโดย: ${who(f.CreatedBy)}${f.CreatedAt ? ' · ' + fmt(f.CreatedAt) : ''}</div>
       <div>สถานะ: ${f.Done ? `เสร็จแล้วโดย${who(f.DoneBy)}${f.DoneAt ? ' · ' + fmt(f.DoneAt) : ''}` : 'ยังไม่เสร็จ'}</div>
