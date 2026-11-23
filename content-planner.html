@@ -315,14 +315,26 @@ body[data-client-theme] .day-num.today-badge {
 
   <!-- ============ CALENDAR VIEW ============ -->
   <div id="view-calendar" class="hidden">
-    <div class="flex items-center flex-wrap gap-2 mb-1">
-      <button onclick="shiftMonth(-1)" class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-sm"><i class="fa-solid fa-chevron-left"></i></button>
-      <div class="font-semibold" id="cal-title"></div>
-      <button onclick="shiftMonth(1)" class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-sm"><i class="fa-solid fa-chevron-right"></i></button>
-      <button id="import-btn" onclick="openImportImage()" class="px-3 py-1.5 rounded-lg border border-purple-200 bg-purple-50 text-sm text-purple-700 hover:bg-purple-100 font-medium ml-2">
-        <i class="fa-solid fa-wand-magic-sparkles"></i> นำเข้าจากรูปปฏิทิน
-      </button>
+   <!-- Scoped to the calendar's own column width (not the follow-up panel's),
+        same flex-1/lg:w-80 split as the weekday row below -- the month
+        selector centers within that width, the import button stays pinned
+        to its right edge. -->
+   <div class="lg:flex lg:gap-4 mb-1">
+    <div class="flex flex-wrap items-center gap-2 flex-1 min-w-0">
+      <div class="flex-1 hidden sm:block"></div>
+      <div class="flex items-center gap-2">
+        <button onclick="shiftMonth(-1)" class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-sm"><i class="fa-solid fa-chevron-left"></i></button>
+        <div class="font-semibold" id="cal-title"></div>
+        <button onclick="shiftMonth(1)" class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-sm"><i class="fa-solid fa-chevron-right"></i></button>
+      </div>
+      <div class="flex-1 flex justify-end">
+        <button id="import-btn" onclick="openImportImage()" class="px-3 py-1.5 rounded-lg border border-purple-200 bg-purple-50 text-sm text-purple-700 hover:bg-purple-100 font-medium">
+          <i class="fa-solid fa-wand-magic-sparkles"></i> นำเข้าจากรูปปฏิทิน
+        </button>
+      </div>
     </div>
+    <div class="hidden lg:block lg:w-80 lg:shrink-0"></div>
+   </div>
     <div id="cal-hint" class="text-xs text-slate-400 mb-3"><i class="fa-solid fa-hand"></i> ลากการ์ดไปวางวันที่ต้องการเพื่อเลื่อนกำหนดโพสต์ — บนมือถือแตะที่จุดสีเพื่อดูรายละเอียด</div>
    <!-- Weekday labels sit in their own flex row, same flex-1/lg:w-80 split
         as the row below, so the label grid stays exactly as wide as
