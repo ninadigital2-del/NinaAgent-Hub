@@ -524,15 +524,15 @@ body[data-client-theme] .day-num.today-badge {
     <textarea id="fu-text" rows="3" class="w-full border border-slate-200 rounded-lg p-2 text-sm mb-2"></textarea>
     <div class="grid grid-cols-2 gap-2 mb-2">
       <div><label class="text-xs text-slate-500">ฝั่งที่รับผิดชอบ</label>
-        <select id="fu-side" class="w-full border border-slate-200 rounded-lg p-2 text-sm"><option value="Us">GEM</option><option value="Client">ลูกค้า</option></select></div>
+        <select id="fu-side" class="form-input"><option value="Us">GEM</option><option value="Client">ลูกค้า</option></select></div>
       <div><label class="text-xs text-slate-500">วันครบกำหนด (ไม่บังคับ)</label>
         <input id="fu-due" type="date" class="w-full border border-slate-200 rounded-lg p-2 text-sm"></div>
     </div>
     <div id="fu-brand-fields">
       <label class="text-xs text-slate-500">แบรนด์</label>
-      <select id="fu-brand" onchange="fillFollowUpContentOptions()" class="w-full border border-slate-200 rounded-lg p-2 text-sm mb-2"></select>
+      <select id="fu-brand" onchange="fillFollowUpContentOptions()" class="form-input mb-2"></select>
       <label class="text-xs text-slate-500">ผูกกับคอนเทนต์ (ไม่บังคับ)</label>
-      <select id="fu-content" class="w-full border border-slate-200 rounded-lg p-2 text-sm mb-4"></select>
+      <select id="fu-content" class="form-input mb-4"></select>
     </div>
     <div class="flex justify-end gap-2">
       <button onclick="closeCreateFollowUp()" class="px-3 py-1.5 rounded-lg border border-slate-200 text-sm">ยกเลิก</button>
@@ -2274,41 +2274,55 @@ function closeCreateFollowUp(){
   fuEditingId = null;
   const m = document.getElementById('fu-modal'); m.classList.add('hidden'); m.classList.remove('flex');
 }
+let fuSubmitting = false;
 async function submitCreateFollowUp(){
+  if (fuSubmitting) return; // the disabled button should already block this, but a click that lands before the DOM update is still possible
   const text = document.getElementById('fu-text').value.trim();
   if (!text) { alert('กรอกรายละเอียดก่อน'); return; }
 
-  if (fuEditingId) {
+  const btn = document.getElementById('fu-submit-btn');
+  const originalBtnHtml = btn.innerHTML;
+  fuSubmitting = true;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังบันทึก...';
+
+  try {
+    if (fuEditingId) {
+      const data = {
+        Text: text,
+        ResponsibleSide: document.getElementById('fu-side').value,
+        DueDate: document.getElementById('fu-due').value,
+      };
+      const f = followUps.find(x => x.ID === fuEditingId);
+      if (API_URL) {
+        try { Object.assign(f, (await apiCall('updateFollowUp', { id: fuEditingId, data })).followUp); }
+        catch (err) { alert('บันทึกไม่สำเร็จ: ' + err.message); return; }
+      } else {
+        Object.assign(f, data);
+      }
+      closeCreateFollowUp();
+      renderFollowUpPanel();
+      return;
+    }
+
     const data = {
+      Brand: document.getElementById('fu-brand').value,
+      ContentId: document.getElementById('fu-content').value,
       Text: text,
       ResponsibleSide: document.getElementById('fu-side').value,
       DueDate: document.getElementById('fu-due').value,
     };
-    const f = followUps.find(x => x.ID === fuEditingId);
+    if (!data.Brand) { alert('เลือกแบรนด์ก่อน'); return; }
     if (API_URL) {
-      try { Object.assign(f, (await apiCall('updateFollowUp', { id: fuEditingId, data })).followUp); }
-      catch (err) { alert('บันทึกไม่สำเร็จ: ' + err.message); return; }
+      try { followUps.push((await apiCall('createFollowUp', { data })).followUp); }
+      catch (err) { alert('สร้างไม่สำเร็จ: ' + err.message); return; }
     } else {
-      Object.assign(f, data);
+      followUps.push(Object.assign({ ID:'fu-' + Date.now(), CreatedBy:'Team', DoneAt:'', Done:false }, data));
     }
-    closeCreateFollowUp();
-    renderFollowUpPanel();
-    return;
-  }
-
-  const data = {
-    Brand: document.getElementById('fu-brand').value,
-    ContentId: document.getElementById('fu-content').value,
-    Text: text,
-    ResponsibleSide: document.getElementById('fu-side').value,
-    DueDate: document.getElementById('fu-due').value,
-  };
-  if (!data.Brand) { alert('เลือกแบรนด์ก่อน'); return; }
-  if (API_URL) {
-    try { followUps.push((await apiCall('createFollowUp', { data })).followUp); }
-    catch (err) { alert('สร้างไม่สำเร็จ: ' + err.message); return; }
-  } else {
-    followUps.push(Object.assign({ ID:'fu-' + Date.now(), CreatedBy:'Team', DoneAt:'', Done:false }, data));
+  } finally {
+    fuSubmitting = false;
+    btn.disabled = false;
+    btn.innerHTML = originalBtnHtml;
   }
   closeCreateFollowUp();
   renderFollowUpPanel();
