@@ -675,10 +675,17 @@ function syncMasterQueueStatus() {
         }
 
       } else if (normVal === "มีปรับแก้") {
-        isActiveQueueTask = true;
-        if (st.reviewStatus !== "มีปรับแก้") {
-          st.reviewStatus = "มีปรับแก้";
-          st.reviewedAt = now;
+        if (st.reviewStatus === "อนุมัติแล้ว") {
+          // กันไม่ให้สถานะ Graphic ที่ยังไม่อัปเดต/IMPORTRANGE หน่วง มาทับงานที่ AD อนุมัติไปแล้ว
+          const reviewedAtDate = (st.reviewedAt instanceof Date) ? st.reviewedAt : null;
+          const reviewedIsToday = reviewedAtDate && Utilities.formatDate(reviewedAtDate, "Asia/Bangkok", "yyyy-MM-dd") === todayStr;
+          isActiveQueueTask = !!reviewedIsToday;
+        } else {
+          isActiveQueueTask = true;
+          if (st.reviewStatus !== "มีปรับแก้") {
+            st.reviewStatus = "มีปรับแก้";
+            st.reviewedAt = now;
+          }
         }
         if (st.pendingGraphicStatus === "sent to p'aof") st.pendingGraphicStatus = "";
         st.lastGraphicStatus = normVal;
