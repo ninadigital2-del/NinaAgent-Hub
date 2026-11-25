@@ -680,6 +680,11 @@ function syncMasterQueueStatus() {
           const reviewedAtDate = (st.reviewedAt instanceof Date) ? st.reviewedAt : null;
           const reviewedIsToday = reviewedAtDate && Utilities.formatDate(reviewedAtDate, "Asia/Bangkok", "yyyy-MM-dd") === todayStr;
           isActiveQueueTask = !!reviewedIsToday;
+        } else if (st.reviewStatus === "รอรีวิว") {
+          // งานเพิ่งถูกส่งกลับเข้ามารอรีวิวรอบใหม่ (resubmit) — สถานะ Graphic ดิบที่ยังไม่
+          // ขยับ/IMPORTRANGE หน่วง ไม่ควรทับให้กลับไปเป็น "มีปรับแก้" อีก ไม่งั้น AD กดอนุมัติ/
+          // ส่งกลับแก้จาก LINE จะโดน "งานไม่สามารถกดซ้ำ" ทั้งที่เพิ่งประกาศว่ารอรีวิวไป
+          isActiveQueueTask = true;
         } else {
           isActiveQueueTask = true;
           if (st.reviewStatus !== "มีปรับแก้") {
