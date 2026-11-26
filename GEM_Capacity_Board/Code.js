@@ -256,7 +256,10 @@ function getNotionTasks() {
       parentTaskName: parentTaskId ? (pageNames[parentTaskId] || '') : '',
       subtaskIds:  subtaskIds
     };
-  }).filter(t => !t.assignee); // เฉพาะที่ยังไม่ assign
+  // เฉพาะที่ยังไม่ assign และกรอง Done ซ้ำอีกชั้น — บางครั้ง Notion ส่งงานที่เป็น Done
+  // ติดมาทั้งที่ query กรองไว้แล้ว (ตัวกรองฝั่ง Notion ไม่ทันข้อมูลล่าสุด) ทำให้งาน
+  // โผล่ๆ หายๆ บนบอร์ดสลับกันทุกรอบรีเฟรช
+  }).filter(t => !t.assignee && t.status !== 'Done');
 
   return {
     ok: true,
@@ -4083,12 +4086,12 @@ function confirmAssign() {
           .getAllData();
       } else {
         showToast('Error: ' + (res.error || (res.errors && res.errors.join(', ')) || 'Unknown error'));
-        fetchData(); // Revert on failure
+        init(); // โหลดข้อมูลใหม่ให้งานกลับมาที่รายการ
       }
     })
     .withFailureHandler(function(err) {
       showToast('Error: ' + err.message);
-      fetchData();
+      init();
     })
     .handleAssign({
       action: 'assign', taskId: task.id, taskName: task.name, taskUrl: task.url,
