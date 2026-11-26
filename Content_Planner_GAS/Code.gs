@@ -465,6 +465,10 @@ function getFollowUpsSheet_() {
 function rowToFollowUp(row) {
   const f = {};
   FOLLOWUP_COLUMNS.forEach((col, i) => { f[col] = row[i] !== undefined ? row[i] : ''; });
+  // Sheets auto-converts a 'yyyy-MM-dd' string into a real Date cell on
+  // write, so a round-tripped DueDate comes back as a Date object -- strip
+  // it back to the plain date the <input type="date"> field expects.
+  if (f.DueDate instanceof Date) f.DueDate = Utilities.formatDate(f.DueDate, 'Asia/Bangkok', 'yyyy-MM-dd');
   f.Done = !!f.DoneAt;
   return f;
 }
